@@ -1,0 +1,6 @@
+[submodule "xs-utils"]
+	path = chisel_deps/xs-utils
+	url = git@github.com:OpenXiangShan-Nanhu/xs-utils
+[submodule "rocket-chip"]
+	path = chisel_deps/rocket-chip
+	url = git@github.com:OpenXiangShan-Nanhu/rocket-chip

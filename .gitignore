@@ -1,0 +1,17 @@
+.bloop
+.idea
+.metals
+.vscode
+build
+*.log*
+vcs_sim_build
+verdiLog
+filelist.f
+*.rc*
+*.conf*
+*.fsdb*
+
+out
+
+ucli.key
+src/test/verilog/
