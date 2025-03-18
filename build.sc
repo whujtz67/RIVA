@@ -72,7 +72,7 @@ object xsutils extends SbtModule with CommonModule {
   override def moduleDeps = super.moduleDeps ++ Seq(rocketchip, cde)
 }
 
-object NoC extends SbtModule with ScalafmtModule with CommonModule {
+object VLSU extends SbtModule with ScalafmtModule with CommonModule {
 
   override def millSourcePath = os.pwd
 

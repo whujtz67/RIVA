@@ -34,8 +34,10 @@ case class AXI4Params(
                       addrBits: Int = 32 ,
                       idBits  : Int = 4  , // should not be too large. Otherwise, there will be too many ID Counters in mesh.
                       userBits: Int = 0  ,
-                      dataBits: Int = 256
+                      dataBits: Int = 512
                     ) {
+  val maxTxnBytes = 4096
+
   override def toString: String = {
     s"""
 		|   Addr Width: $addrBits
@@ -46,7 +48,7 @@ case class AXI4Params(
   }
 }
 
-class AWFlit(params: AXI4Params) extends AddrReqFlitBase {
+class AxFlit(params: AXI4Params) extends AddrReqFlitBase {
   val id     = UInt(params.idBits.W)
   val addr   = UInt(params.addrBits.W)
   val len    = UInt(8.W)
@@ -58,21 +60,32 @@ class AWFlit(params: AXI4Params) extends AddrReqFlitBase {
   val qos    = UInt(4.W)
   val region = UInt(4.W)
   val user   = UInt(params.userBits.W)
+
+  def set(
+    id    : UInt = 0.U,
+    addr  : UInt = 0.U,
+    len   : UInt = 0.U,
+    size  : UInt = 0.U,
+    burst : UInt = 0.U,
+    cache : UInt = 0.U
+  ): Unit = {
+    this.id     := id
+    this.addr   := addr
+    this.len    := len
+    this.size   := size
+    this.burst  := burst
+    this.lock   := 0.U  // always 0 for AXI4
+    this.cache  := cache
+    this.prot   := 0.U
+    this.qos    := 0.U
+    this.region := 0.U
+    this.user   := 0.U
+  }
 }
 
-class ARFlit(params: AXI4Params) extends AddrReqFlitBase {
-  val id     = UInt(params.idBits.W)
-  val addr   = UInt(params.addrBits.W)
-  val len    = UInt(8.W)
-  val size   = UInt(3.W)
-  val burst  = UInt(2.W)
-  val lock   = UInt(2.W)
-  val cache  = UInt(4.W)
-  val prot   = UInt(3.W)
-  val qos    = UInt(4.W)
-  val region = UInt(4.W)
-  val user   = UInt(params.userBits.W)
-}
+class AWFlit(params: AXI4Params) extends AxFlit(params)
+
+class ARFlit(params: AXI4Params) extends AxFlit(params)
 
 class WFlit(params: AXI4Params) extends Bundle {
   val data   = UInt(params.dataBits.W)
