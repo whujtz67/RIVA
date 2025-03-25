@@ -9,16 +9,7 @@ comp:
 	mill -i VLSU.compile
 	mill -i VLSU.test.compile
 
-test-qh-ring:
+test-vlsu:
 	rm -rf build/*
 	mkdir build/rtl
-	mill -i VLSU.test.runMain test.QhTestTop_Ring -td build | tee ./build/build.log
-
-test-cube:
-	rm -rf build/rtl
-	mill -i VLSU.test.runMain test.TestTop_Cube -td build | tee ./build/build.log
-
-test-qh-rm:
-	rm -rf build/*
-	mkdir build/rtl
-	mill -i VLSU.test.runMain test.TestTop_RM -td build | tee ./build/build.log
+	mill -i VLSU.test.runMain test.TestVLSU -td build | tee ./build/build.log

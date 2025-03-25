@@ -4,9 +4,59 @@ import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 
+// -------------------------------
+// VM Address Bundle
+// -------------------------------
+class VecAddrBundle(implicit p: Parameters) extends VLSUBundle {
+  val set  = UInt(log2Ceil(bankDep).W)
+  val bank = UInt(log2Ceil(bankNum).W)
+}
+
 // --------------------------------
 // Memory Access Req
 // --------------------------------
+class RivaReqFull(implicit p: Parameters) extends VLSUBundle {
+  val reqId    = UInt(reqIdBits.W)
+  val mop      = UInt( 2.W)
+  val baseAddr = UInt(axi4Params.addrBits.W)
+  val wid      = UInt( 2.W)
+  val vd       = UInt( 5.W)
+  val stride   = UInt(32.W) // rs2/imm5
+  val al       = UInt(log2Ceil(ALEN).W)
+  val vl       = UInt(log2Ceil(VLEN).W)
+  val tilen    = UInt(tilenBits.W)
+  val vstart   = UInt(log2Ceil(VLEN).W)
+  val isLoad   = Bool()
+}
+
+class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
+  val reqId    = UInt(reqIdBits.W)
+  val mop      = UInt( 2.W)
+  val baseAddr = UInt(axi4Params.addrBits.W)
+  val wid      = UInt( 2.W)
+  val vd       = UInt( 5.W)
+  val stride   = UInt(32.W) // rs2/imm5
+  val sglen    = UInt(log2Ceil(maxSegLen).W) // Segment length, it equals alen when requesting AM and vlen when requesting VM.
+  val tilen    = UInt(tilenBits.W)
+  val vstart   = UInt(log2Ceil(VLEN).W)
+  val isLoad   = Bool()
+
+  def init(full: RivaReqFull): Unit = {
+    this.reqId    := full.reqId
+    this.mop      := full.mop
+    this.baseAddr := full.baseAddr
+    this.wid      := full.wid
+    this.vd       := full.vd
+    this.stride   := full.stride
+    this.sglen    := Mux(full.vd(4), full.al, full.vl)
+    this.tilen    := full.tilen
+    this.vstart   := full.vstart
+    this.isLoad   := full.isLoad
+  }
+
+  def getEW: UInt = (1.U << (this.wid + 2.U)).asUInt
+}
+
 class RivaReqBase extends Bundle {
   val id       = UInt( 1.W) // TODO: width?
   val mop      = UInt( 2.W) // memory access type
@@ -34,12 +84,6 @@ class RivaReqMtx extends Bundle {
   val mregIdx = UInt(2.W) // matrix reg Index
 }
 
-class RivaReq extends Bundle {
-  val base = new RivaReqBase()
-  val vec  = new RivaReqVec()
-  val mtx  = new RivaReqMtx()
-}
-
 // --------------------------------
 // CSR
 // --------------------------------
@@ -62,8 +106,8 @@ class VecMopOH extends Bundle {
 
   def is2D: Bool = this.rmTwoD || this.cmTwoD
 
-  def decode(req: RivaReq, valid: Bool): Unit = {
-    val mop = req.base.mop
+  def decode(req: RivaReqPtl, valid: Bool): Unit = {
+    val mop = req.mop
 
     this.isIncr := mop === 0.U
     this.isStrd := mop === 1.U
@@ -89,3 +133,32 @@ class AGUResp(implicit p: Parameters) extends VLSUBundle {
   val offset = UInt(log2Ceil(busBytes).W)
   val last   = Bool() // TODO: maybe put the counter in CM?
 }
+
+// --------------------------------
+// Data Control Bundle
+// --------------------------------
+class DataCtrlInfo(implicit p: Parameters) extends VLSUBundle {
+  val offset = UInt(log2Ceil(busBytes).W)
+}
+
+// --------------------------------
+// Lane Load and Store Bundle
+// --------------------------------
+class LoadLaneSide(implicit p: Parameters) extends VLSUBundle {
+  val reqId   = UInt(reqIdBits.W)
+  val vecAddr = UInt(new VecAddrBundle()(p).getWidth.W)
+  val data    = UInt(sliceBits.W)
+  val be      = UInt((sliceBits/8).W)
+
+  def vaddr: VecAddrBundle = this.vecAddr.asTypeOf(new VecAddrBundle()(p))
+}
+
+class StoreLaneSide(implicit p: Parameters) extends VLSUBundle {
+  val data = UInt(sliceBits.W)
+}
+
+class LaneSide(implicit p: Parameters) extends VLSUBundle {
+  val tx = Decoupled(new LoadLaneSide)
+  val rx = Flipped(Decoupled(new StoreLaneSide))
+}
+

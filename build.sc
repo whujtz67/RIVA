@@ -44,7 +44,7 @@ object diplomacy extends CommonModule {
 
 object rocketchip extends millbuild.chisel_deps.`rocket-chip`.common.RocketChipModule {
   def scalaVersion: T[String] = T(defaultVersions("scala"))
-  override def millSourcePath = os.pwd / "rocket-chip"
+  override def millSourcePath = os.pwd / "chisel_deps" / "rocket-chip"
   def chiselModule = None
   def chiselPluginJar = None
   def chiselIvy = Some(getVersion("chisel"))
