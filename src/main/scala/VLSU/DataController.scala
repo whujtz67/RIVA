@@ -16,7 +16,8 @@ trait DataCtrlHelper {
 
 
 
-  /** After the data is SHUFFLED, it will be evenly distributed among the lanes to
+  /** SHUFFLE is an important concept in the process of memory access in vector processors.
+   *  After the data is shuffled, it will be evenly distributed among the lanes to
    *  'maximize the utilization' of hardware resources and 'improve parallelism'.
    *
    * The shuffle function has 2 Inputs and 2 Outputs:
@@ -45,8 +46,8 @@ trait DataCtrlHelper {
     def elemOffBits(ew: Int): Int = {
       require(EWs.contains(ew), "RIVA_v1 only supports EW = 4/8/16/32")
       ew match {
-        case 4  => 0
-        case 8  => 1
+        case 4 => 0
+        case 8 => 1
         case 16 => 2
         case 32 => 3
         case _ => 0
@@ -57,7 +58,9 @@ trait DataCtrlHelper {
     def laneIdOff(ew: Int): Int = log2Ceil(NrLanes) + elemOffBits(ew)
 
     def getLaneId(ew: Int): UInt = {
-      val selMask = Cat(Seq.fill(laneIdBits) { EW(log2Ceil(ew)) })
+      val selMask = Cat(Seq.fill(laneIdBits) {
+        EW(log2Ceil(ew))
+      })
 
       selMask & idx(laneIdBits - 1 + elemOffBits(ew), elemOffBits(ew))
     }
@@ -70,17 +73,20 @@ trait DataCtrlHelper {
 
       idx(elemOffBits(ew) - 1, 0)
     }
-    
+
     def getLaneOff(ew: Int): UInt = {
-      val selMask = Cat(Seq.fill(laneOffBits) { EW(log2Ceil(ew)) })
+      val selMask = Cat(Seq.fill(laneOffBits) {
+        EW(log2Ceil(ew))
+      })
       val laneOff = if (ew == 4) getElemIdx(ew) else Cat(getElemIdx(ew), getElemOff(ew))
-      
+
       selMask & laneOff
     }
 
     // Final Result connection
-    lane       := EWs.map(ew => getLaneId (ew)).reduce(_ | _)
+    lane := EWs.map(ew => getLaneId(ew)).reduce(_ | _)
     laneOffset := EWs.map(ew => getLaneOff(ew)).reduce(_ | _)
+  }
 }
 
 class LoadDataController(implicit p: Parameters) extends VLSUModule with DataCtrlHelper{
