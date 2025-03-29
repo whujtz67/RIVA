@@ -157,7 +157,7 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
     val axi  = new AxiCtrlInfo()
   }))
   val update = IO(Input(Bool())) // update is asserted when an Axi Data Beat is committed(R) / sent(W).
-  val ax     = IO(Decoupled(new AxFlit(axi4Params))).suggestName(s"$addrChnlName")       // TODO: 看看suggestName有没有起效果
+  val ax     = IO(Decoupled(new AxFlit(axi4Params))).suggestName(s"$addrChnlName")
   val b      = if (isLoad) None else Some(IO(Flipped(Decoupled(new BFlit(axi4Params))))) // Only STU has b channel
 
 // ------------------------------------------ Module and Signal Declaration ---------------------------------------------- //

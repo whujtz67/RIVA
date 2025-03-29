@@ -9,7 +9,7 @@ class VLSU(implicit p: Parameters) extends VLSUModule {
 // ------------------------------------------ IO Declaration ---------------------------------------------- //
   val rivaReq = IO(Flipped(Decoupled(new RivaReqFull)))
   val axi     = IO(new Axi4Bundle(axi4Params))
-//  val lanes   = IO(Vec(laneNum, new LaneSide)) // TODO: Temp
+//  val lanes   = IO(Vec(NrLanes, new LaneSide)) // TODO: Temp
   val coreStPending = IO(Input(Bool()))
 
   // TODO: Only to test the correctness of ControlMachine.

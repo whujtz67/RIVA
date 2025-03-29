@@ -8,7 +8,7 @@ import protocols.AXI.spec.AXI4Params
 case object  VLSUParametersKey extends Field[VLSUParamters]
 
 case class VLSUParamters(
-  laneNum   : Int = 8,
+  NrLanes   : Int = 8,
   NrVInsn   : Int = 8,
   sliceBits : Int = 128,    // lane memory Interface data width (bits)
   VLEN      : Int = 8192,   // vector register length
@@ -32,7 +32,7 @@ case class VLSUParamters(
   private val maxEW = 32
 
   val maxTxnPerReq  = VLEN / minEW    // The max axi transaction num that a mem access req may cause. TODO: Determined by stride mode or tilen?
-  val allElen       = sliceBits * laneNum
+  val allElen       = sliceBits * NrLanes
   val allElenByte   = allElen / 8
   val dataBufWidth  = allElen.max(busBits) // We want to ensure that the data buffer can accommodate the maximum amount of data that all lanes can output simultaneously in a single cycle.
                                            // Additionally, if this amount is smaller than the bus width, we prefer to accumulate data until it reaches the full bus width before transmitting.
@@ -40,12 +40,14 @@ case class VLSUParamters(
 
   private val vmBits = VLEN * 16
   private val amBits = ALEN * 16
-  val bankNum        = VLEN / laneNum / sliceBits
-  private val vtmBitsPerLane = (vmBits + amBits) / laneNum // vtm: Vector Type Memory, including VM and AM
+  val bankNum        = VLEN / NrLanes / sliceBits
+  private val vtmBitsPerLane = (vmBits + amBits) / NrLanes // vtm: Vector Type Memory, including VM and AM
   private val bankBits       = vtmBitsPerLane / bankNum
   val bankDep        = bankBits / sliceBits
 
   val tilenBits = 16 // TODO: confirm tilen width
+
+  val EWs = Seq(4, 8, 16, 32)
 }
 
 trait HasVLSUParams {
@@ -53,7 +55,7 @@ trait HasVLSUParams {
   lazy val vlsuParams = p(VLSUParametersKey)
 
   // input parameters
-  lazy val laneNum    = vlsuParams.laneNum
+  lazy val NrLanes    = vlsuParams.NrLanes
   lazy val sliceBits  = vlsuParams.sliceBits
   lazy val VLEN       = vlsuParams.VLEN
   lazy val ALEN       = vlsuParams.ALEN
@@ -77,6 +79,7 @@ trait HasVLSUParams {
   lazy val bankNum      = vlsuParams.bankNum
   lazy val bankDep      = vlsuParams.bankDep
   lazy val tilenBits    = vlsuParams.tilenBits
+  lazy val EWs          = vlsuParams.EWs
 }
 
 class VLSUBundle (implicit val p: Parameters) extends Bundle with HasVLSUParams

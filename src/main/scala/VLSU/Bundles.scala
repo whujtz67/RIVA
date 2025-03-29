@@ -93,7 +93,7 @@ class CsrBundle(implicit p: Parameters) extends VLSUBundle {
   val vlen   = UInt(lenBits.W) // For VM
   val alen   = UInt(lenBits.W) // For AM
   val tilen  = UInt(log2Ceil(maxTilen).W) // We don't need so many bits as vlen and alen
-  val vstart = UInt(log2Ceil(laneNum ).W)
+  val vstart = UInt(log2Ceil(NrLanes ).W)
 }
 
 class VecMopOH extends Bundle {
