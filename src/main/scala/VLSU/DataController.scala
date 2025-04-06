@@ -83,26 +83,79 @@ trait DataCtrlHelper {
       selMask & laneOff
     }
 
+    // TODO: give an option of using Mux
     // Final Result connection
-    lane := EWs.map(ew => getLaneId(ew)).reduce(_ | _)
+    lane       := EWs.map(ew => getLaneId (ew)).reduce(_ | _)
     laneOffset := EWs.map(ew => getLaneOff(ew)).reduce(_ | _)
   }
 }
 
 class LoadDataController(implicit p: Parameters) extends VLSUModule with DataCtrlHelper{
-//  val info = IO(Flipped(Valid(new Bundle {
-//    val meta = new MetaCtrlInfo()
-//    val axi  = new AxiCtrlInfo()
-//  })))
-//
-//  val r = IO(Flipped(Decoupled(new RFlit(axi4Params))))
-
   val io = IO(new Bundle {
-    val EW      = Input (UInt(6.W))
-    val idx     = Input (UInt(hBIdxBits.W))
-    val lane    = Output(UInt(laneIdBits.W))
-    val laneOff = Output(UInt(laneOffBits.W))
+    val ctrl   = Flipped(Decoupled(new DataCtrlBundle())) // ready serves as 'update'
+    val r      = Flipped(Decoupled(new RFlit(axi4Params)))
+    val txLane = Vec(NrLanes, Decoupled(new LoadLaneSide()))
   })
+
+  private val commitQues_nxt = Vec(2, Vec(NrLanes, Wire(new LoadLaneSide())))
+  private val commitQues_r   = Vec(2, Vec(NrLanes, Reg (new LoadLaneSide())))
+
+  private val IDLE       = 0
+  private val WaitR      = 1
+  private val Committing = 2
+  private val state_nxt  = Wire(UInt(2.W))
+  private val state_r    = RegNext(state_nxt)
+  private val idle       = state_r === IDLE.U
+  private val waitR      = state_r === WaitR.U
+  private val committing = state_r === Committing.U
+
+
+
+  private val cmtDone = WireInit(false.B)
+
+  private val vstart     = WireDefault(io.ctrl.bits.meta.glb.vstart)
+  private val busOff     = WireDefault(io.ctrl.bits.axi.addr >> busSize)
+  private val lbB        = WireDefault(io.ctrl.bits.axi.lbB)
+  private val illuHead   = WireDefault(io.ctrl.bits.meta.rowlv.illuHead && io.ctrl.bits.meta.rowlv.isHead)
+  private val illuTail   = WireDefault(io.ctrl.bits.meta.rowlv.illuTail && io.ctrl.bits.meta.rowlv.isLast) // TODO: maybe make it a signal
+  private val isHead     = WireDefault(io.ctrl.bits.axi.isHead)
+  private val isLastBeat = WireDefault(io.ctrl.bits.axi.isLast) // TODO: maybe make it a signal
+  private val isLastTxn  = WireDefault(io.ctrl.bits.meta.txn.isLast)
+
+
+  commitQues_nxt.zip(commitQues_nxt).foreach {
+    case (nxts, rs) =>
+      nxts.zip(rs).foreach {
+        case (nxt, r) =>
+          nxt := r
+      }
+  }
+
+  when (idle) {
+    state_nxt := Mux(io.ctrl.valid, WaitR.U, IDLE.U)
+  }.elsewhen(waitR) {
+    state_nxt := Mux(io.r.valid, Committing.U, WaitR.U)
+  }.elsewhen(committing) {
+    state_nxt := Mux(
+      cmtDone && isLastBeat,
+      Mux(isLastTxn,
+        IDLE.U,  // We will return to IDLE once the segment is Done. Because each segment should consider vstart.
+        WaitR.U  // Otherwise, we just wait for the R Response of the next AR Request.
+      ),
+      Committing.U)
+  }
+
+
+
+  // commit
+  //  commitQues_r := RegNext(commitQues_nxt) // TODO: try this
+  commitQues_nxt.zip(commitQues_nxt).foreach {
+    case (nxts, rs) =>
+      nxts.zip(rs).foreach {
+        case (nxt, r) =>
+          r := RegNext(nxt)
+      }
+  }
 
   shuffle(io.EW, io.idx, io.lane, io.laneOff)
 }

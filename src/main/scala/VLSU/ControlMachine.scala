@@ -29,7 +29,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   val meta_nxt = Wire(new MetaCtrlInfo())
   val meta_r   = Reg(new MetaCtrlInfo())
 
-  meta_r.sgm := RegNext(meta_nxt.sgm)
+  meta_r.rowlv := RegNext(meta_nxt.rowlv)
   meta_r.txn := RegNext(meta_nxt.txn)
 
   val txnInjectValid: Bool = WireDefault(!meta_r.isLast)
@@ -202,7 +202,7 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   // ax
   when(ax.fire) { axPtr := axPtr + 1.U }
   // data
-  when(dataPtrAdd) { dataPtr := dataPtr + 1.U}
+  when(dataPtrAdd) { dataPtr := dataPtr + 1.U }
 
   // axPtr === enqPtr means all ax txn in the tcs has been issued.
   when(!(axPtr.asUInt === enqPtr.asUInt)) {

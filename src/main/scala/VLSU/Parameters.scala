@@ -19,7 +19,7 @@ case class VLSUParamters(
   txnCtrlNum: Int = 4,
 ) {
   val reqIdBits = log2Ceil(NrVInsn)
-  val maxSegLen = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
+  val maxRowLen = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
 
   val busBits   = axi4Params.dataBits
   val busBytes  = busBits / 8
@@ -66,7 +66,7 @@ trait HasVLSUParams {
 
   // derived parameters
   lazy val reqIdBits    = vlsuParams.reqIdBits
-  lazy val maxSegLen    = vlsuParams.maxSegLen
+  lazy val maxRowLen    = vlsuParams.maxRowLen
   lazy val busBits      = vlsuParams.busBits
   lazy val busBytes     = vlsuParams.busBytes
   lazy val busSize      = vlsuParams.busSize

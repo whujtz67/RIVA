@@ -36,7 +36,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val wid      = UInt( 2.W)
   val vd       = UInt( 5.W)
   val stride   = UInt(32.W) // rs2/imm5
-  val sglen    = UInt(log2Ceil(maxSegLen).W) // Segment length, it equals alen when requesting AM and vlen when requesting VM.
+  val rwlen    = UInt(log2Ceil(maxRowLen).W) // Row length, it equals alen when requesting AM and vlen when requesting VM.
   val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(VLEN).W)
   val isLoad   = Bool()
@@ -48,7 +48,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
     this.wid      := full.wid
     this.vd       := full.vd
     this.stride   := full.stride
-    this.sglen    := Mux(full.vd(4), full.al, full.vl)
+    this.rwlen    := Mux(full.vd(4), full.al, full.vl)
     this.tilen    := full.tilen
     this.vstart   := full.vstart
     this.isLoad   := full.isLoad
@@ -57,6 +57,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   def getEW: UInt = (1.U << (this.wid + 2.U)).asUInt
 }
 
+// TODO: 这些好像不需要了
 class RivaReqBase extends Bundle {
   val id       = UInt( 1.W) // TODO: width?
   val mop      = UInt( 2.W) // memory access type
@@ -137,8 +138,9 @@ class AGUResp(implicit p: Parameters) extends VLSUBundle {
 // --------------------------------
 // Data Control Bundle
 // --------------------------------
-class DataCtrlInfo(implicit p: Parameters) extends VLSUBundle {
-  val offset = UInt(log2Ceil(busBytes).W)
+class DataCtrlBundle(implicit p: Parameters) extends VLSUBundle {
+  val meta = new MetaCtrlInfo()
+  val axi  = new AxiCtrlInfo()
 }
 
 // --------------------------------
@@ -148,7 +150,7 @@ class LoadLaneSide(implicit p: Parameters) extends VLSUBundle {
   val reqId   = UInt(reqIdBits.W)
   val vecAddr = UInt(new VecAddrBundle()(p).getWidth.W)
   val data    = UInt(sliceBits.W)
-  val be      = UInt((sliceBits/8).W)
+  val hbe     = UInt((sliceBits/8).W) // half byte enable
 
   def vaddr: VecAddrBundle = this.vecAddr.asTypeOf(new VecAddrBundle()(p))
 }
