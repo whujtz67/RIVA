@@ -10,7 +10,7 @@ case object  VLSUParametersKey extends Field[VLSUParamters]
 case class VLSUParamters(
   NrLanes   : Int = 8,
   NrVInsn   : Int = 8,
-  sliceBits : Int = 128,    // lane memory Interface data width (bits)
+  SLEN      : Int = 128,    // slice len, lane memory Interface data width (bits)
   VLEN      : Int = 8192,   // vector register length
   ALEN      : Int = 16384,  // accu register length
   maxTilen  : Int = 16,
@@ -18,8 +18,8 @@ case class VLSUParamters(
   reqBufDep : Int = 2,
   txnCtrlNum: Int = 4,
 ) {
-  val reqIdBits = log2Ceil(NrVInsn)
-  val maxRowLen = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
+  val reqIdBits  = log2Ceil(NrVInsn)
+  val maxNrElems = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
 
   val busBits   = axi4Params.dataBits
   val busBytes  = busBits / 8
@@ -32,7 +32,7 @@ case class VLSUParamters(
   private val maxEW = 32
 
   val maxTxnPerReq  = VLEN / minEW    // The max axi transaction num that a mem access req may cause. TODO: Determined by stride mode or tilen?
-  val allElen       = sliceBits * NrLanes
+  val allElen       = SLEN * NrLanes
   val allElenByte   = allElen / 8
   val dataBufWidth  = allElen.max(busBits) // We want to ensure that the data buffer can accommodate the maximum amount of data that all lanes can output simultaneously in a single cycle.
                                            // Additionally, if this amount is smaller than the bus width, we prefer to accumulate data until it reaches the full bus width before transmitting.
@@ -40,10 +40,10 @@ case class VLSUParamters(
 
   private val vmBits = VLEN * 16
   private val amBits = ALEN * 16
-  val bankNum        = VLEN / NrLanes / sliceBits
+  val bankNum        = VLEN / NrLanes / SLEN
   private val vtmBitsPerLane = (vmBits + amBits) / NrLanes // vtm: Vector Type Memory, including VM and AM
   private val bankBits       = vtmBitsPerLane / bankNum
-  val bankDep        = bankBits / sliceBits
+  val bankDep        = bankBits / SLEN
 
   val tilenBits = 16 // TODO: confirm tilen width
 
@@ -56,7 +56,7 @@ trait HasVLSUParams {
 
   // input parameters
   lazy val NrLanes    = vlsuParams.NrLanes
-  lazy val sliceBits  = vlsuParams.sliceBits
+  lazy val SLEN       = vlsuParams.SLEN
   lazy val VLEN       = vlsuParams.VLEN
   lazy val ALEN       = vlsuParams.ALEN
   lazy val maxTilen   = vlsuParams.maxTilen
@@ -66,7 +66,7 @@ trait HasVLSUParams {
 
   // derived parameters
   lazy val reqIdBits    = vlsuParams.reqIdBits
-  lazy val maxRowLen    = vlsuParams.maxRowLen
+  lazy val maxNrElems   = vlsuParams.maxNrElems
   lazy val busBits      = vlsuParams.busBits
   lazy val busBytes     = vlsuParams.busBytes
   lazy val busSize      = vlsuParams.busSize

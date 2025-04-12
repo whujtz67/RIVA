@@ -12,27 +12,27 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
     val rivaReq        = Flipped(Decoupled(new RivaReqPtl()))
     val coreStPending  = Input(Bool())
     val meta           = Output(new MetaCtrlInfo())
-    val txnInjectValid = Output(Bool())
+    val txnInjectValid = Output(Bool()) // TODO: make it meta.valid
     val txnInjectReady = Input(Bool()) // If target TxnCtrlUnit is ready to be injected.
     val txnDone        = Input(Bool()) // The whole transaction in the TxnCtrl is done, which will cause the ReqFrag to update meta_r.
   })
 
-  private val IDLE = 0
+  private val IDLE        = 0
   private val FRAGMENTING = 1
-  private val STALL = 2
-  private val state_nxt = WireInit(0.U(1.W))
-  private val state_r   = RegNext(state_nxt)
-  private val idle = state_r === IDLE.U
-  val fragmenting: Bool = state_r === FRAGMENTING.U
-  private val stall = state_r === STALL.U
+  private val STALL       = 2
+  private val state_nxt   = WireInit(0.U(1.W))
+  private val state_r     = RegNext(state_nxt)
+  private val idle        = state_r === IDLE.U
+  private val fragmenting = state_r === FRAGMENTING.U
+  private val stall       = state_r === STALL.U
 
   val meta_nxt = Wire(new MetaCtrlInfo())
   val meta_r   = Reg(new MetaCtrlInfo())
 
-  meta_r.rowlv := RegNext(meta_nxt.rowlv)
+  meta_r.row := RegNext(meta_nxt.row)
   meta_r.txn := RegNext(meta_nxt.txn)
 
-  val txnInjectValid: Bool = WireDefault(!meta_r.isLast)
+  val txnInjectValid: Bool = WireDefault(!idle)
 
   // The condition for the Fragmenter to be cleared is that the last transaction is completed, NOT issued.
   // The reason is that the meta information needs to remain stable during the execution of the transaction.
@@ -42,7 +42,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   // FSM state switch
   when(idle) {
     state_nxt := Mux(io.rivaReq.valid, Mux(io.coreStPending, STALL.U, FRAGMENTING.U), IDLE.U)
-  }.elsewhen(io.coreStPending) {
+  }.elsewhen(stall) {
     state_nxt := Mux(!io.coreStPending, FRAGMENTING.U, STALL.U) // FSM will enter STALL state only when rivaReq is valid, so the next state can only be fragmenting.
   }.otherwise {
     state_nxt := Mux(allDone, IDLE.U, FRAGMENTING.U)
@@ -81,13 +81,11 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
     val ctrl     = Valid(new AxiCtrlInfo()) // outward
     val update   = Input(Bool())
     val lastDone = Output(Bool()) // This signal tells Control Unit to update dataPtr. For STU, it will help DT assert w last.
-    val release  = if (isLoad) None else Some(Input(Bool()))
+    val release  = if (isLoad) None else Some(Input(Bool())) // b
   })
 
-  // TODO: do we need this FSM?
   private val IDLE  = 0
   private val VALID = 1
-//  private val STALL = 2 // wait core store TODO: Stall in Load/StoreCtrl
   private val state_nxt = WireInit(0.U(1.W))
   private val state_r   = RegNext(state_nxt)
   private val idle  = state_r === IDLE.U
@@ -206,9 +204,9 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
 
   // axPtr === enqPtr means all ax txn in the tcs has been issued.
   when(!(axPtr.asUInt === enqPtr.asUInt)) {
-    val info = Mux1H(UIntToOH(enqPtr .value), VecInit(tcs.map(_.io.ctrl.bits)))
+    val info = Mux1H(UIntToOH(enqPtr.value), VecInit(tcs.map(_.io.ctrl.bits)))
     ax.bits.set(
-      id = axPtr.value,
+      id = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
       addr = info.addr,
       len = info.rmnBeat,
       size = info.size,

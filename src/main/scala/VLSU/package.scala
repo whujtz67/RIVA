@@ -35,16 +35,16 @@ package object vlsu {
       val wid    = UInt(2.W)
       val ew     = UInt(6.W)                   // element Width = 4/8/16/32 TODO: wid和ew保留哪一个？还是全保留？
       val stride = UInt(32.W)
-      val rwlen  = UInt(log2Ceil(maxRowLen).W) // It is insufficient to solely save 'illuRowBytes' at this point, as 'illuRowBytes' may vary across different rows in the context of 2D transfers.
+      val nrClns = UInt((log2Ceil(maxNrElems)+1).W) // It is insufficient to solely save 'illuRowBytes' at this point, as 'illuRowBytes' may vary across different rows in the context of 2D transfers.
       val vstart = UInt(log2Ceil(VLEN).W)
 
       def init(req: RivaReqPtl, valid: Bool): Unit = {
         this.reqId  := req.reqId
-        this.mode.decode(req, valid)
+        this.mode   := (1.U << req.mop).asTypeOf(this.mode)
         this.wid    := req.wid
         this.ew     := req.getEW
         this.stride := req.stride
-        this.rwlen  := req.rwlen
+        this.nrClns := req.len
         this.vstart := req.vstart
 
         when (valid) {
@@ -57,7 +57,7 @@ package object vlsu {
       def hBNumInElem: UInt = this.wid
     }
     class rowLevel(implicit p: Parameters) extends VLSUBundle {
-      val rmnRow   = UInt(tilenBits.W) // Remain row TODO: width of tilen?
+      val rmnRow   = UInt(maxNrElems.W) // Remain row (needs to -1 like AXI Len!)
       val illuHead = Bool()    // illu: illusion
       val illuTail = Bool()
       val isHead   = Bool()
@@ -65,7 +65,7 @@ package object vlsu {
       def init(req: RivaReqPtl, glob: global, valid: Bool): Unit = {
         this.rmnRow   := req.tilen
         this.illuHead := req.vstart(0) && glob.ew(2)                   // Head is illusory when vstart is odd.
-        this.illuTail := (req.vstart(0) ^ !req.rwlen(0)) && glob.ew(2) // Tail is illusory when one of vstart and rwlen is odd. '!req.rwlen(0)' because the actual rwlen is rwlen + 1. '&& glob.ew(2)' means ew is 4 bits.
+        this.illuTail := (req.vstart(0) ^ !glob.nrClns(0)) && glob.ew(2) // Tail is illusory when one of vstart and nrClns is odd. '!req.nrClns(0)' because the actual nrClns is nrClns + 1. '&& glob.ew(2)' means ew is 4 bits.
         this.isHead   := true.B
       }
 
@@ -86,10 +86,10 @@ package object vlsu {
         val offset       = Wire(UInt(12.W))
 
         // TODO: different logic when row is not Head.
-        this.addr   := req.baseAddr + (glob.vstart << glob.ew(5, 3)).asUInt >> 1 // NOTE: If vstart is odd and EW = 4 bits, the calculated addr will be 4 bits smaller than the actual starting address.
+        this.addr   := req.baseAddr + (glob.vstart << glob.wid).asUInt >> 1 // NOTE: If vstart is odd and EW = 4 bits, the calculated addr will be 4 bits smaller than the actual starting address.
 
         // intermediate variables
-        illuRowBytes := ((glob.rwlen + 1.U) << glob.ew(5, 3) >> 1).asUInt + row.illuTail
+        illuRowBytes := (glob.nrClns << glob.wid >> 1).asUInt + row.illuTail
         offset       := this.addr(11, 0)
         val allBytes  = offset + illuRowBytes
 
@@ -115,18 +115,18 @@ package object vlsu {
       def isLast: Bool = !this.rmnTxn.orR
     }
 
-    val glb   = new global()
-    val rowlv = new rowLevel()
-    val txn   = new transactional()
+    val glb = new global()
+    val row = new rowLevel()
+    val txn = new transactional()
 
     def init(req: RivaReqPtl, valid: Bool): Unit = {
-      this.glb  .init(req, valid)
-      this.rowlv.init(req, this.glb, valid)
-      this.txn  .init(req, this.glb, this.rowlv, valid)
+      this.glb.init(req, valid)
+      this.row.init(req, this.glb, valid)
+      this.txn.init(req, this.glb, this.row, valid)
     }
 
     def update(r: MetaCtrlInfo): Unit = {
-      // TODO: 更新时只需要更新rowlv和txn即可，glb一直保持不变，所以不需要额外的写入逻辑
+      // TODO: 更新时只需要更新row和txn即可，glb一直保持不变，所以不需要额外的写入逻辑
       when(r.isLast) {
         this := 0.U.asTypeOf(this) // Already the last beat of rivaReq, clear 'this'.
       }.elsewhen(r.txn.isLast) {
@@ -144,7 +144,7 @@ package object vlsu {
 
     def is4Bits: Bool = this.glb.ew(2)
 
-    def isLast: Bool = this.rowlv.isLast && this.txn.isLast
+    def isLast: Bool = this.row.isLast && this.txn.isLast
   }
 
   /** AXI Control Information (AxiCtrlInfo)

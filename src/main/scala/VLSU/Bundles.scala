@@ -36,7 +36,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val wid      = UInt( 2.W)
   val vd       = UInt( 5.W)
   val stride   = UInt(32.W) // rs2/imm5
-  val rwlen    = UInt(log2Ceil(maxRowLen).W) // Row length, it equals alen when requesting AM and vlen when requesting VM.
+  val len      = UInt(log2Ceil(maxNrElems).W) // Length, it equals alen when requesting AM and vlen when requesting VM.
   val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(VLEN).W)
   val isLoad   = Bool()
@@ -48,7 +48,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
     this.wid      := full.wid
     this.vd       := full.vd
     this.stride   := full.stride
-    this.rwlen    := Mux(full.vd(4), full.al, full.vl)
+    this.len      := Mux(full.vd(4), full.al, full.vl)
     this.tilen    := full.tilen
     this.vstart   := full.vstart
     this.isLoad   := full.isLoad
@@ -106,19 +106,6 @@ class VecMopOH extends Bundle {
   def isOH(): Bool = PopCount(this.asUInt) === 1.U
 
   def is2D: Bool = this.rmTwoD || this.cmTwoD
-
-  def decode(req: RivaReqPtl, valid: Bool): Unit = {
-    val mop = req.mop
-
-    this.isIncr := mop === 0.U
-    this.isStrd := mop === 1.U
-    this.rmTwoD := mop === 2.U
-    this.cmTwoD := mop === 3.U
-
-    when(valid) {
-      assert(PopCount(this.asUInt) === 1.U, "mopOH should be OneHot!")
-    }
-  }
 }
 
 class AGUReq(implicit p: Parameters) extends VLSUBundle {
@@ -149,14 +136,14 @@ class DataCtrlBundle(implicit p: Parameters) extends VLSUBundle {
 class LoadLaneSide(implicit p: Parameters) extends VLSUBundle {
   val reqId   = UInt(reqIdBits.W)
   val vecAddr = UInt(new VecAddrBundle()(p).getWidth.W)
-  val data    = UInt(sliceBits.W)
-  val hbe     = UInt((sliceBits/8).W) // half byte enable
+  val data    = UInt(SLEN.W)
+  val hbe     = UInt((SLEN/8).W) // half byte enable
 
   def vaddr: VecAddrBundle = this.vecAddr.asTypeOf(new VecAddrBundle()(p))
 }
 
 class StoreLaneSide(implicit p: Parameters) extends VLSUBundle {
-  val data = UInt(sliceBits.W)
+  val data = UInt(SLEN.W)
 }
 
 class LaneSide(implicit p: Parameters) extends VLSUBundle {

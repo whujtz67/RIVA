@@ -9,10 +9,10 @@ trait DataCtrlHelper {
   // Can only be inherited by classes or traits that inherit from VLSUModule
   self: VLSUModule =>
 
-  val hBNum      : Int = (sliceBits / 4) * NrLanes // halfByte number in sliceBits * NrLanes
+  val hBNum      : Int = (SLEN / 4) * NrLanes // halfByte number in SLEN * NrLanes
   val hBIdxBits  : Int = log2Ceil(hBNum)
   val laneIdBits : Int = log2Ceil(NrLanes)
-  val laneOffBits: Int = log2Ceil(sliceBits/4)
+  val laneOffBits: Int = log2Ceil(SLEN/4)
 
 
 
@@ -116,8 +116,8 @@ class LoadDataController(implicit p: Parameters) extends VLSUModule with DataCtr
   private val vstart     = WireDefault(io.ctrl.bits.meta.glb.vstart)
   private val busOff     = WireDefault(io.ctrl.bits.axi.addr >> busSize)
   private val lbB        = WireDefault(io.ctrl.bits.axi.lbB)
-  private val illuHead   = WireDefault(io.ctrl.bits.meta.rowlv.illuHead && io.ctrl.bits.meta.rowlv.isHead)
-  private val illuTail   = WireDefault(io.ctrl.bits.meta.rowlv.illuTail && io.ctrl.bits.meta.rowlv.isLast) // TODO: maybe make it a signal
+  private val illuHead   = WireDefault(io.ctrl.bits.meta.row.illuHead && io.ctrl.bits.meta.row.isHead)
+  private val illuTail   = WireDefault(io.ctrl.bits.meta.row.illuTail && io.ctrl.bits.meta.row.isLast) // TODO: maybe make it a signal
   private val isHead     = WireDefault(io.ctrl.bits.axi.isHead)
   private val isLastBeat = WireDefault(io.ctrl.bits.axi.isLast) // TODO: maybe make it a signal
   private val isLastTxn  = WireDefault(io.ctrl.bits.meta.txn.isLast)
