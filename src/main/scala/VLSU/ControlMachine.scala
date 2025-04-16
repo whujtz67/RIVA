@@ -11,66 +11,61 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   val io = IO(new Bundle {
     val rivaReq        = Flipped(Decoupled(new RivaReqPtl()))
     val coreStPending  = Input(Bool())
-    val meta           = Output(new MetaCtrlInfo())
-    val txnInjectValid = Output(Bool()) // TODO: make it meta.valid
-    val txnInjectReady = Input(Bool()) // If target TxnCtrlUnit is ready to be injected.
-    val txnDone        = Input(Bool()) // The whole transaction in the TxnCtrl is done, which will cause the ReqFrag to update meta_r.
+    val meta           = Decoupled(new MetaCtrlInfo())  // 'meta.ready' means a TxnCtrlInfo can be injected to a free tc
   })
 
-  private val IDLE        = 0
-  private val FRAGMENTING = 1
-  private val STALL       = 2
-  private val state_nxt   = WireInit(0.U(1.W))
+  private val s_idle :: s_row_lv_init :: s_fragmenting :: s_stall :: Nil = Enum(4)
+  private val state_nxt   = WireInit(s_idle)
   private val state_r     = RegNext(state_nxt)
-  private val idle        = state_r === IDLE.U
-  private val fragmenting = state_r === FRAGMENTING.U
-  private val stall       = state_r === STALL.U
+  private val idle        = state_r === s_idle
+  private val row_lv_init = state_r === s_row_lv_init
+  private val fragmenting = state_r === s_fragmenting
+  private val stall       = state_r === s_stall
 
-  val meta_nxt = Wire(new MetaCtrlInfo())
-  val meta_r   = Reg(new MetaCtrlInfo())
+  private val meta_nxt = WireInit(0.U.asTypeOf(new MetaCtrlInfo()))
+  private val meta_r   = RegNext(meta_nxt)
 
-  meta_r.row := RegNext(meta_nxt.row)
-  meta_r.txn := RegNext(meta_nxt.txn)
-
-  val txnInjectValid: Bool = WireDefault(!idle)
-
-  // The condition for the Fragmenter to be cleared is that the last transaction is completed, NOT issued.
-  // The reason is that the meta information needs to remain stable during the execution of the transaction.
-  // TODO: maybe save some important infos in TxnCtrl or outside, and clear the reqFrag when the last Txn is issued. 这个可以提高一些效率，但是需要额外的存储。
-  private val allDone = meta_r.isLast && io.txnDone // reqFragmenter should wait the last txn finish
+  private val doUpdate = io.meta.ready
+  private val finalTxnIssued = WireDefault(meta_r.isFinalTxn && doUpdate) // The final Txn of the riva Req is issued to the tc
 
   // FSM state switch
-  when(idle) {
-    state_nxt := Mux(io.rivaReq.valid, Mux(io.coreStPending, STALL.U, FRAGMENTING.U), IDLE.U)
-  }.elsewhen(stall) {
-    state_nxt := Mux(!io.coreStPending, FRAGMENTING.U, STALL.U) // FSM will enter STALL state only when rivaReq is valid, so the next state can only be fragmenting.
+  when (idle) {
+    state_nxt := Mux(io.rivaReq.valid, s_row_lv_init, s_idle)
+  }.elsewhen(row_lv_init) {
+    state_nxt := Mux(io.coreStPending, s_stall, s_fragmenting)
+  }.elsewhen(fragmenting) {
+    state_nxt := Mux(finalTxnIssued, s_idle, s_fragmenting)
   }.otherwise {
-    state_nxt := Mux(allDone, IDLE.U, FRAGMENTING.U)
+    state_nxt := state_r
   }
 
   // FSM Outputs
-  when(idle) {
-    meta_nxt := 0.U.asTypeOf(meta_nxt)
-    when(io.rivaReq.valid) {
-      // save meta info into the regs regardless of coreStPending
-      meta_nxt.init(io.rivaReq.bits, true.B)
-      meta_r.glb := RegNext(meta_nxt.glb) // glb infos will not change during the req
-    }
-  }.elsewhen(fragmenting) {
-    when(txnInjectValid && io.txnInjectReady) {
-      meta_nxt.update(meta_r)
+  meta_nxt := meta_r
+  when (idle) {
+    when (io.rivaReq.valid) {
+      meta_nxt.glb.init(io.rivaReq.bits)
+      meta_nxt.row := meta_r.row // Won't initialize row level info in this state.
     }.otherwise {
-      meta_nxt := meta_r
+      meta_nxt := meta_r // do nothing when req not valid
     }
+  }.elsewhen(row_lv_init) {
+    meta_nxt.row.init(meta_r.glb)
+    meta_nxt.glb := meta_r.glb   // Keep the glb value
+  }.elsewhen(fragmenting) {
+    meta_nxt.resolve(meta_r, doUpdate)
   }.otherwise {
-    meta_nxt := meta_r // Do Nothing when stalling.
+    // Do nothing, including stall mode
+    meta_nxt := meta_r
   }
 
-  io.meta := meta_r
-  io.rivaReq.ready := idle
-  io.txnInjectValid := txnInjectValid
+  io.meta.bits  := meta_r
+  io.meta.valid := fragmenting
+
+  io.rivaReq.ready := finalTxnIssued
+
 // ------------------------------------------ Don't Touch ---------------------------------------------- //
   dontTouch(idle)
+  dontTouch(row_lv_init)
   dontTouch(fragmenting)
   dontTouch(stall)
 }
