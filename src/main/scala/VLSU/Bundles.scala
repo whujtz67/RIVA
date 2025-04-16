@@ -18,10 +18,10 @@ class VecAddrBundle(implicit p: Parameters) extends VLSUBundle {
 class RivaReqFull(implicit p: Parameters) extends VLSUBundle {
   val reqId    = UInt(reqIdBits.W)
   val mop      = UInt( 2.W)
-  val baseAddr = UInt(axi4Params.addrBits.W)
+  val baseAddr = UInt(axi4Params.addrBits.W) // scalar op
   val wid      = UInt( 2.W)
   val vd       = UInt( 5.W)
-  val stride   = UInt(32.W) // rs2/imm5
+  val stride   = UInt(axi4Params.addrBits.W) // rs2/imm5
   val al       = UInt(log2Ceil(ALEN).W)
   val vl       = UInt(log2Ceil(VLEN).W)
   val tilen    = UInt(tilenBits.W)
@@ -32,13 +32,13 @@ class RivaReqFull(implicit p: Parameters) extends VLSUBundle {
 class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val reqId    = UInt(reqIdBits.W)
   val mop      = UInt( 2.W)
-  val baseAddr = UInt(axi4Params.addrBits.W)
+  val baseAddr = UInt(axi4Params.addrBits.W) // scalar op
   val wid      = UInt( 2.W)
   val vd       = UInt( 5.W)
-  val stride   = UInt(32.W) // rs2/imm5
+  val stride   = UInt(axi4Params.addrBits.W) // rs2/imm5
   val len      = UInt(log2Ceil(maxNrElems).W) // Length, it equals alen when requesting AM and vlen when requesting VM.
   val tilen    = UInt(tilenBits.W)
-  val vstart   = UInt(log2Ceil(VLEN).W)
+  val vstart   = UInt(log2Ceil(maxNrElems).W)
   val isLoad   = Bool()
 
   def init(full: RivaReqFull): Unit = {
@@ -98,14 +98,14 @@ class CsrBundle(implicit p: Parameters) extends VLSUBundle {
 }
 
 class VecMopOH extends Bundle {
-  val isIncr = Bool()
-  val isStrd = Bool()
-  val rmTwoD = Bool() // row major
-  val cmTwoD = Bool() // cln major
+  val Incr  = Bool()
+  val Strd  = Bool()
+  val row2D = Bool() // row major
+  val cln2D = Bool() // cln major
 
-  def isOH(): Bool = PopCount(this.asUInt) === 1.U
+  def isOH: Bool = PopCount(this.asUInt) === 1.U
 
-  def is2D: Bool = this.rmTwoD || this.cmTwoD
+  def is2D: Bool  = this.row2D || this.cln2D
 }
 
 class AGUReq(implicit p: Parameters) extends VLSUBundle {
