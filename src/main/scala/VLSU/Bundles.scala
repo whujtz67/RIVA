@@ -123,14 +123,6 @@ class AGUResp(implicit p: Parameters) extends VLSUBundle {
 }
 
 // --------------------------------
-// Data Control Bundle
-// --------------------------------
-class DataCtrlBundle(implicit p: Parameters) extends VLSUBundle {
-  val meta = new MetaCtrlInfo()
-  val axi  = new AxiCtrlInfo()
-}
-
-// --------------------------------
 // Lane Load and Store Bundle
 // --------------------------------
 class LoadLaneSide(implicit p: Parameters) extends VLSUBundle {

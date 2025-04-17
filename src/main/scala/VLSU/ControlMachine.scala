@@ -7,6 +7,10 @@ import protocols.AXI.spec.{AxFlit, BFlit, Burst, Cache}
 
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 
+/** ReqFragmenter
+ *
+ * @param p
+ */
 class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   val io = IO(new Bundle {
     val rivaReq        = Flipped(Decoupled(new RivaReqPtl()))
@@ -70,168 +74,167 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   dontTouch(stall)
 }
 
-class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule {
+/** TxnControlUnit
+ *
+ * @param isLoad
+ * @param p
+ */
+class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule with HasCircularQueuePtrHelper {
+// ------------------------------------------ Parameters ---------------------------------------------- //
+  private val addrChnlName = if (isLoad) "ar" else "aw"
+  private val dataChnlName = if (isLoad) "r"  else "w"
+
+// ------------------------------------------ CircularQueuePtr ---------------------------------------------- //
+  class CirQTxnCtrlPtr extends CircularQueuePtr[CirQTxnCtrlPtr](txnCtrlNum)
+
+// ------------------------------------------ IO Declaration ---------------------------------------------- //
   val io = IO(new Bundle {
     val meta     = Flipped(Decoupled(new MetaCtrlInfo())) // inward
-    val ctrl     = Valid(new AxiCtrlInfo()) // outward
+    val txnCtrl  = Valid(new TxnCtrlInfo())               // outward. For convenience in the code, all TxnCtrlInfo is directly output.
+                                                          // However, in practice, only a subset of these signals will be utilized.
+                                                          // Unused signals are expected to be optimized away by the synthesis tool.
     val update   = Input(Bool())
-    val lastDone = Output(Bool()) // This signal tells Control Unit to update dataPtr. For STU, it will help DT assert w last.
-    val release  = if (isLoad) None else Some(Input(Bool())) // b
   })
+  val ax = IO(Decoupled(new AxFlit(axi4Params))).suggestName(s"$addrChnlName")
+  val b  = if (isLoad) None else Some(IO(Flipped(Decoupled(new BFlit(axi4Params))))) // Only STU has b channel
 
-  private val IDLE  = 0
-  private val VALID = 1
-  private val state_nxt = WireInit(0.U(1.W))
-  private val state_r   = RegNext(state_nxt)
-  private val idle  = state_r === IDLE.U
-  private val valid = state_r === VALID.U
+// ------------------------------------------ Wire/Reg Declaration ---------------------------------------------- //
+  // single txn controls are actually a series of registers.
+  private val tcs = Reg(Vec(txnCtrlNum, new TxnCtrlInfo()))
 
-  private val payload_nxt = Wire(chiselTypeOf(io.ctrl.bits))
-  private val payload_r   = RegNext(payload_nxt) // TODO: make it Reg?
-  
-  private val lastDone = WireInit(false.B)
-  private val allDone  = WireInit(false.B)
+  // Pointers
+  private val enqPtr  = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr))
+  private val deqPtr  = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr))  // B Ptr is not needed because deqPtr can serves as B Ptr when storing.
+  private val axPtr   = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr)).suggestName(s"${addrChnlName}Ptr") // Ax Txn with info of which TxnCtrl is sending
+  private val dataPtr = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr)).suggestName(s"${dataChnlName}Ptr") // Pointing to the information of the transaction being processed by the Data Transformer.
 
-  lastDone := payload_r.isLast && io.update
-  if (isLoad) {
-    allDone := lastDone
-  } else {
-    allDone := io.release.get
+  // empty and full
+  private val empty = WireDefault(isEmpty(enqPtr, deqPtr))
+  private val full  = WireDefault(isFull (enqPtr, deqPtr))
+
+// ------------------------------------------ Main Logics ---------------------------------------------- //
+  //
+  // tc initialize and update logics
+  //
+  tcs.zipWithIndex.foreach {
+    case (tc, i) =>
+      /* Do Init (enq) when:
+       * 1. EnqPtr is pointing to the current tc.
+       * 2. The Queue is not full
+       * 3. Meta info is valid, which means reqFragmenter is fragmenting a request.
+       */
+      when (enqPtr.value === i.U && !full && io.meta.valid) {
+        tc.init(io.meta.bits)
+      }
+
+      /* Do Update when:
+       * 1. DataPtr is pointing to the current tc.
+       * 2. The update from dataController is true.
+       *
+       * NOTE: We assume that update will never be true when TC is empty.
+       */
+      when (dataPtr.value === i.U && io.update) {
+        tc.update(tc)
+      }
   }
 
-  // FSM state switch
-  when(idle) {
-    state_nxt := Mux(io.meta.valid, VALID.U, IDLE.U)
-  }.otherwise {
-    state_nxt := Mux(allDone, IDLE.U, VALID.U)
+  //
+  // Pointer update logics
+  //
+  private val dataPtrAdd = tcs(dataPtr.value).isLastBeat && io.update // add data ptr when last beat done.
+  private val do_enq     = WireDefault(io.meta.fire)
+  private val do_deq     = WireDefault(if (isLoad) dataPtrAdd else b.get.fire) // dataPtr and deqPtr is always synchronous
+
+  when (do_enq)     { enqPtr  := enqPtr  + 1.U }
+  when (do_deq)     { deqPtr  := deqPtr  + 1.U }
+  when (ax.fire)    { axPtr   := axPtr   + 1.U }
+  when (dataPtrAdd) { dataPtr := dataPtr + 1.U }
+
+  //
+  // Output logics
+  //
+  ax.bits.set(
+    id    = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
+    addr  = tcs(axPtr.value).addr,
+    len   = tcs(axPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
+    size  = tcs(axPtr.value).size,
+    burst = Burst.Incr,
+    cache = Cache.Modifiable
+  )
+
+  io.txnCtrl.bits := tcs(dataPtr.value) // NOTE: Should be dataPtr here.
+
+
+  //
+  // Handshake logics
+  //
+  io.meta.ready    := !full
+  io.txnCtrl.valid := !empty
+  ax.valid         := !isEmpty(enqPtr, axPtr) // isEmpty(enqPtr, axPtr) means all the valid ax txn has been issued.
+  if (b.isDefined) b.get.ready := !empty
+
+// ------------------------------------------ Assertions ---------------------------------------------- //
+  when(io.update) { assert(!empty, "should not update when there are no control information in TC") }
+
+  if (b.isDefined) {
+    when(b.get.valid) { assert(!empty, "should be at least one valid tc when b valid!") }
   }
 
-  // FSM Outputs
-  when(idle) {
-    payload_nxt := 0.U.asTypeOf(payload_nxt)
-    when(io.meta.valid) {
-      payload_nxt.init(io.meta.bits)
-    }
-  }.otherwise {
-    when(io.update) {
-      payload_nxt.update(payload_r)
-    }.otherwise {
-      payload_nxt := payload_r
-    }
-  }
-
-  io.ctrl.bits  := payload_r
-  io.ctrl.valid := valid
-  io.meta.ready := idle
-  io.lastDone   := lastDone
-
-  dontTouch(idle)
-  dontTouch(valid)
+  // deqPtr <= dataPtr <= axPtr <= enqPtr
+  // 'isNotAfter' means 'left' <= 'right'
+  assert(isNotAfter(axPtr  , enqPtr ), s"${addrChnlName}Ptr should not go before enqPtr")
+  assert(isNotAfter(dataPtr, axPtr  ), "dataPtr should not go before axPtr")
+  assert(isNotAfter(deqPtr , dataPtr), "deqPtr should not go before dataPtr")
 }
+
+
 
 /** A Control Machine that applies to both Load and Store Process.
  *
- * @param isLoad: this Control Machine served for load or store.
+ * @param isLoad This Control Machine served for load or store.
+ *
+ * 'ControlMachine' is made up of 'ReqFragmenter' and 'TxnControlUnit'.
+ * The ControlMachine primarily instantiates these two modules without incorporating any additional logic.
  */
-class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule with HasCircularQueuePtrHelper {
-  class CirQTxnCtrlPtr extends CircularQueuePtr[CirQTxnCtrlPtr](txnCtrlNum)
-
+class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule {
 // ------------------------------------------ Parameters ---------------------------------------------- //
   private val addrChnlName = if (isLoad) "ar" else "aw"
   private val dataChnlName = if (isLoad) "r"  else "w"
   override def desiredName: String = if (isLoad) "LoadCtrl" else "StoreCtrl"
 
 // ------------------------------------------ IO Declarations ---------------------------------------------- //
-  // LaneSide OUTPUT io, request side IO is defined in ReqFragmenter
-  val rivaReq        = IO(Flipped(Decoupled(new RivaReqPtl())))
-  val coreStPending  = IO(Input(Bool()))
-  val info = IO(Valid(new Bundle {
-    val meta = new MetaCtrlInfo()
-    val axi  = new AxiCtrlInfo()
-  }))
-  val update = IO(Input(Bool())) // update is asserted when an Axi Data Beat is committed(R) / sent(W).
+  val io = IO(new Bundle {
+    // requester side
+    val rivaReq = Flipped(Decoupled(new RivaReqPtl()))
+    val coreStPending  = Input(Bool())
+
+    // data controller side
+    val txnCtrl  = Valid(new TxnCtrlInfo())
+    val update   = Input(Bool())
+  })
   val ax     = IO(Decoupled(new AxFlit(axi4Params))).suggestName(s"$addrChnlName")
   val b      = if (isLoad) None else Some(IO(Flipped(Decoupled(new BFlit(axi4Params))))) // Only STU has b channel
 
-// ------------------------------------------ Module and Signal Declaration ---------------------------------------------- //
-  private val enqPtr  = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr))
-  private val deqPtr  = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr))  // B Ptr is not needed because deqPtr can serves as B Ptr when storing.
-  private val axPtr   = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr)).suggestName(s"${addrChnlName}Ptr") // Ax Txn with info of which TxnCtrl is sending
-  private val dataPtr = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr)).suggestName(s"${dataChnlName}Ptr") // Pointing to the information of the transaction being processed by the Data Transformer.
+// ------------------------------------------ Module Declaration ---------------------------------------------- //
+  private val rf  = Module(new ReqFragmenter()).suggestName("ReqFragmenter")
+  private val tc  = Module(new TxnControlUnit(isLoad)).suggestName("TxnControlUnit")
 
-  private val reqFrag = Module(new ReqFragmenter())
-
-  private val tcs = for(idx <- 0 until txnCtrlNum) yield {
-    val tc = Module(new TxnControlUnit(isLoad))
-    tc.suggestName(s"tc_$idx")
-    tc.io.meta.bits  := reqFrag.io.meta
-    tc.io.meta.valid := reqFrag.io.txnInjectValid
-    tc.io.update     := dataPtr.value === idx.U && update
-    if (tc.io.release.isDefined) tc.io.release.get := deqPtr.value === idx.U && b.get.fire // TODO: 考虑B的乱序响应
-
-    tc
-  }
-
-// ------------------------------------------ Main logic ---------------------------------------------- //
-  private val full  = isFull(enqPtr, deqPtr)
-  private val empty = isEmpty(enqPtr, deqPtr)
-
-  private val dataPtrAdd = WireDefault(Mux1H(UIntToOH(dataPtr.value), VecInit(tcs.map(_.io.lastDone))))
-  private val do_enq     = WireDefault(Mux1H(UIntToOH(enqPtr .value), VecInit(tcs.map(_.io.meta.fire))))
-  // What represents the finish of the transaction?
-  // For Load: The last beat of R response is committed.
-  // For Store: B is received.
-  private val do_deq     = WireDefault(if (isLoad) dataPtrAdd else b.get.fire)
-
-  reqFrag.io.rivaReq <> rivaReq
-  reqFrag.io.coreStPending <> coreStPending
+// ------------------------------------------ Main Logics ---------------------------------------------- //
   //
-  // ptr update logics
+  // IO Connection
   //
-  // enq
-  when(do_enq) { enqPtr := enqPtr + 1.U }
-  // deq
-  when(do_deq) { deqPtr := deqPtr + 1.U }
-  // ax
-  when(ax.fire) { axPtr := axPtr + 1.U }
-  // data
-  when(dataPtrAdd) { dataPtr := dataPtr + 1.U }
+  rf.io.rivaReq <> io.rivaReq
+  rf.io.coreStPending := io.coreStPending
 
-  // axPtr === enqPtr means all ax txn in the tcs has been issued.
-  when(!(axPtr.asUInt === enqPtr.asUInt)) {
-    val info = Mux1H(UIntToOH(enqPtr.value), VecInit(tcs.map(_.io.ctrl.bits)))
-    ax.bits.set(
-      id = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
-      addr = info.addr,
-      len = info.rmnBeat,
-      size = info.size,
-      burst = Burst.Incr,
-      cache = Cache.Modifiable
-    )
+  tc.io.update := io.update
+  io.txnCtrl   <> tc.io.txnCtrl
 
-    ax.valid := true.B
-    assert(info.isHead, "should always be the head beat before Ax is sent.")
-  }.otherwise {
-    ax.bits := 0.U.asTypeOf(ax.bits)
-    ax.valid := false.B
-  }
+  ax       <> tc.ax
 
-  info.bits.meta := reqFrag.io.meta
-  info.bits.axi  := Mux1H(UIntToOH(dataPtr.value), VecInit(tcs.map(_.io.ctrl.bits)))
-  info.valid     := !empty // Don't need to consider whether reqFrag is valid.
-  if (b.isDefined) b.get.ready := !empty
+  if (!isLoad) tc.b.get <> b.get
 
-  reqFrag.io.txnInjectReady := !full
-  reqFrag.io.txnDone := do_deq
-
-// ------------------------------------------ assertion ---------------------------------------------- //
-  when(update) { assert(!empty, "should not update when there are no control information in TC")  }
-
-// ------------------------------------------ Don't Touch ---------------------------------------------- //
-  dontTouch(full )
-  dontTouch(empty)
-  dontTouch(do_enq)
-  dontTouch(do_deq)
-  dontTouch(dataPtrAdd)
-
+  //
+  // Connection Between RF and TC
+  //
+  tc.io.meta <> rf.io.meta
 }
