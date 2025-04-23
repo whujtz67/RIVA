@@ -15,7 +15,8 @@ case class VLSUParamters(
   ALEN      : Int = 16384,  // accu register length
   maxTilen  : Int = 16,
   axi4Params: AXI4Params = AXI4Params(),
-  reqBufDep : Int = 2,
+  reqBufDep : Int = 4,
+  metaBufDep: Int = 4,
   txnCtrlNum: Int = 4,
 ) {
   require(NrLanes > 0)
@@ -64,6 +65,7 @@ trait HasVLSUParams {
   lazy val maxTilen   = vlsuParams.maxTilen
   lazy val axi4Params = vlsuParams.axi4Params
   lazy val reqBufDep  = vlsuParams.reqBufDep
+  lazy val metaBufDep = vlsuParams.metaBufDep
   lazy val txnCtrlNum = vlsuParams.txnCtrlNum
 
   // derived parameters

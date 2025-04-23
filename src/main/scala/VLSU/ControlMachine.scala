@@ -16,6 +16,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
     val rivaReq        = Flipped(Decoupled(new RivaReqPtl()))
     val coreStPending  = Input(Bool())
     val meta           = Decoupled(new MetaCtrlInfo())  // 'meta.ready' means a TxnCtrlInfo can be injected to a free tc
+    val metaBufFull    = Input(Bool())
   })
 
   private val s_idle :: s_row_lv_init :: s_fragmenting :: s_stall :: Nil = Enum(4)
@@ -36,9 +37,11 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   when (idle) {
     state_nxt := Mux(io.rivaReq.valid, s_row_lv_init, s_idle)
   }.elsewhen(row_lv_init) {
-    state_nxt := Mux(io.coreStPending, s_stall, s_fragmenting)
+    state_nxt := Mux(io.coreStPending || io.metaBufFull, s_stall, s_fragmenting)
   }.elsewhen(fragmenting) {
     state_nxt := Mux(finalTxnIssued, s_idle, s_fragmenting)
+  }.elsewhen(stall){
+    state_nxt := Mux(io.coreStPending || io.metaBufFull, s_stall, s_fragmenting)
   }.otherwise {
     state_nxt := state_r
   }
@@ -209,8 +212,9 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
     val coreStPending  = Input(Bool())
 
     // data controller side
+    val metaCtrl = Decoupled(new MetaCtrlInfo())
     val txnCtrl  = Valid(new TxnCtrlInfo())
-    val update   = Input(Bool())
+    val update   = Input(Bool()) // update txnCtrlInfo
   })
   val ax     = IO(Decoupled(new AxFlit(axi4Params))).suggestName(s"$addrChnlName")
   val b      = if (isLoad) None else Some(IO(Flipped(Decoupled(new BFlit(axi4Params))))) // Only STU has b channel
@@ -228,6 +232,9 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
 
   tc.io.update := io.update
   io.txnCtrl   <> tc.io.txnCtrl
+  io.metaCtrl.bits := rf.io.meta
+  io.metaCtrl.valid := rf.io.meta.valid
+  rf.io.metaBufFull := !io.metaCtrl.ready // metaCtrl.ready is metaBuf's enq.ready
 
   ax       <> tc.ax
 

@@ -7,9 +7,22 @@ import org.chipsalliance.cde.config.Parameters
 // -------------------------------
 // VM Address Bundle
 // -------------------------------
-class VecAddrBundle(implicit p: Parameters) extends VLSUBundle {
+class VAddrBundle(implicit p: Parameters) extends VLSUBundle {
   val set  = UInt(log2Ceil(bankDep).W)
   val bank = UInt(log2Ceil(bankNum).W)
+
+  def init(meta: MetaBufBundle): Unit = {
+    val setPerVReg = VLEN / NrLanes / SLEN / bankNum
+    val setPerAReg = ALEN / NrLanes / SLEN / bankNum
+    val aregBaseSet = setPerVReg * 16
+
+    this.set := Mux(
+      meta.vd(4),
+      aregBaseSet.U + (meta.vd << log2Ceil(setPerAReg)).asUInt + (meta.vstart >> log2Ceil(bankNum)).asUInt,
+      (meta.vd << log2Ceil(setPerVReg)).asUInt + (meta.vstart >> log2Ceil(bankNum)).asUInt
+    )
+    this.bank := meta.vstart(log2Ceil(bankNum) - 1, 0)
+  }
 }
 
 // --------------------------------
@@ -27,6 +40,7 @@ class RivaReqFull(implicit p: Parameters) extends VLSUBundle {
   val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(VLEN).W)
   val isLoad   = Bool()
+  val vm       = Bool() // consider mask or not?        false.B: consider true.B: not consider
 }
 
 class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
@@ -40,6 +54,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(maxNrElems).W)
   val isLoad   = Bool()
+  val vm       = Bool()
 
   def init(full: RivaReqFull): Unit = {
     this.reqId    := full.reqId
@@ -52,6 +67,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
     this.tilen    := full.tilen
     this.vstart   := full.vstart
     this.isLoad   := full.isLoad
+    this.vm       := full.vm
   }
 
   def getEW: UInt = (1.U << (this.wid + 2.U)).asUInt
@@ -106,6 +122,8 @@ class VecMopOH extends Bundle {
   def isOH: Bool = PopCount(this.asUInt) === 1.U
 
   def is2D: Bool  = this.row2D || this.cln2D
+
+  def isGather: Bool = false.B // We currently don't support gather mode.
 }
 
 class AGUReq(implicit p: Parameters) extends VLSUBundle {
@@ -125,21 +143,19 @@ class AGUResp(implicit p: Parameters) extends VLSUBundle {
 // --------------------------------
 // Lane Load and Store Bundle
 // --------------------------------
-class LoadLaneSide(implicit p: Parameters) extends VLSUBundle {
-  val reqId   = UInt(reqIdBits.W)
-  val vecAddr = UInt(new VecAddrBundle()(p).getWidth.W)
-  val data    = UInt(SLEN.W)
-  val hbe     = UInt((SLEN/8).W) // half byte enable
-
-  def vaddr: VecAddrBundle = this.vecAddr.asTypeOf(new VecAddrBundle()(p))
+class TxLane(implicit p: Parameters) extends VLSUBundle {
+  val reqId = UInt(reqIdBits.W) // TODO: 其实并不需要所有lane都给reqId和vaddr，因为都是相同的
+  val vaddr = new VAddrBundle()
+  val hbs   = Vec(SLEN/4, UInt(4.W))
+  val hbes  = Vec(SLEN/4, Bool()) // half byte enable
 }
 
-class StoreLaneSide(implicit p: Parameters) extends VLSUBundle {
+class RxLane(implicit p: Parameters) extends VLSUBundle {
   val data = UInt(SLEN.W)
 }
 
 class LaneSide(implicit p: Parameters) extends VLSUBundle {
-  val tx = Decoupled(new LoadLaneSide)
-  val rx = Flipped(Decoupled(new StoreLaneSide))
+  val txs = Vec(NrLanes, Decoupled(new TxLane()))
+  val rxs = Vec(NrLanes, Flipped(Decoupled(new RxLane())))
 }
 

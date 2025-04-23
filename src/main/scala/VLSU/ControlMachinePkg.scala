@@ -14,6 +14,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
   val wid      = UInt(2.W) // The element width is encoded as 2-bit binary value: 00 01 10 11
   val EW       = UInt(6.W) // Original element width:                              4  8 16 32
   val stride   = UInt(axi4Params.addrBits.W)
+  val vm       = Bool()
   val nrClns   = UInt(log2Ceil(maxNrElems).W) // Number of column, which is the element number in a row (won't '-1' like axi len)
   val vstart   = UInt(log2Ceil(maxNrElems).W) // The start element index in the request.
   val rmnGrp   = UInt(log2Ceil(maxNrElems*possibleEWs.max/SLEN).W) // Txn will be divided into several groups in 2D cln mode, otherwise rmnGrp = 0
@@ -25,6 +26,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
     this.baseAddr := req.baseAddr
     this.wid      := req.wid
     this.EW       := req.getEW
+    this.vm       := req.vm
     this.stride   := req.stride
     this.nrClns   := PriorityMux(Seq( // wont '-1'
       this.mode.Incr  -> (req.len - req.vstart),
@@ -163,7 +165,7 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
    * @param r The MetaCtrlInfo stored in a register.
    * @param doUpdate Update the MetaCtrlInfo every time a set of information is injected into the TxnCtrlUnit.
    */
-  def resolve(r: MetaCtrlInfo, doUpdate: Bool) = {
+  def resolve(r: MetaCtrlInfo, doUpdate: Bool): Unit = {
     // default connection
     this := r
 
@@ -202,11 +204,15 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
  * TxnCtrlInfo is derived from MetaCtrlInfo.rowLevel info
  */
 class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
-  val addr    = UInt(axi4Params.addrBits.W)
-  val size    = UInt(3.W)
-  val rmnBeat = UInt(log2Ceil(4096/busBytes).W)
-  val lbB     = UInt(busSize.W) // last Beat Bytes
-  val isHead  = Bool()
+  val addr       = UInt(axi4Params.addrBits.W)
+  val size       = UInt(3.W)
+  val rmnBeat    = UInt(log2Ceil(4096/busBytes).W)
+  val lbB        = UInt(busSize.W) // last Beat Bytes
+  val illuHead   = Bool()
+  val illuTail   = Bool()
+  val isHead     = Bool()
+  val isFinalTxn = Bool() // Used for the DataController to determine current Txn is the final Txn of the riva Req.
+                          // Note: This method is only applicable when the TxnCtrlUnit processes requests sequentially.
 
   // The first Txn Ctrl Unit will be initiated in the next cycle following the initialization of the metadata.
   def init(meta_r: MetaCtrlInfo): Unit = {
@@ -219,9 +225,13 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
       4096.U - this.addr(11, 0)
     )
 
-    this.rmnBeat := allBytes >> busSize
-    this.lbB     := allBytes(busSize - 1, 0)
-    this.isHead  := true.B
+    this.rmnBeat    := allBytes >> busSize
+    this.lbB        := allBytes(busSize - 1, 0)
+    this.illuHead   := meta_r.row.illuHead && meta_r.row.isHeadTxn
+    this.illuTail   := meta_r.row.illuTail && meta_r.row.isLastTxn
+
+    this.isHead     := true.B
+    this.isFinalTxn := meta_r.isFinalTxn
   }
 
   def update(r: TxnCtrlInfo): Unit = {
@@ -230,4 +240,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
   }
 
   def isLastBeat: Bool = !this.rmnBeat.orR
+
+  // is the final beat of the riva req.
+  def isFinalBeat: Bool = this.isFinalTxn && this.isLastBeat
 }

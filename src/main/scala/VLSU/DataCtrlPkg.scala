@@ -40,7 +40,7 @@ import scala.collection.immutable.ListMap
  *
  * 2. DESHUFFLE is the inverse process of shuffle (shfHbIdx -> seqHbIdx)
  */
-trait SuffleHelper {
+trait ShuffleHelper {
   // Can only be inherited by classes or traits that inherit from VLSUModule
   self: VLSUModule =>
 
@@ -244,11 +244,11 @@ trait SuffleHelper {
    * @param seqBuf
    * @param shfBuf_r Should be a reg, because it is a vec and is given a value separately according to the idx. Chisel doesn't allow it to be wire.
    */
-  def hw_shuffle[T <: Data](mode: VecMopOH, wid: UInt, seqBuf: Vec[T], shfBuf_r: Vec[Vec[T]]): Unit = {
+  def hw_shuffle[T <: UInt](mode: VecMopOH, wid: UInt, seqBuf: Vec[T], shfBuf_r: Vec[Vec[T]], mask: Option[Vec[UInt]] = None, vm: Option[Bool] = None): Unit = {
     shfBuf_r.zipWithIndex.foreach {
       case (vec, lane) =>
         vec.zipWithIndex.foreach {
-          case (hb, off) =>
+          case (sink, off) =>
             val shfHbIdx = new shfHbIdx(lane, off)
 
             /* Here, Vec is used instead of PriorityMux to ensure that
@@ -263,6 +263,7 @@ trait SuffleHelper {
              * """
              */
             // TODO: 合并一些重复的情况
+            // In the foreach loop, there is an anonymous scope, so suggestName does not work.
             // INCR, STRD, 2D_ROW Mode
             val vec1 = VecInit(possibleEWs.indices.map { eew =>
               seqBuf(shf2seq_map(eew)(shfHbIdx.idx))
@@ -272,12 +273,21 @@ trait SuffleHelper {
               seqBuf(shf2seq_2d_cln_map(eew)(shfHbIdx.idx))
             })
 
-            hb := Mux(
-              mode.cln2D,
-              vec2(wid),
-              vec1(wid)
-            )
-
+            if (mask.isDefined) {
+              // shuffle hbe
+              sink := Mux(
+                mode.cln2D,
+                vec2(wid).andR && (mask.get(lane)(off) || vm.get),
+                vec1(wid).andR && (mask.get(lane)(off) || vm.get)
+              )
+            } else {
+              // shuffle half byte
+              sink := Mux(
+                mode.cln2D,
+                vec2(wid),
+                vec1(wid)
+              )
+            }
         }
     }
   }
@@ -287,18 +297,80 @@ trait SuffleHelper {
    *
    *  @tparam T UInt(4.W)(half byte) or Bundle Type
    */
-  class shuffle[T <: Data](gen: T) extends Module {
-    val io = IO(new Bundle {
-      val mode   = Input(new VecMopOH)
-      val wid    = Input(UInt(2.W))
-      val seqBuf = Input(Vec(hbNum, gen))
-      val shfBuf = Output(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
-    })
+//  class shuffle[T <: Data](gen: T) extends Module {
+//    val io = IO(new Bundle {
+//      val mode   = Input(new VecMopOH)
+//      val wid    = Input(UInt(2.W))
+//      val seqBuf = Input(Vec(hbNum, gen))
+//      val shfBuf = Output(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
+//    })
+//
+//    val shfBuf_r = Reg(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
+//
+//    hw_shuffle(io.mode, io.wid, io.seqBuf, shfBuf_r)
+//
+//    io.shfBuf := shfBuf_r
+//  }
+}
 
-    val shfBuf_r = Reg(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
+/** The essential meta info related to DataController saved in MetaBuf.
+ *
+ * 1. Problem Description
+ * Due to the advanced iteration of MetaCtrlInfo by the Control Machine compared to the processing pace of the DataController,
+ * the following issues may arise:
+ *
+ * (1) Request Mismatch: While the DataController is handling request A, the Control Machine might have already progressed to MetaCtrlInfo corresponding to request B.
+ * (2) State Inconsistency: This could lead the DataController to use outdated or incorrect meta information, resulting in logical errors or data corruption.
+ *
+ * 2. Solution: Using MetaBuf
+ * To prevent these problems, it is necessary to cache some meta information related to the DataController within the MetaBuf.
+ * This ensures a one-to-one correspondence between meta information and requests through physical queue binding.
+ *
+ * 3. Enq
+ * In the 's_row_lv_init' state of the ReqFragmenter, the enq.valid signal is asserted.
+ * If the MetaBuf is full at this time, it will cause the ReqFragmenter to enter a stalled state,
+ * thereby preventing the loss of requests.
+ *
+ * 4. Deq
+ * Deq when the final transaction of the riva req is committed to the seqBuf.
+ *
+ * @param p
+ */
+class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
+  val reqId  = UInt(reqIdBits.W)
+  val mode   = new VecMopOH()
+  val eew    = UInt(2.W)
+  val vd     = UInt(5.W)
+  val vstart = UInt(log2Ceil(maxNrElems).W)
+  val vm     = Bool()
 
-    hw_shuffle(io.mode, io.wid, io.seqBuf, shfBuf_r)
-
-    io.shfBuf := shfBuf_r
+  def init(meta: MetaCtrlInfo): Unit = {
+    this.reqId  := meta.glb.reqId
+    this.mode   := meta.glb.mode
+    this.eew    := meta.glb.wid
+    this.vd     := meta.glb.vd
+    this.vstart := meta.glb.vstart
+    this.vm     := meta.glb.vm
   }
+}
+
+trait CommonDataCtrl {
+  self: VLSUModule =>
+// ------------------------------------------ Common IO Declaration of both DataCtrl ------------------------------------------------- //
+  val metaInfo = IO(Flipped(Decoupled(new MetaCtrlInfo()))).suggestName("io_metaInfo") // MetaCtrlInfo from controlMachine
+  val txnInfo  = IO(Flipped(Decoupled(new TxnCtrlInfo()))).suggestName("io_txnInfo")   // TxnCtrlInfo from TC. NOTE: txnInfo.ready is the update signal to TC
+
+// ------------------------------------------ Modules Delaration ------------------------------------------------- //
+  val metaBuf = Module(new Queue(new MetaBufBundle(), metaBufDep))
+
+  // internal bundles
+  val meta = metaBuf.io.deq.bits
+  val txn  = txnInfo.bits
+
+  val busData = Wire(Vec(busBytes * 2, UInt(4.W)))
+  val busHbe  = Wire(Vec(busBytes * 2, UInt(1.W)))
+
+  metaBuf.io.enq.bits.init(metaInfo.bits)
+  metaBuf.io.enq.valid       := metaInfo.valid
+  metaInfo.ready             := metaBuf.io.enq.ready
 }
