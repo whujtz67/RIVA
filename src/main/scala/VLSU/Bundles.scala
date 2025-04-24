@@ -143,15 +143,27 @@ class AGUResp(implicit p: Parameters) extends VLSUBundle {
 // --------------------------------
 // Lane Load and Store Bundle
 // --------------------------------
+// TODO: splitFlit
 class TxLane(implicit p: Parameters) extends VLSUBundle {
+  require(SLEN % 4 == 0, "SLEN must be divisible by 4")
+
   val reqId = UInt(reqIdBits.W) // TODO: 其实并不需要所有lane都给reqId和vaddr，因为都是相同的
   val vaddr = new VAddrBundle()
-  val hbs   = Vec(SLEN/4, UInt(4.W))
-  val hbes  = Vec(SLEN/4, Bool()) // half byte enable
+  val data  = UInt(SLEN.W)
+  val hbe   = UInt((SLEN/4).W) // half byte enable
+
+  // Generally, we choose to define I/O signals as complete UInt types to minimize the number of generated I/O signals and simplify connections with external modules.
+  // However, internally, we typically split UInt signals into Vec to enable finer-grained processing.
+  // This will reduce about 3000 lines in generated verilog file when NrLanes = 8.
+  // The same principle applies to RxLane.
+  def hbs : Vec[UInt] = this.data.asTypeOf(Vec(SLEN/4, UInt(4.W)))
+  def hbes: Vec[Bool] = this.hbe.asTypeOf(Vec(SLEN/4, Bool()))
 }
 
 class RxLane(implicit p: Parameters) extends VLSUBundle {
   val data = UInt(SLEN.W)
+
+  def hbs : Vec[UInt] = this.data.asTypeOf(Vec(SLEN/4, UInt(4.W)))
 }
 
 class LaneSide(implicit p: Parameters) extends VLSUBundle {

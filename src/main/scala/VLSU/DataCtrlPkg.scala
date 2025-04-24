@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import scala.collection.immutable.ListMap
+import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 
 /** The Trait to help shuffle and deshuffle.
  *
@@ -354,22 +355,73 @@ class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
   }
 }
 
-trait CommonDataCtrl {
+trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   self: VLSUModule =>
+
+  class CirQSeqBufPtr extends CircularQueuePtr[CirQSeqBufPtr](2)
+
 // ------------------------------------------ Common IO Declaration of both DataCtrl ------------------------------------------------- //
   val metaInfo = IO(Flipped(Decoupled(new MetaCtrlInfo()))).suggestName("io_metaInfo") // MetaCtrlInfo from controlMachine
   val txnInfo  = IO(Flipped(Decoupled(new TxnCtrlInfo()))).suggestName("io_txnInfo")   // TxnCtrlInfo from TC. NOTE: txnInfo.ready is the update signal to TC
 
+  // Mask from mask unit
+  val mask      = IO(Vec(NrLanes, Flipped(Valid(UInt((SLEN/4).W))))).suggestName("io_mask")
+  val maskReady = IO(Output(Bool())).suggestName("io_mask_ready")
+
 // ------------------------------------------ Modules Delaration ------------------------------------------------- //
-  val metaBuf = Module(new Queue(new MetaBufBundle(), metaBufDep))
+  val metaBuf: Queue[MetaBufBundle] = Module(new Queue(new MetaBufBundle(), metaBufDep))
 
-  // internal bundles
-  val meta = metaBuf.io.deq.bits
-  val txn  = txnInfo.bits
+// ------------------------------------------ Wire/Reg Delaration ------------------------------------------------- //
+  val seqBuf: Vec[Vec[SeqBufBundle]] = RegInit(0.U.asTypeOf(Vec(2, Vec(NrLanes*SLEN/4, new SeqBufBundle())))) // Ping-pong buffer
 
-  val busData = Wire(Vec(busBytes * 2, UInt(4.W)))
-  val busHbe  = Wire(Vec(busBytes * 2, UInt(1.W)))
+  val enqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
+  val deqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
 
+  val seqBufEmpty: Bool = isEmpty(enqPtr, deqPtr)
+  val seqBufFull : Bool = isFull (enqPtr, deqPtr)
+
+  val busData: Vec[UInt] = Wire(Vec(busBytes * 2, UInt(4.W)))
+  val busHbe : Vec[UInt] = Wire(Vec(busBytes * 2, UInt(1.W)))
+
+  // pointers
+  val busHbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt((busSize-2).W)))
+  val busHbPtr_r  : UInt = RegNext(busHbPtr_nxt)
+  val seqHbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt(log2Ceil(hbNum).W)))
+  val seqHbPtr_r  : UInt = RegNext(seqHbPtr_nxt)
+
+// ------------------------------------------ Internal Bundles ------------------------------------------------- //
+  val meta: MetaBufBundle = metaBuf.io.deq.bits
+  val txn : TxnCtrlInfo   = txnInfo.bits
+
+// ------------------------------------------ FSM Logics ------------------------------------------------- //
+  val s_idle :: s_serial_cmt :: s_gather_cmt :: Nil = Enum(3)
+  val state_nxt  = WireInit(s_idle)
+  val state_r    = RegNext(state_nxt)
+  val idle       = state_r === s_idle
+  val serial_cmt = state_r === s_serial_cmt
+  val gather_cmt = state_r === s_gather_cmt
+
+  // FSM State switch
+  when (idle) {
+    state_nxt := Mux(
+      metaBuf.io.deq.valid,
+      // accept a new request
+      Mux(
+        meta.mode.isGather,
+        s_gather_cmt,
+        s_serial_cmt
+      ),
+      s_idle
+    )
+  }.elsewhen(serial_cmt) {
+    state_nxt := Mux(txn.isFinalBeat && txnInfo.ready, s_idle, s_serial_cmt) // txnInfo.ready is do Update
+  }.elsewhen(gather_cmt) {
+    state_nxt := Mux(txn.isFinalBeat && txnInfo.ready, s_idle, s_gather_cmt)
+  }.otherwise {
+    state_nxt := state_r
+  }
+
+// ------------------------------------------ Connections ------------------------------------------------- //
   metaBuf.io.enq.bits.init(metaInfo.bits)
   metaBuf.io.enq.valid       := metaInfo.valid
   metaInfo.ready             := metaBuf.io.enq.ready

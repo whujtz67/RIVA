@@ -4,80 +4,36 @@ import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import protocols.AXI.spec.RFlit
-import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 
 class SeqBufBundle(implicit p: Parameters) extends VLSUBundle {
   val hb = UInt(4.W)
   val en = Bool() // Not the hbe committing to the lane, haven't considered mask.
 }
 
-class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with ShuffleHelper with CommonDataCtrl with HasCircularQueuePtrHelper {
-  class CirQSeqBufPtr extends CircularQueuePtr[CirQSeqBufPtr](2)
-
+class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtrl {
 // ------------------------------------------ IO Declaration ------------------------------------------------- //
   // R Channel Input
   val r = IO(Flipped(Decoupled(new RFlit(axi4Params)))).suggestName("io_r")
-
-  // Mask from mask unit
-  val mask = IO(Vec(NrLanes, Flipped(Valid(UInt((SLEN/4).W))))).suggestName("io_mask")
-  val maskReady = IO(Output(Bool())).suggestName("io_mask_ready")
 
   // Output to Lane Entries
   val txs = IO(Vec(NrLanes, Decoupled(new TxLane()))).suggestName("io_txs") // to Lane
 
 // ------------------------------------------ Module Declaration ------------------------------------------------- //
-  private val busHbPtr_nxt = WireInit(0.U.asTypeOf(UInt((busSize-2).W)))
-  private val busHbPtr_r   = RegNext(busHbPtr_nxt)
-  private val seqHbPtr_nxt = WireInit(0.U.asTypeOf(UInt(log2Ceil(hbNum).W)))
-  private val seqHbPtr_r   = RegNext(seqHbPtr_nxt)
+
+
+// ------------------------------------------ Wire/Reg Declaration ------------------------------------------------- //
+  // vaddr
   private val vaddr_nxt    = Wire(new VAddrBundle())
   private val vaddr_r      = RegNext(vaddr_nxt)
 
-// ------------------------------------------ Wire/Reg Declaration ------------------------------------------------- //
-  private val seqBuf        = RegInit(0.U.asTypeOf(Vec(2, Vec(NrLanes*SLEN/4, new SeqBufBundle())))) // Ping-pong buffer
-  private val seqBufIsFinal = RegInit(0.U.asTypeOf(Vec(2, Bool()))) // The data saved in the seqBuf is the last set of data of the riva req.
-                                                                    // Use for metaBuf.deq.
+  // The data saved in the seqBuf is the last set of data of the riva req, Use for metaBuf.deq.
+  private val seqBufIsFinal = RegInit(0.U.asTypeOf(Vec(2, Bool())))
 
-  private val enqPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
-  private val deqPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
-
-  private val seqBufEmpty = isEmpty(enqPtr, deqPtr)
-  private val seqBufFull  = isFull (enqPtr, deqPtr)
-
+  // shuffle buffer
   private val shfBuf = RegInit(0.U.asTypeOf(Vec(NrLanes, Valid(new TxLane()))))
-
   private val shfBufEmpty = !shfBuf.map(_.valid).reduce(_ || _)
 
-// ------------------------------------------ FSM Logics ------------------------------------------------- //
-  private val s_idle :: s_serial_cmt :: s_gather_cmt :: Nil = Enum(3)
-  private val state_nxt  = WireInit(s_idle)
-  private val state_r    = RegNext(state_nxt)
-  private val idle       = state_r === s_idle
-  private val serial_cmt = state_r === s_serial_cmt
-  private val gather_cmt = state_r === s_gather_cmt
-
-  // FSM State switch
-  when (idle) {
-    state_nxt := Mux(
-      metaBuf.io.deq.valid,
-      // accept a new request
-      Mux(
-        meta.mode.isGather,
-        s_gather_cmt,
-        s_serial_cmt
-      ),
-      s_idle
-    )
-  }.elsewhen(serial_cmt) {
-    state_nxt := Mux(txn.isFinalBeat && txnInfo.ready, s_idle, s_serial_cmt) // txnInfo.ready is do Update
-  }.elsewhen(gather_cmt) {
-    state_nxt := Mux(txn.isFinalBeat && txnInfo.ready, s_idle, s_gather_cmt)
-  }.otherwise {
-    state_nxt := state_r
-  }
-
-// ------------------------------------------ Main Logics ------------------------------------------------- //
-  // give the FSM Outputs default value
+// ------------------------------------------ give the Outputs default value ------------------------------------------------- //
   vaddr_nxt      := vaddr_r
   busHbPtr_nxt   := busHbPtr_r
   seqHbPtr_nxt   := seqHbPtr_r
@@ -87,6 +43,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with ShuffleHelper
   busData        := 0.U.asTypeOf(busData)
   busHbe         := 0.U.asTypeOf(busHbe)
 
+// ------------------------------------------ AXI bus -> seqBuf ------------------------------------------------- //
   // FSM Outputs
   when (idle) {
     // initialize Pointers and vaddr
@@ -137,8 +94,6 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with ShuffleHelper
         }
       }
 
-
-
       val start = lowerHb + busHbPtr_r
       val end   = upperHb
 
@@ -188,6 +143,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with ShuffleHelper
     // Do nothing because default value has been given already.
   }
 
+// ------------------------------------------ seqBuf -> shfBuf ------------------------------------------------- //
   private val do_cmt_seq_to_shf = shfBufEmpty && !seqBufEmpty && metaInfo.valid && (meta.vm || mask.map(_.valid).reduce(_ || _))
 
   // Shuffle and commit data and hbe in seqBuf to shfBuf
@@ -205,15 +161,19 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with ShuffleHelper
     // Therefore, it is necessary to connect the two and perform the assignment again.
     shfBuf.zip(shfBuf_hb.zip(shfBuf_en)).foreach {
       case (vec_o, (vec_hb_i, vec_en_i)) =>
-        vec_o.bits.hbs.zip(vec_hb_i).foreach {
+        val hbs = Wire(chiselTypeOf(vec_hb_i))
+        hbs.zip(vec_hb_i).foreach {
           case (hb_o, hb_i) =>
             hb_o := hb_i
         }
+        vec_o.bits.data := hbs.asUInt
 
-        vec_o.bits.hbes.zip(vec_en_i).foreach {
+        val hbes = Wire(chiselTypeOf(vec_en_i))
+        hbes.zip(vec_en_i).foreach {
           case (en_o, en_i) =>
             en_o := en_i
         }
+        vec_o.bits.hbe := hbes.asUInt
     }
 
     // Make all shuffle buffer valid
@@ -241,13 +201,13 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with ShuffleHelper
     metaBuf.io.deq.ready := false.B
   }
 
-  // commit to Lane
+// ------------------------------------------ shfBuf -> lane ------------------------------------------------- //
   txs.zipWithIndex.foreach {
     case (tx, lane) =>
       tx.bits.reqId := shfBuf(lane).bits.reqId
       tx.bits.vaddr := shfBuf(lane).bits.vaddr
-      tx.bits.hbs   := shfBuf(lane).bits.hbs
-      tx.bits.hbes  := shfBuf(lane).bits.hbes
+      tx.bits.data  := shfBuf(lane).bits.hbs.asUInt
+      tx.bits.hbe   := shfBuf(lane).bits.hbes.asUInt
       tx.valid      := shfBuf(lane).valid
 
       when (tx.fire) {
