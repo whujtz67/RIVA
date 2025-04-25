@@ -21,9 +21,6 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   private val vaddr_nxt    = Wire(new VAddrBundle())
   private val vaddr_r      = RegNext(vaddr_nxt)
 
-  // The data saved in the seqBuf is the last set of data of the riva req, Use for metaBuf.deq.
-  private val seqBufIsFinal = RegInit(0.U.asTypeOf(Vec(2, Bool())))
-
   // shuffle buffer
   private val shfBuf = RegInit(0.U.asTypeOf(Vec(NrLanes, Valid(new TxLane()))))
   private val shfBufEmpty = !shfBuf.map(_.valid).reduce(_ || _)
@@ -89,9 +86,9 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
           enqPtr := enqPtr + 1.U
         }
 
-        // Haven't occupied all valid hbs in the seqBuf, but the current beat is already the last one.
+        // Haven't occupied all valid hbs in the seqBuf,
+        // but the current beat is already the final beat of the whole riva request.
         when (txnInfo.bits.isFinalBeat) {
-          seqBufIsFinal(enqPtr.value) := true.B
           enqPtr := enqPtr + 1.U
         }
       }
@@ -188,16 +185,22 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     vaddr_nxt := (vaddr_r.asUInt + 1.U).asTypeOf(new VAddrBundle)
     maskReady := !meta.vm // mask has been consumed
 
-    // When current seqBuf is the last set of data of the riva req, do metaReq deq.
-    // We SHOULD wait for this stage to deq metaBuf, instead of at 'bus -> seqBuf' stage!!!
-    // The reason is we need meta.vm in this stage.
-    when (seqBufIsFinal(deqPtr.value)) {
+    /* When current seqBuf is the last set of data of the riva req, do metaReq deq.
+     * We SHOULD wait for this stage to deq metaBuf, instead of at 'bus -> seqBuf' stage!!!
+     * The reason is we need meta.vm in this stage.
+     *
+     * cmtCnt is pre-calculated in the ControlMachine.
+     *
+     * cmtCnt is the actually count - 1, so do deq when cmtCnt = 0 and data is committed to shfBuf to seqBuf.
+     */
+    when (!meta.cmtCnt.orR) {
       m_deqPtr := m_deqPtr + 1.U
+    }.otherwise {
+      meta.cmtCnt := meta.cmtCnt - 1.U
     }
 
     // do deq of seqBuf
-    seqBuf(deqPtr.value)        := 0.U.asTypeOf(seqBuf(deqPtr.value)) // Actually, we only need to clear hbe.
-    seqBufIsFinal(deqPtr.value) := false.B
+    seqBuf(deqPtr.value) := 0.U.asTypeOf(seqBuf(deqPtr.value)) // Actually, we only need to clear hbe.
     deqPtr := deqPtr + 1.U
   }
 

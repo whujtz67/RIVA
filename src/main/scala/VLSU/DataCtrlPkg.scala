@@ -344,6 +344,7 @@ class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
   val vd     = UInt(5.W)
   val vstart = UInt(log2Ceil(maxNrElems).W)
   val vm     = Bool()
+  val cmtCnt = UInt(log2Ceil(VLEN*EWs.max/SLEN).W)
 
   def init(meta: MetaCtrlInfo): Unit = {
     this.reqId  := meta.glb.reqId
@@ -352,6 +353,7 @@ class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
     this.vd     := meta.glb.vd
     this.vstart := meta.glb.vstart
     this.vm     := meta.glb.vm
+    this.cmtCnt := meta.glb.cmtCnt
   }
 }
 

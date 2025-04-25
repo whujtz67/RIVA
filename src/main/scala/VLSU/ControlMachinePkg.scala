@@ -17,10 +17,18 @@ class global(implicit p: Parameters) extends VLSUBundle {
   val vm       = Bool()
   val nrClns   = UInt(log2Ceil(maxNrElems).W) // Number of column, which is the element number in a row (won't '-1' like axi len)
   val vstart   = UInt(log2Ceil(maxNrElems).W) // The start element index in the request.
-  val rmnGrp   = UInt(log2Ceil(maxNrElems*possibleEWs.max/SLEN).W) // Txn will be divided into several groups in 2D cln mode, otherwise rmnGrp = 0
+  val rmnGrp   = UInt(log2Ceil(maxNrElems*EWs.max/SLEN).W) // Txn will be divided into several groups in 2D cln mode, otherwise rmnGrp = 0
   val rmnRow   = UInt(log2Ceil(maxNrElems).W) // Remain row number (remain -> rmn)
+  // 'CmtCnt' represents the number of times shfBuf is committed to either the lane or seqBuf,
+  // calculated by dividing the total data volume of the current request by NrLanes * SLEN.
+  // 'CmtCnt' is used to decide when to deq metaBuf.
+  // 'CmtCnt' is the actual count - 1 (just like axi len)
+  // maxCmtCnt = maxDataPerReq / (SLEN * NrLanes) = (VLEN * maxEW * NrLanes(2D Row)) / (SLEN * NrLanes) = VLEN * maxEW / SLEN
+  val cmtCnt = UInt(log2Ceil(maxNrElems*EWs.max/SLEN).W)
 
   def init(req: RivaReqPtl): Unit = {
+    val elemNum = req.len - req.vstart
+
     this.reqId    := req.reqId
     this.mode     := (1.U << req.mop).asTypeOf(this.mode)
     this.baseAddr := req.baseAddr
@@ -29,7 +37,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
     this.vm       := req.vm
     this.stride   := req.stride
     this.nrClns   := PriorityMux(Seq( // wont '-1'
-      this.mode.Incr  -> (req.len - req.vstart),
+      this.mode.Incr  -> elemNum,
       this.mode.Strd  -> 1.U,
       this.mode.row2D -> NrLanes.U,
       this.mode.cln2D -> req.len
@@ -38,10 +46,18 @@ class global(implicit p: Parameters) extends VLSUBundle {
     this.rmnGrp  := Mux(this.mode.cln2D, req.len << req.wid >> log2Ceil(SLEN/4), 0.U)
     this.rmnRow  := PriorityMux(Seq(  // do '-1'
       this.mode.Incr  -> 0.U,
-      this.mode.Strd  -> (req.len - req.vstart - 1.U),
+      this.mode.Strd  -> (elemNum - 1.U),
       this.mode.row2D -> (req.len - 1.U),
       this.mode.cln2D -> (NrLanes - 1).U
     ))
+
+    // The cmtCnt can also be obtained using nrCln * rmnRow * EW / (NrLanes * SLEN),
+    // but that would result in a 14-bit multiplier, which is too costly.
+    this.cmtCnt := PriorityMux(Seq(  // do '-1'
+      (this.mode.Incr || this.mode.Strd) -> ((elemNum << (this.wid + 2.U))),
+      this.mode.row2D -> ((req.len << log2Ceil(NrLanes) << (this.wid + 2.U))),
+      this.mode.cln2D -> (req.len << log2Ceil(NrLanes))
+    )) >> log2Ceil(NrLanes * SLEN)
 
     assert(req.len > req.vstart, "vlen/alen must > vstart. Otherwise, the request is meaningless")
   }
@@ -73,8 +89,8 @@ class rowLevel(implicit p: Parameters) extends VLSUBundle {
   val rowBaseAddr = UInt(axi4Params.addrBits.W)
   val illuHead    = Bool()
   val illuTail    = Bool()
-  val txnNum      = UInt(log2Ceil(maxNrElems*possibleEWs.max/8/4096 + 1).W) // +1 for unaligned situations
-  val txnCnt      = UInt(log2Ceil(maxNrElems*possibleEWs.max/8/4096 + 1).W)
+  val txnNum      = UInt(log2Ceil(maxNrElems*EWs.max/8/4096 + 1).W) // +1 for unaligned situations
+  val txnCnt      = UInt(log2Ceil(maxNrElems*EWs.max/8/4096 + 1).W)
   val ltB         = UInt(12.W) // last Txn Bytes
 
   /*** Initialize the row Level info.
