@@ -305,7 +305,7 @@ trait ShuffleHelper {
             // Unlike hw_shuffle, mask should be considered at this stage when de-shuffle.
             if (mask.isDefined) {
               // de-shuffle hbe
-              mask.get(lane)(off) || vm.get // We don't have shfBuf.hbe in STU, only consider mask in the maskU
+              mask.get(lane)(off) || vm.get // We don't have shfBuf.hbe in STU, only consider mask from mask Unit
             } else {
               // de-shuffle hb
               shfBuf.get(lane)(off)
@@ -479,5 +479,5 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   when (metaInfo.fire) {
     m_enqPtr := m_enqPtr + 1.U
   }
-  metaInfo.ready             := !metaBufFull
+  metaInfo.ready := !metaBufFull
 }
