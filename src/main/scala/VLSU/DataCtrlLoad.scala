@@ -5,11 +5,6 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import protocols.AXI.spec.RFlit
 
-class SeqBufBundle(implicit p: Parameters) extends VLSUBundle {
-  val hb = UInt(4.W)
-  val en = Bool() // Not the hbe committing to the lane, haven't considered mask.
-}
-
 class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtrl {
 // ------------------------------------------ IO Declaration ------------------------------------------------- //
   // R Channel Input
@@ -35,7 +30,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
 
 // ------------------------------------------ give the Outputs default value ------------------------------------------------- //
   vaddr_nxt      := vaddr_r
-  busHbPtr_nxt   := busHbPtr_r
+  busHbCnt_nxt   := busHbCnt_r
   seqHbPtr_nxt   := seqHbPtr_r
   r.ready        := false.B
   txnInfo.ready  := false.B
@@ -43,12 +38,12 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   busData        := 0.U.asTypeOf(busData)
   busHbe         := 0.U.asTypeOf(busHbe)
 
-// ------------------------------------------ AXI bus -> seqBuf ------------------------------------------------- //
+// ------------------------------------------ AXI R bus -> seqBuf ------------------------------------------------- //
   // FSM Outputs
   when (idle) {
     // initialize Pointers and vaddr
     when(metaBuf.io.deq.valid) {
-      busHbPtr_nxt := 0.U
+      busHbCnt_nxt := 0.U // busHbCnt is the counter of valid hbs from the bus that has already been committed, so it should be initialized as 0.
       seqHbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(hbNum)-1, 0)
       vaddr_nxt.init(meta)
 
@@ -63,38 +58,45 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     val upperHb = Mux(
       txn.isLastBeat,
       lowerHb + (txn.lbB << 1).asUInt - txn.illuTail.asUInt - (txn.isHead && txn.illuHead).asUInt,
-      (busBytes.U << 1).asUInt - 1.U
+      (busBytes * 2 - 1).U
     )
 
     // Won't consume data of the R Channel when seqBuf is full.
     when (r.valid && !seqBufFull) {
-      val busValidHb    = upperHb - lowerHb + 1.U - busHbPtr_r // The amount of valid data on the bus
+      val busValidHb    = upperHb - lowerHb + 1.U - busHbCnt_r // The amount of valid data on the bus
       val seqBufValidHb = (NrLanes * SLEN / 4).U - seqHbPtr_r  // The amount of free space available in seqBuf
 
       val cmtHbNum = WireInit(0.U.asTypeOf(UInt((busSize + 1).W)))
 
-
+      // Update control information
       when (busValidHb > seqBufValidHb) {
         // The amount of valid data on the bus is greater than the amount of free space available in seqBuf.
         cmtHbNum       := seqBufValidHb
-        busHbPtr_nxt   := busHbPtr_r + cmtHbNum
+        busHbCnt_nxt   := busHbCnt_r + cmtHbNum
         seqHbPtr_nxt   := 0.U
         enqPtr         := enqPtr + 1.U // Current slice of seqBuf is full, add the enqPtr.
       }.otherwise {
         // seqBuf still has enough space for the next r beat.
         cmtHbNum       := busValidHb
-        busHbPtr_nxt   := 0.U
-        seqHbPtr_nxt   := seqHbPtr_r + cmtHbNum
+        busHbCnt_nxt   := 0.U
+        seqHbPtr_nxt   := seqHbPtr_r + cmtHbNum // will be 0.U when busValidHb = seqBufValidHb
         r.ready        := true.B
-        txnInfo.ready  := true.B
+        txnInfo.ready  := true.B                // a beat is issued
 
+        // Still need to do enq for the seqBuf is busValidHb = seqBufValidHb
+        // TODO: is there better way to achieve this?
+        when (busValidHb === seqBufValidHb) {
+          enqPtr := enqPtr + 1.U
+        }
+
+        // Haven't occupied all valid hbs in the seqBuf, but the current beat is already the last one.
         when (txnInfo.bits.isFinalBeat) {
           seqBufIsFinal(enqPtr.value) := true.B
           enqPtr := enqPtr + 1.U
         }
       }
 
-      val start = lowerHb + busHbPtr_r
+      val start = lowerHb + busHbCnt_r
       val end   = upperHb
 
       busData := VecInit(Seq.tabulate(128)(i => r.bits.data(4 * (i + 1) - 1, 4 * i)))
@@ -111,45 +113,43 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
 //      }
 
       /* 
-       * WHY we choose to iterate over result_queue half bytes:
+       * WHY we choose to iterate over seqBuf half bytes:
        *
-       * Although it's intuitive to 'iterate over AXI half bytes' and decide where each should go in the result_queue,
+       * Although it's intuitive to 'iterate over AXI half bytes' and decide where each should go in the seqBuf,
        * this approach is NOT optimal in hardware.
        *
-       * A more fundamental and efficient method is to 'iterate over each half byte in the result_queue' and determine if any AXI half byte should be written into it.
-       * This matches the nature of hardware synthesis, where each register (half byte in result_queue) needs to explicitly define
+       * A more fundamental and efficient method is to 'iterate over each half byte in the seqBuf' and determine if any AXI half byte should be written into it.
+       * This matches the nature of hardware synthesis, where each register (half byte in seqBuf) needs to explicitly define
        * its input source and write condition.
        *
        * In our design, each AXI beat contains multiple half bytes, and each half byte may or may not be valid depending on the transfer boundaries and shuffle logic.
-       * However, each result_queue half byte can only be written by at most one AXI half byte per cycle. Therefore, by iterating over result_queue half bytes,
-       * we only need to perform one matching check per half byte, instead of checking all result_queue positions for every AXI half byte.
+       * However, each seqBuf half byte can only be written by at most one AXI half byte per cycle. Therefore, by iterating over seqBuf half bytes,
+       * we only need to perform one matching check per half byte, instead of checking all seqBuf positions for every AXI half byte.
        *
-       * Moreover, iterating over the result_queue generates only about 1/4 as much Verilog
+       * Moreover, iterating over the seqBuf generates only about 1/4 as much Verilog
        * compared to iterating over all AXI half-bytes.
        */
-      seqBuf(enqPtr.value).zipWithIndex.foreach {
-        case (seqHb_r, seqIdx) =>
+      seqBuf(enqPtr.value).hb.zip(seqBuf(enqPtr.value).en).zipWithIndex.foreach {
+        case ((hb, en), seqIdx) =>
           when ((seqIdx.U >= seqHbPtr_r) && (seqIdx.U <= (seqHbPtr_r + cmtHbNum))) {
             val idx = seqIdx.U - seqHbPtr_r + start // 'start' is needed, because 'idx' is the index of busHb.
-            seqHb_r.hb := busData(idx)
-            seqHb_r.en := true.B
+            hb := busData(idx)
+            en := true.B // don't consider mask of mask Unit now
           }
       }
 
     }
   }.elsewhen(gather_cmt) {
     assert(false.B, "We don't support gather mode now!")
-  }.otherwise {
-    // Do nothing because default value has been given already.
   }
 
 // ------------------------------------------ seqBuf -> shfBuf ------------------------------------------------- //
-  private val do_cmt_seq_to_shf = shfBufEmpty && !seqBufEmpty && metaInfo.valid && (meta.vm || mask.map(_.valid).reduce(_ || _))
+  private val do_cmt_seq_to_shf = shfBufEmpty && !seqBufEmpty && metaBuf.io.deq.valid && (meta.vm || mask.map(_.valid).reduce(_ || _))
 
   // Shuffle and commit data and hbe in seqBuf to shfBuf
   when(do_cmt_seq_to_shf) { // NOTE: mask.valid should be || instead of &&. TODO: 还不知道为什么
-    val seqBuf_hb = VecInit(seqBuf(deqPtr.value).map(_.hb))
-    val seqBuf_en = VecInit(seqBuf(deqPtr.value).map(_.en))
+    val seqBuf_hb = seqBuf(deqPtr.value).hb
+    val seqBuf_en = seqBuf(deqPtr.value).en
 
     val shfBuf_hb = VecInit(shfBuf.map(_.bits.hbs))
     val shfBuf_en = VecInit(shfBuf.map(_.bits.hbes))
@@ -194,7 +194,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     metaBuf.io.deq.ready := seqBufIsFinal(deqPtr.value)
 
     // do deq of seqBuf
-    seqBuf(deqPtr.value)        := 0.U.asTypeOf(seqBuf(deqPtr.value))
+    seqBuf(deqPtr.value)        := 0.U.asTypeOf(seqBuf(deqPtr.value)) // Actually, we only need to clear hbe.
     seqBufIsFinal(deqPtr.value) := false.B
     deqPtr := deqPtr + 1.U
   }.otherwise {

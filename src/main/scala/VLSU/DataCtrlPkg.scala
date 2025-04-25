@@ -51,7 +51,7 @@ trait ShuffleHelper {
   val laneIdBits : Int = log2Ceil(NrLanes)
   val laneOffBits: Int = log2Ceil(SLEN/4)
 
-  private val laneElemNum = SLEN / possibleEWs.min // Max element number in a lane, typically 128/4 = 32
+  private val laneElemNum = SLEN / EWs.min // Max element number in a lane, typically 128/4 = 32
   private val seqHbIdxs   = 0 until hbNum
   private val seqElemIdxs = 0 until laneElemNum
 
@@ -101,7 +101,7 @@ trait ShuffleHelper {
     val elemIdx: (Seq[Int], Seq[Int]) = (splitResultNormal.map(_._3), splitResult2dCln.map(_._2))
 
     private def split(is2DCln: Boolean): IndexedSeq[(Int, Int, Int)] = {
-      possibleEWs.indices.map { wid =>
+      EWs.indices.map { wid =>
         val elemOffBits = wid
         val elemIdxBits = hbIdxBits - elemOffBits - laneIdBits
 
@@ -186,7 +186,7 @@ trait ShuffleHelper {
    */
   private def shuffle_elemIdx: ListMap[Int, Int] = {
     def recursion(seq: Seq[Int]): Seq[Int] = {
-      val threshold = SLEN / possibleEWs.max
+      val threshold = SLEN / EWs.max
 
       if (seq.size == threshold) {
         seq
@@ -223,7 +223,7 @@ trait ShuffleHelper {
    */
   def sw_shuffle(is2DCln: Boolean) = {
     println(s"[software shuffle map (is 2D cln: $is2DCln)]\n")
-    possibleEWs.indices.map { eew =>
+    EWs.indices.map { eew =>
       val res = seqIdxs.map(idx => idx.getShfIdx(is2DCln, eew))
 
       println(s"EW = ${1 << (eew + 2)}")
@@ -266,11 +266,11 @@ trait ShuffleHelper {
             // TODO: 合并一些重复的情况
             // In the foreach loop, there is an anonymous scope, so suggestName does not work.
             // INCR, STRD, 2D_ROW Mode
-            val vec1 = VecInit(possibleEWs.indices.map { eew =>
+            val vec1 = VecInit(EWs.indices.map { eew =>
               seqBuf(shf2seq_map(eew)(shfHbIdx.idx))
             })
             // 2D_CLN Mode
-            val vec2 = VecInit(possibleEWs.indices.map { eew =>
+            val vec2 = VecInit(EWs.indices.map { eew =>
               seqBuf(shf2seq_2d_cln_map(eew)(shfHbIdx.idx))
             })
 
@@ -360,6 +360,11 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
 
   class CirQSeqBufPtr extends CircularQueuePtr[CirQSeqBufPtr](2)
 
+  class SeqBufBundle(implicit p: Parameters) extends VLSUBundle {
+    val hb = Vec(NrLanes*SLEN/4, UInt(4.W))
+    val en = Vec(NrLanes*SLEN/4, Bool()) // Not the hbe committing to the lane, haven't considered mask.
+  }
+
 // ------------------------------------------ Common IO Declaration of both DataCtrl ------------------------------------------------- //
   val metaInfo = IO(Flipped(Decoupled(new MetaCtrlInfo()))).suggestName("io_metaInfo") // MetaCtrlInfo from controlMachine
   val txnInfo  = IO(Flipped(Decoupled(new TxnCtrlInfo()))).suggestName("io_txnInfo")   // TxnCtrlInfo from TC. NOTE: txnInfo.ready is the update signal to TC
@@ -368,24 +373,29 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   val mask      = IO(Vec(NrLanes, Flipped(Valid(UInt((SLEN/4).W))))).suggestName("io_mask")
   val maskReady = IO(Output(Bool())).suggestName("io_mask_ready")
 
-// ------------------------------------------ Modules Delaration ------------------------------------------------- //
+// ------------------------------------------ Meta Buffer ------------------------------------------------- //
   val metaBuf: Queue[MetaBufBundle] = Module(new Queue(new MetaBufBundle(), metaBufDep))
+//  val metaBuf = RegInit(0.U.asTypeOf(Vec(metaBufDep, new MetaBufBundle())))
 
-// ------------------------------------------ Wire/Reg Delaration ------------------------------------------------- //
-  val seqBuf: Vec[Vec[SeqBufBundle]] = RegInit(0.U.asTypeOf(Vec(2, Vec(NrLanes*SLEN/4, new SeqBufBundle())))) // Ping-pong buffer
+// ------------------------------------------ Sequential Buffer ------------------------------------------------- //
+  val seqBuf: Vec[SeqBufBundle] = RegInit(0.U.asTypeOf(Vec(2, new SeqBufBundle()))) // Ping-pong buffer
 
   val enqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
   val deqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
 
   val seqBufEmpty: Bool = isEmpty(enqPtr, deqPtr)
   val seqBufFull : Bool = isFull (enqPtr, deqPtr)
-
+// ------------------------------------------ Wire/Reg Delaration ------------------------------------------------- //
   val busData: Vec[UInt] = Wire(Vec(busBytes * 2, UInt(4.W)))
   val busHbe : Vec[UInt] = Wire(Vec(busBytes * 2, UInt(1.W)))
 
-  // pointers
-  val busHbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt((busSize-2).W)))
-  val busHbPtr_r  : UInt = RegNext(busHbPtr_nxt)
+  // Because the remaining space in seqBuf might be less than the amount of valid data on the bus,
+  // it may not be possible to commit all valid data from the bus in a single cycle.
+  // Therefore, a counter is required to indicate the amount of valid data from the bus that has already been committed.
+  val busHbCnt_nxt: UInt = WireInit(0.U.asTypeOf(UInt((busSize-2).W)))
+  val busHbCnt_r  : UInt = RegNext(busHbCnt_nxt)
+
+  // seqBuf half byte pointer
   val seqHbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt(log2Ceil(hbNum).W)))
   val seqHbPtr_r  : UInt = RegNext(seqHbPtr_nxt)
 

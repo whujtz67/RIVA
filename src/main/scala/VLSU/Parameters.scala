@@ -17,10 +17,12 @@ case class VLSUParamters(
   axi4Params: AXI4Params = AXI4Params(),
   reqBufDep : Int = 4,
   metaBufDep: Int = 4,
+  wBufDep   : Int = 4,
   txnCtrlNum: Int = 4,
 ) {
   require(NrLanes > 0)
   require(NrVInsn > 0)
+  require(wBufDep > 1, "should be a ping-pong buffer")
 
   val reqIdBits  = log2Ceil(NrVInsn)
   val maxNrElems = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
@@ -32,14 +34,14 @@ case class VLSUParamters(
   val maxLen   = axi4Params.maxTxnBytes / busBytes // Max AXI Burst Len
   val maxSize  = log2Ceil(busBytes)
 
-  val possibleEWs = Seq(4, 8, 16, 32)
+  val EWs = Seq(4, 8, 16, 32)
 
-  val maxTxnPerReq  = VLEN / possibleEWs.min    // The max axi transaction num that a mem access req may cause. TODO: Determined by stride mode or tilen?
+  val maxTxnPerReq  = VLEN / EWs.min    // The max axi transaction num that a mem access req may cause. TODO: Determined by stride mode or tilen?
   val allElen       = SLEN * NrLanes
   val allElenByte   = allElen / 8
   val dataBufWidth  = allElen.max(busBits) // We want to ensure that the data buffer can accommodate the maximum amount of data that all lanes can output simultaneously in a single cycle.
                                            // Additionally, if this amount is smaller than the bus width, we prefer to accumulate data until it reaches the full bus width before transmitting.
-  val maxDataBytes  = VLEN * possibleEWs.max / 8
+  val maxDataBytes  = VLEN * EWs.max / 8
 
   private val vmBits = VLEN * 16
   private val amBits = ALEN * 16
@@ -50,7 +52,6 @@ case class VLSUParamters(
 
   val tilenBits = 16 // TODO: confirm tilen width
 
-  val EWs = Seq(4, 8, 16, 32)
 }
 
 trait HasVLSUParams {
@@ -66,6 +67,7 @@ trait HasVLSUParams {
   lazy val axi4Params = vlsuParams.axi4Params
   lazy val reqBufDep  = vlsuParams.reqBufDep
   lazy val metaBufDep = vlsuParams.metaBufDep
+  lazy val wBufDep    = vlsuParams.wBufDep
   lazy val txnCtrlNum = vlsuParams.txnCtrlNum
 
   // derived parameters
@@ -76,7 +78,7 @@ trait HasVLSUParams {
   lazy val busSize      = vlsuParams.busSize
   lazy val maxLen       = vlsuParams.maxLen
   lazy val maxSize      = vlsuParams.maxSize
-  lazy val possibleEWs  = vlsuParams.possibleEWs
+  lazy val EWs          = vlsuParams.EWs
   lazy val maxTxnPerReq = vlsuParams.maxTxnPerReq
   lazy val allElen      = vlsuParams.allElen
   lazy val dataBufWidth = vlsuParams.dataBufWidth
@@ -84,7 +86,7 @@ trait HasVLSUParams {
   lazy val bankNum      = vlsuParams.bankNum
   lazy val bankDep      = vlsuParams.bankDep
   lazy val tilenBits    = vlsuParams.tilenBits
-  lazy val EWs          = vlsuParams.EWs
+
 }
 
 class VLSUBundle (implicit val p: Parameters) extends Bundle with HasVLSUParams
