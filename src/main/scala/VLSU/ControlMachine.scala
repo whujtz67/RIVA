@@ -68,7 +68,10 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   io.meta.bits  := meta_r
   io.meta.valid := fragmenting
 
-  io.rivaReq.ready := finalTxnIssued
+  // In the IDLE state, the valid information from the instruction is stored in MetaCtrlInfo.glb.
+  // After this storage, the instruction information is no longer needed.
+  // Therefore, during the IDLE state, the Instruction Queue can be dequeued.
+  io.rivaReq.ready := idle
 
 // ------------------------------------------ Don't Touch ---------------------------------------------- //
   dontTouch(idle)
