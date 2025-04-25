@@ -359,6 +359,7 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   self: VLSUModule =>
 
   class CirQSeqBufPtr extends CircularQueuePtr[CirQSeqBufPtr](2)
+  class CirQMetaBufPtr extends CircularQueuePtr[CirQMetaBufPtr](metaBufDep)
 
   class SeqBufBundle(implicit p: Parameters) extends VLSUBundle {
     val hb = Vec(NrLanes*SLEN/4, UInt(4.W))
@@ -374,8 +375,14 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   val maskReady = IO(Output(Bool())).suggestName("io_mask_ready")
 
 // ------------------------------------------ Meta Buffer ------------------------------------------------- //
-  val metaBuf: Queue[MetaBufBundle] = Module(new Queue(new MetaBufBundle(), metaBufDep))
-//  val metaBuf = RegInit(0.U.asTypeOf(Vec(metaBufDep, new MetaBufBundle())))
+//  val metaBuf: Queue[MetaBufBundle] = Module(new Queue(new MetaBufBundle(), metaBufDep))
+  val metaBuf: Vec[MetaBufBundle] = RegInit(0.U.asTypeOf(Vec(metaBufDep, new MetaBufBundle())))
+
+  val m_enqPtr: CirQMetaBufPtr = RegInit(0.U.asTypeOf(new CirQMetaBufPtr()))
+  val m_deqPtr: CirQMetaBufPtr = RegInit(0.U.asTypeOf(new CirQMetaBufPtr()))
+
+  val metaBufEmpty: Bool = isEmpty(m_enqPtr, m_deqPtr)
+  val metaBufFull : Bool = isFull (m_enqPtr, m_deqPtr)
 
 // ------------------------------------------ Sequential Buffer ------------------------------------------------- //
   val seqBuf: Vec[SeqBufBundle] = RegInit(0.U.asTypeOf(Vec(2, new SeqBufBundle()))) // Ping-pong buffer
@@ -400,7 +407,7 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   val seqHbPtr_r  : UInt = RegNext(seqHbPtr_nxt)
 
 // ------------------------------------------ Internal Bundles ------------------------------------------------- //
-  val meta: MetaBufBundle = metaBuf.io.deq.bits
+  val meta: MetaBufBundle = metaBuf(m_deqPtr.value)
   val txn : TxnCtrlInfo   = txnInfo.bits
 
 // ------------------------------------------ FSM Logics ------------------------------------------------- //
@@ -414,7 +421,7 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   // FSM State switch
   when (idle) {
     state_nxt := Mux(
-      metaBuf.io.deq.valid,
+      !metaBufEmpty,
       // accept a new request
       Mux(
         meta.mode.isGather,
@@ -432,7 +439,9 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   }
 
 // ------------------------------------------ Connections ------------------------------------------------- //
-  metaBuf.io.enq.bits.init(metaInfo.bits)
-  metaBuf.io.enq.valid       := metaInfo.valid
-  metaInfo.ready             := metaBuf.io.enq.ready
+  metaBuf(m_enqPtr.value).init(metaInfo.bits)
+  when (metaInfo.fire) {
+    m_enqPtr := m_enqPtr + 1.U
+  }
+  metaInfo.ready             := !metaBufFull
 }

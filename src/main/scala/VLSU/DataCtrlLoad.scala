@@ -42,7 +42,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   // FSM Outputs
   when (idle) {
     // initialize Pointers and vaddr
-    when(metaBuf.io.deq.valid) {
+    when(!metaBufEmpty) {
       busHbCnt_nxt := 0.U // busHbCnt is the counter of valid hbs from the bus that has already been committed, so it should be initialized as 0.
       seqHbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(hbNum)-1, 0)
       vaddr_nxt.init(meta)
@@ -144,7 +144,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   }
 
 // ------------------------------------------ seqBuf -> shfBuf ------------------------------------------------- //
-  private val do_cmt_seq_to_shf = shfBufEmpty && !seqBufEmpty && metaBuf.io.deq.valid && (meta.vm || mask.map(_.valid).reduce(_ || _))
+  private val do_cmt_seq_to_shf = shfBufEmpty && !seqBufEmpty && !metaBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
 
   // Shuffle and commit data and hbe in seqBuf to shfBuf
   when(do_cmt_seq_to_shf) { // NOTE: mask.valid should be || instead of &&. TODO: 还不知道为什么
@@ -191,14 +191,14 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     // When current seqBuf is the last set of data of the riva req, do metaReq deq.
     // We SHOULD wait for this stage to deq metaBuf, instead of at 'bus -> seqBuf' stage!!!
     // The reason is we need meta.vm in this stage.
-    metaBuf.io.deq.ready := seqBufIsFinal(deqPtr.value)
+    when (seqBufIsFinal(deqPtr.value)) {
+      m_deqPtr := m_deqPtr + 1.U
+    }
 
     // do deq of seqBuf
     seqBuf(deqPtr.value)        := 0.U.asTypeOf(seqBuf(deqPtr.value)) // Actually, we only need to clear hbe.
     seqBufIsFinal(deqPtr.value) := false.B
     deqPtr := deqPtr + 1.U
-  }.otherwise {
-    metaBuf.io.deq.ready := false.B
   }
 
 // ------------------------------------------ shfBuf -> lane ------------------------------------------------- //
