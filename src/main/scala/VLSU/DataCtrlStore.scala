@@ -67,12 +67,6 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
     hw_deshuffle(meta.mode, meta.eew, seqBuf_hb, Some(shfBuf_hb))
     hw_deshuffle(meta.mode, meta.eew, seqBuf_en, None, Some(VecInit(mask.map(_.bits))), Some(meta.vm))
 
-//    seqBuf(enqPtr.value).zip(seqBuf_hb.zip(seqBuf_en)).foreach {
-//      case (sink, (hb, en)) =>
-//        sink.hb := hb
-//        sink.en := en
-//    }
-
     maskReady := !meta.vm // mask has been consumed
 
     // do enq of seqBuf

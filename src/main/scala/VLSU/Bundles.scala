@@ -53,7 +53,6 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val len      = UInt(log2Ceil(maxNrElems).W) // Length, it equals alen when requesting AM and vlen when requesting VM.
   val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(maxNrElems).W)
-  val isLoad   = Bool()
   val vm       = Bool()
 
   def init(full: RivaReqFull): Unit = {
@@ -66,7 +65,6 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
     this.len      := Mux(full.vd(4), full.al, full.vl)
     this.tilen    := full.tilen
     this.vstart   := full.vstart
-    this.isLoad   := full.isLoad
     this.vm       := full.vm
   }
 

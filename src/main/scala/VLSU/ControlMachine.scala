@@ -90,6 +90,8 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   private val addrChnlName = if (isLoad) "ar" else "aw"
   private val dataChnlName = if (isLoad) "r"  else "w"
 
+  override def desiredName: String = if (isLoad) "TxnCtrlLoad" else "TxnCtrlStore"
+
 // ------------------------------------------ CircularQueuePtr ---------------------------------------------- //
   class CirQTxnCtrlPtr extends CircularQueuePtr[CirQTxnCtrlPtr](txnCtrlNum)
 
@@ -206,7 +208,8 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
 // ------------------------------------------ Parameters ---------------------------------------------- //
   private val addrChnlName = if (isLoad) "ar" else "aw"
   private val dataChnlName = if (isLoad) "r"  else "w"
-  override def desiredName: String = if (isLoad) "LoadCtrl" else "StoreCtrl"
+  private val directStr = if (isLoad) "Load" else "Store"
+  override def desiredName: String = if (isLoad) "CtrlMachineLoad" else "CtrlMachineStore"
 
 // ------------------------------------------ IO Declarations ---------------------------------------------- //
   val io = IO(new Bundle {
@@ -224,7 +227,7 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
 
 // ------------------------------------------ Module Declaration ---------------------------------------------- //
   private val rf  = Module(new ReqFragmenter()).suggestName("ReqFragmenter")
-  private val tc  = Module(new TxnControlUnit(isLoad)).suggestName("TxnControlUnit")
+  private val tc  = Module(new TxnControlUnit(isLoad)).suggestName(s"${directStr}_TC")
 
 // ------------------------------------------ Main Logics ---------------------------------------------- //
   //
@@ -233,9 +236,9 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   rf.io.rivaReq <> io.rivaReq
   rf.io.coreStPending := io.coreStPending
 
-  tc.io.update := io.update
-  io.txnCtrl   <> tc.io.txnCtrl
-  io.metaCtrl.bits := rf.io.meta
+  tc.io.update      := io.update
+  io.txnCtrl        <> tc.io.txnCtrl
+  io.metaCtrl.bits  := rf.io.meta.bits
   io.metaCtrl.valid := rf.io.meta.valid
   rf.io.metaBufFull := !io.metaCtrl.ready // metaCtrl.ready is metaBuf's enq.ready
 
