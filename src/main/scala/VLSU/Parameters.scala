@@ -8,7 +8,7 @@ import protocols.AXI.spec.AXI4Params
 case object  VLSUParametersKey extends Field[VLSUParamters]
 
 case class VLSUParamters(
-  NrLanes   : Int = 8,
+  NrLanes   : Int = 4,
   NrVInsn   : Int = 8,
   SLEN      : Int = 128,    // slice len, lane memory Interface data width (bits)
   VLEN      : Int = 8192,   // vector register length

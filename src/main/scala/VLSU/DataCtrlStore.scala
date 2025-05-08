@@ -100,8 +100,8 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
     )
     val upperHb = Mux(
       txn.isLastBeat,
-      lowerHb + (txn.lbB << 1).asUInt - txn.illuTail.asUInt - (txn.isHead && txn.illuHead).asUInt,
-      (busBytes * 2 - 1).U
+      (txn.lbB << 1).asUInt - txn.illuTail.asUInt, // busOff has already been accounted for in txn.lbB, so we don't need to add lowerHb (which is busOff)!
+      (busBytes * 2).U
     )
 
     // Commit when:
@@ -153,9 +153,11 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 
       wBuf(w_enqPtr.value).hbs.zip(wBuf(w_enqPtr.value).hbes).zipWithIndex.foreach {
         case ((hb, hbe), busIdx) =>
-          when ((busIdx.U >= start) && (busIdx.U <= end)) {
+          when ((busIdx.U >= start) && (busIdx.U < end)) { // should be '< end' because we don't do '-1' when calculating upperHb.
             val idx = busIdx.U - start + seqHbPtr_r
             hb  := seqBuf(deqPtr.value).hb(idx)
+            // The hbes that are outside the start-end range are always zero,
+            // so the case for the final beat (lbB) has already been taken into consideration here.
             hbe := seqBuf(deqPtr.value).en(idx)
           }
       }

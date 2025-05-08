@@ -54,13 +54,13 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     )
     val upperHb = Mux(
       txn.isLastBeat,
-      lowerHb + (txn.lbB << 1).asUInt - txn.illuTail.asUInt - (txn.isHead && txn.illuHead).asUInt,
-      (busBytes * 2 - 1).U
+      (txn.lbB << 1).asUInt - txn.illuTail.asUInt, // busOff has already been accounted for in txn.lbB, so we don't need to add lowerHb (which is busOff)!
+      (busBytes * 2).U
     )
 
     // Won't consume data of the R Channel when seqBuf is full.
     when (r.valid && !seqBufFull) {
-      val busValidHb    = upperHb - lowerHb + 1.U - busHbCnt_r // The amount of valid data on the bus
+      val busValidHb    = upperHb - lowerHb - busHbCnt_r // The amount of valid data on the bus. Don't need to '+1' because we didn't do '-1' when calculating upperHb.
       val seqBufValidHb = (NrLanes * SLEN / 4).U - seqHbPtr_r  // The amount of free space available in seqBuf
 
       val cmtHbNum = WireInit(0.U.asTypeOf(UInt((busSize + 1).W)))

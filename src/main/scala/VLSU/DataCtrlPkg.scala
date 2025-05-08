@@ -101,8 +101,8 @@ trait ShuffleHelper {
     val elemIdx: (Seq[Int], Seq[Int]) = (splitResultNormal.map(_._3), splitResult2dCln.map(_._2))
 
     private def split(is2DCln: Boolean): IndexedSeq[(Int, Int, Int)] = {
-      EWs.indices.map { wid =>
-        val elemOffBits = wid
+      EWs.indices.map { eew =>
+        val elemOffBits = eew
         val elemIdxBits = hbIdxBits - elemOffBits - laneIdBits
 
         val part1Bits = elemOffBits
@@ -119,10 +119,10 @@ trait ShuffleHelper {
       }
     }
 
-    def getShfIdx(is2DCln: Boolean, wid: Int): shfHbIdx = {
-      def get(in: (Seq[Int], Seq[Int])): Int = if (is2DCln) in._2(wid) else in._1(wid)
+    def getShfIdx(is2DCln: Boolean, eew: Int): shfHbIdx = {
+      def get(in: (Seq[Int], Seq[Int])): Int = if (is2DCln) in._2(eew) else in._1(eew)
 
-      val elemOffBits = wid
+      val elemOffBits = eew
       val elemIdxBits = hbIdxBits - elemOffBits - laneIdBits
 
       val eOff = get(this.elemOff)
@@ -241,11 +241,11 @@ trait ShuffleHelper {
   /** hardware shuffle
    *
    * @param mode
-   * @param wid
+   * @param eew
    * @param seqBuf
    * @param shfBuf_r Should be a reg, because it is a vec and is given a value separately according to the idx. Chisel doesn't allow it to be wire.
    */
-  def hw_shuffle[T <: UInt](mode: VecMopOH, wid: UInt, seqBuf: Vec[T], shfBuf_r: Vec[Vec[T]], mask: Option[Vec[UInt]] = None, vm: Option[Bool] = None): Unit = {
+  def hw_shuffle[T <: UInt](mode: VecMopOH, eew: UInt, seqBuf: Vec[T], shfBuf_r: Vec[Vec[T]], mask: Option[Vec[UInt]] = None, vm: Option[Bool] = None): Unit = {
     shfBuf_r.zipWithIndex.foreach {
       case (vec, lane) =>
         vec.zipWithIndex.foreach {
@@ -278,22 +278,22 @@ trait ShuffleHelper {
               // shuffle hbe
               sink := Mux(
                 mode.cln2D,
-                vec2(wid).andR && (mask.get(lane)(off) || vm.get),
-                vec1(wid).andR && (mask.get(lane)(off) || vm.get)
+                vec2(eew).andR && (mask.get(lane)(off) || vm.get),
+                vec1(eew).andR && (mask.get(lane)(off) || vm.get)
               )
             } else {
               // shuffle half byte
               sink := Mux(
                 mode.cln2D,
-                vec2(wid),
-                vec1(wid)
+                vec2(eew),
+                vec1(eew)
               )
             }
         }
     }
   }
 
-  def hw_deshuffle[T <: UInt](mode: VecMopOH, wid: UInt, seqBuf_r: Vec[T], shfBuf: Option[Vec[Vec[T]]], mask: Option[Vec[UInt]] = None, vm: Option[Bool] = None): Unit = {
+  def hw_deshuffle[T <: UInt](mode: VecMopOH, eew: UInt, seqBuf_r: Vec[T], shfBuf: Option[Vec[Vec[T]]], mask: Option[Vec[UInt]] = None, vm: Option[Bool] = None): Unit = {
     seqBuf_r.zipWithIndex.foreach {
       case (sink, seqIdx) =>
         def candidateVec(is2DCln: Boolean): Vec[UInt] = {
@@ -321,8 +321,8 @@ trait ShuffleHelper {
 
         sink := Mux(
           mode.cln2D,
-          vec2(wid),
-          vec1(wid)
+          vec2(eew),
+          vec1(eew)
         )
     }
   }
@@ -335,14 +335,14 @@ trait ShuffleHelper {
 //  class shuffle[T <: Data](gen: T) extends Module {
 //    val io = IO(new Bundle {
 //      val mode   = Input(new VecMopOH)
-//      val wid    = Input(UInt(2.W))
+//      val eew    = Input(UInt(2.W))
 //      val seqBuf = Input(Vec(hbNum, gen))
 //      val shfBuf = Output(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
 //    })
 //
 //    val shfBuf_r = Reg(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
 //
-//    hw_shuffle(io.mode, io.wid, io.seqBuf, shfBuf_r)
+//    hw_shuffle(io.mode, io.eew, io.seqBuf, shfBuf_r)
 //
 //    io.shfBuf := shfBuf_r
 //  }
@@ -383,7 +383,7 @@ class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
   def init(meta: MetaCtrlInfo): Unit = {
     this.reqId  := meta.glb.reqId
     this.mode   := meta.glb.mode
-    this.eew    := meta.glb.wid
+    this.eew    := meta.glb.eew
     this.vd     := meta.glb.vd
     this.vstart := meta.glb.vstart
     this.vm     := meta.glb.vm

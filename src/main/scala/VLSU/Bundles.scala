@@ -32,7 +32,7 @@ class RivaReqFull(implicit p: Parameters) extends VLSUBundle {
   val reqId    = UInt(reqIdBits.W)
   val mop      = UInt( 2.W)
   val baseAddr = UInt(axi4Params.addrBits.W) // scalar op
-  val wid      = UInt( 2.W)
+  val eew      = UInt( 2.W)
   val vd       = UInt( 5.W)
   val stride   = UInt(axi4Params.addrBits.W) // rs2/imm5
   val al       = UInt(log2Ceil(ALEN).W)
@@ -40,18 +40,17 @@ class RivaReqFull(implicit p: Parameters) extends VLSUBundle {
   val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(VLEN).W)
   val isLoad   = Bool()
-  val vm       = Bool() // consider mask or not?        false.B: consider true.B: not consider
+  val vm       = Bool() // consider mask or not?   false.B: consider true.B: not consider
 }
 
 class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val reqId    = UInt(reqIdBits.W)
   val mop      = UInt( 2.W)
   val baseAddr = UInt(axi4Params.addrBits.W) // scalar op
-  val wid      = UInt( 2.W)
+  val eew      = UInt( 2.W)
   val vd       = UInt( 5.W)
   val stride   = UInt(axi4Params.addrBits.W) // rs2/imm5
   val len      = UInt(log2Ceil(maxNrElems).W) // Length, it equals alen when requesting AM and vlen when requesting VM.
-  val tilen    = UInt(tilenBits.W)
   val vstart   = UInt(log2Ceil(maxNrElems).W)
   val vm       = Bool()
 
@@ -59,16 +58,15 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
     this.reqId    := full.reqId
     this.mop      := full.mop
     this.baseAddr := full.baseAddr
-    this.wid      := full.wid
+    this.eew      := full.eew
     this.vd       := full.vd
     this.stride   := full.stride
     this.len      := Mux(full.vd(4), full.al, full.vl)
-    this.tilen    := full.tilen
     this.vstart   := full.vstart
     this.vm       := full.vm
   }
 
-  def getEW: UInt = (1.U << (this.wid + 2.U)).asUInt
+  def getEW: UInt = (1.U << (this.eew + 2.U)).asUInt
 }
 
 class VecMopOH extends Bundle {
