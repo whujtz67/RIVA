@@ -51,12 +51,12 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   when (idle) {
     when (io.rivaReq.valid) {
       meta_nxt.glb.init(io.rivaReq.bits)
-      meta_nxt.row := meta_r.row // Won't initialize row level info in this state.
+      meta_nxt.seg := meta_r.seg // Won't initialize seg level info in this state.
     }.otherwise {
       meta_nxt := meta_r // do nothing when req not valid
     }
   }.elsewhen(row_lv_init) {
-    meta_nxt.row.init(meta_r.glb)
+    meta_nxt.seg.init(meta_r.glb)
     meta_nxt.glb := meta_r.glb   // Keep the glb value
   }.elsewhen(fragmenting) {
     meta_nxt.resolve(meta_r, doUpdate)
@@ -163,7 +163,7 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   //
   ax.bits.set(
     id    = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
-    addr  = tcs(axPtr.value).addr,
+    addr  = (tcs(axPtr.value).addr >> 1).asUInt,
     len   = tcs(axPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
     size  = tcs(axPtr.value).size,
     burst = Burst.Incr,

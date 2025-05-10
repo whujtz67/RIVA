@@ -12,10 +12,17 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   private class CirQWBufPtr extends CircularQueuePtr[CirQWBufPtr](wBufDep)
 
   private class WBufBundle(implicit p: Parameters) extends VLSUBundle {
-    val hbs  = Vec(busBytes * 2, UInt(4.W))
-    val hbes = Vec(busBytes * 2, Bool())
+    val nbs  = Vec(busNibbles, UInt(4.W))
+    val nbes = Vec(busNibbles, Bool())
     val last = Bool()
     val user = UInt(axi4Params.userBits.W)
+
+    def strb: UInt = {
+      require((busBytes * 2) == busNibbles)
+
+      // A byte is valid if any of its 4-bit nibbles are valid.
+      VecInit(Seq.tabulate(busBytes) { i => this.nbes(2 * i) || this.nbes(2 * i + 1) }).asUInt
+    }
   }
 // ------------------------------------------ IO Declaration ------------------------------------------------- //
   // W Channel Output
@@ -35,14 +42,11 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   private val wBufEmpty = isEmpty(w_enqPtr, w_deqPtr)
 
 // ------------------------------------------ give the Outputs default value ------------------------------------------------- //
-  busHbCnt_nxt   := busHbCnt_r
-  seqHbPtr_nxt   := seqHbPtr_r
+  busNbCnt_nxt   := busNbCnt_r
+  seqNbPtr_nxt   := seqNbPtr_r
   w.valid        := false.B
   txnInfo.ready  := false.B
   maskReady      := false.B
-  busData        := 0.U.asTypeOf(busData)
-  busHbe         := 0.U.asTypeOf(busHbe)
-
 
   // ------------------------------------------ rx lane -> shfBuf ------------------------------------------------- //
   shfBuf.zip(rxs).foreach {
@@ -59,12 +63,12 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   private val do_cmt_shf_to_seq = shfBufFull && !seqBufFull && !metaBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
 
   when (do_cmt_shf_to_seq) {
-    val seqBuf_hb = seqBuf(enqPtr.value).hb
+    val seqBuf_nb = seqBuf(enqPtr.value).nb
     val seqBuf_en = seqBuf(enqPtr.value).en
 
-    val shfBuf_hb = VecInit(shfBuf.map(_.bits.hbs))
+    val shfBuf_nb = VecInit(shfBuf.map(_.bits.nbs))
 
-    hw_deshuffle(meta.mode, meta.eew, seqBuf_hb, Some(shfBuf_hb))
+    hw_deshuffle(meta.mode, meta.eew, seqBuf_nb, Some(shfBuf_nb))
     hw_deshuffle(meta.mode, meta.eew, seqBuf_en, None, Some(VecInit(mask.map(_.bits))), Some(meta.vm))
 
     maskReady := !meta.vm // mask has been consumed
@@ -89,56 +93,57 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 // ------------------------------------------ seqBuf -> wBuf ------------------------------------------------- //
   when (idle) {
     when(!metaBufEmpty) {
-      busHbCnt_nxt := 0.U
-      seqHbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(hbNum)-1, 0)
+      busNbCnt_nxt := 0.U
+      seqNbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(nbNum)-1, 0)
     }
   }.elsewhen(serial_cmt) {
-    val lowerHb = Mux(
+    val lower_nibble = Mux(
       txn.isHead,
-      (txn.addr(busSize-1, 0) << 1).asUInt + txn.illuHead.asUInt, // txnInfo.bits.addr has already taken vstart into consideration
+      txn.addr(busNSize-1, 0), // txnInfo.bits.addr has already taken vstart into consideration
       0.U
     )
-    val upperHb = Mux(
+    val upper_nibble = Mux(
       txn.isLastBeat,
-      (txn.lbB << 1).asUInt - txn.illuTail.asUInt, // busOff has already been accounted for in txn.lbB, so we don't need to add lowerHb (which is busOff)!
-      (busBytes * 2).U
+      // busOff has already been accounted for in txn.lbB, so we don't need to add lowerNb (which is busOff)!
+      txn.lbN,
+      busNibbles.U
     )
 
     // Commit when:
     // 1. There are valid data in seqBuf
     // 2. wBuf is not full
     when (!seqBufEmpty && !wBufFull) {
-      val busValidHb    = upperHb - lowerHb + 1.U - busHbCnt_r // The amount of valid data on the bus
-      val seqBufValidHb = (NrLanes * SLEN / 4).U - seqHbPtr_r  // The amount of free space available in seqBuf
+      val busValidNb    = upper_nibble - lower_nibble + 1.U - busNbCnt_r // The amount of valid data on the bus
+      val seqBufValidNb = (NrLanes * SLEN / 4).U - seqNbPtr_r  // The amount of free space available in seqBuf
 
-      val cmtHbNum = WireInit(0.U.asTypeOf(UInt((busSize + 1).W)))
+      val cmtNbNum = WireInit(0.U.asTypeOf(UInt((busSize + 1).W)))
 
       //
       // Update control information
       //
-      when (busValidHb > seqBufValidHb) {
+      when (busValidNb > seqBufValidNb) {
         // The free data in the busBuffer is greater than the amount of valid data in seqBuf.
-        cmtHbNum     := seqBufValidHb
-        busHbCnt_nxt := busHbCnt_r + cmtHbNum
-        seqHbPtr_nxt := 0.U
+        cmtNbNum     := seqBufValidNb
+        busNbCnt_nxt := busNbCnt_r + cmtNbNum
+        seqNbPtr_nxt := 0.U
 
         deqPtr := deqPtr + 1.U // do seqBuf deq
       }.otherwise {
         // The free data in the busBuffer is less than the amount of valid data in seqBuf.
-        cmtHbNum      := busValidHb
-        busHbCnt_nxt  := 0.U
-        seqHbPtr_nxt  := seqHbPtr_r + cmtHbNum // will be 0.U when busValidHb = seqBufValidHb
+        cmtNbNum      := busValidNb
+        busNbCnt_nxt  := 0.U
+        seqNbPtr_nxt  := seqNbPtr_r + cmtNbNum // will be 0.U when busValidNb = seqBufValidNb
         txnInfo.ready := true.B                // a beat is issued
 
-        // Still need to do deq for the seqBuf is busValidHb = seqBufValidHb
-        when (busValidHb === seqBufValidHb) {
+        // Still need to do deq for the seqBuf is busValidNb = seqBufValidNb
+        when (busValidNb === seqBufValidNb) {
           deqPtr := deqPtr + 1.U
         }
 
         // do enq for wBuf
         w_enqPtr := w_enqPtr + 1.U
 
-        // Haven't occupied all valid hbs in the seqBuf,
+        // Haven't occupied all valid nbs in the seqBuf,
         // but the current beat is already the final beat of the whole riva request.
         when (txnInfo.bits.isFinalBeat) {
           deqPtr := deqPtr + 1.U
@@ -148,17 +153,17 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
       //
       // commit data from seqBuf to wBuf
       //
-      val start = lowerHb + busHbCnt_r
-      val end   = upperHb
+      val start = lower_nibble + busNbCnt_r
+      val end   = upper_nibble
 
-      wBuf(w_enqPtr.value).hbs.zip(wBuf(w_enqPtr.value).hbes).zipWithIndex.foreach {
-        case ((hb, hbe), busIdx) =>
-          when ((busIdx.U >= start) && (busIdx.U < end)) { // should be '< end' because we don't do '-1' when calculating upperHb.
-            val idx = busIdx.U - start + seqHbPtr_r
-            hb  := seqBuf(deqPtr.value).hb(idx)
-            // The hbes that are outside the start-end range are always zero,
+      wBuf(w_enqPtr.value).nbs.zip(wBuf(w_enqPtr.value).nbes).zipWithIndex.foreach {
+        case ((nb, nbe), busIdx) =>
+          when ((busIdx.U >= start) && (busIdx.U < end)) { // should be '< end' because we don't do '-1' when calculating upperNb.
+            val idx = busIdx.U - start + seqNbPtr_r
+            nb  := seqBuf(deqPtr.value).nb(idx)
+            // The nbes that are outside the start-end range are always zero,
             // so the case for the final beat (lbB) has already been taken into consideration here.
-            hbe := seqBuf(deqPtr.value).en(idx)
+            nbe := seqBuf(deqPtr.value).en(idx)
           }
       }
       wBuf(w_enqPtr.value).last := txnInfo.bits.isLastBeat
@@ -170,8 +175,8 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   }
 
 // ------------------------------------------ wBuf -> AXI W Channel ------------------------------------------------- //
-  w.bits.data := wBuf(w_deqPtr.value).hbs.asUInt
-  w.bits.strb := wBuf(w_deqPtr.value).hbes.asUInt
+  w.bits.data := wBuf(w_deqPtr.value).nbs.asUInt
+  w.bits.strb := wBuf(w_deqPtr.value).strb
   w.bits.last := wBuf(w_deqPtr.value).last
   w.bits.user := wBuf(w_deqPtr.value).user
   w.valid     := !wBufEmpty

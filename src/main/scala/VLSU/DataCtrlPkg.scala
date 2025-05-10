@@ -16,7 +16,7 @@ import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
  *
  *        EW ----> |-----------------| ----> lane_LUT
  *                 |    shuffle      |
- *  seqHbIdx ----> |-----------------| ----> laneOffset_LUT
+ *  seqNbIdx ----> |-----------------| ----> laneOffset_LUT
  *
  * @param EW: OntHot EW = 4/8/16/32
  * @param idx: The half byte index before shuffling
@@ -24,7 +24,7 @@ import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
  * @param laneOffset: Half byte's offset in the lane
  *
  * seqIdx is composed of the following parts (Doesn't have elemOff when ew = 4):
- *         | <-------------------   hbIdxBits    --------------------> |
+ *         | <-------------------   nbIdxBits    --------------------> |
  *         | <- elemIdxBits -> | <- laneIdBits -> |  <- elemOffBits -> |
  *
  * seqIdx: |      elemIdx      |      laneId      |       elemOff      |
@@ -39,27 +39,27 @@ import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
  *
  *                            |  <----------- elemIdxOff -------------> |
  *
- * 2. DESHUFFLE is the inverse process of shuffle (shfHbIdx -> seqHbIdx)
+ * 2. DESHUFFLE is the inverse process of shuffle (shfNbIdx -> seqNbIdx)
  */
 trait ShuffleHelper {
   // Can only be inherited by classes or traits that inherit from VLSUModule
   self: VLSUModule =>
 
 // ------------------------------------------ Parameters ------------------------------------------------- //
-  val hbNum      : Int = (SLEN / 4) * NrLanes // halfByte number in SLEN * NrLanes
-  val hbIdxBits  : Int = log2Ceil(hbNum)
+  val nbNum      : Int = (SLEN / 4) * NrLanes // halfByte number in SLEN * NrLanes
+  val nbIdxBits  : Int = log2Ceil(nbNum)
   val laneIdBits : Int = log2Ceil(NrLanes)
   val laneOffBits: Int = log2Ceil(SLEN/4)
 
   private val laneElemNum = SLEN / EWs.min // Max element number in a lane, typically 128/4 = 32
-  private val seqHbIdxs   = 0 until hbNum
+  private val seqNbIdxs   = 0 until nbNum
   private val seqElemIdxs = 0 until laneElemNum
 
-  private val seqIdxs: Seq[seqHbIdx] = (0 until hbNum).map(i => new seqHbIdx(i))
+  private val seqIdxs: Seq[seqNbIdx] = (0 until nbNum).map(i => new seqNbIdx(i))
   private val shfElemIdxMap = shuffle_elemIdx
 
-  private val seq2shf_map: Seq[Seq[shfHbIdx]]        = sw_shuffle(false)
-  private val seq2shf_2d_cln_map: Seq[Seq[shfHbIdx]] = sw_shuffle(true)
+  private val seq2shf_map: Seq[Seq[shfNbIdx]]        = sw_shuffle(false)
+  private val seq2shf_2d_cln_map: Seq[Seq[shfNbIdx]] = sw_shuffle(true)
 
   private val shf2seq_map: Seq[ListMap[Int, Int]] = seq2shf_map.map { map =>
     val m = map.zipWithIndex.map {
@@ -87,12 +87,12 @@ trait ShuffleHelper {
    *
    * @param idx
    */
-  class seqHbIdx(val idx: Int) {
-    require(idx < hbNum)
+  class seqNbIdx(val idx: Int) {
+    require(idx < nbNum)
 
     private val splitResultNormal = this.split(false)
     private val splitResult2dCln  = this.split(true )
-    val idxBin = s"${String.format("%" + hbIdxBits + "s", idx.toBinaryString).replace(' ', '0')}"
+    val idxBin = s"${String.format("%" + nbIdxBits + "s", idx.toBinaryString).replace(' ', '0')}"
 
     // _1: normal
     // _2: 2D Cln
@@ -103,7 +103,7 @@ trait ShuffleHelper {
     private def split(is2DCln: Boolean): IndexedSeq[(Int, Int, Int)] = {
       EWs.indices.map { eew =>
         val elemOffBits = eew
-        val elemIdxBits = hbIdxBits - elemOffBits - laneIdBits
+        val elemIdxBits = nbIdxBits - elemOffBits - laneIdBits
 
         val part1Bits = elemOffBits
         val part2Off = part1Bits
@@ -119,11 +119,11 @@ trait ShuffleHelper {
       }
     }
 
-    def getShfIdx(is2DCln: Boolean, eew: Int): shfHbIdx = {
+    def getShfIdx(is2DCln: Boolean, eew: Int): shfNbIdx = {
       def get(in: (Seq[Int], Seq[Int])): Int = if (is2DCln) in._2(eew) else in._1(eew)
 
       val elemOffBits = eew
-      val elemIdxBits = hbIdxBits - elemOffBits - laneIdBits
+      val elemIdxBits = nbIdxBits - elemOffBits - laneIdBits
 
       val eOff = get(this.elemOff)
       val eIdx = get(this.elemIdx)
@@ -132,7 +132,7 @@ trait ShuffleHelper {
       val laneOff = shfElemIdxMap(eIdx) + eOff // Dont need to "shfElemIdxMap(eIdx) << elemIdxBits" !
 //      println(s"laneOff=$laneOff, shfElemIdx=${shfElemIdxMap(eIdx)}, elemOff=${eOff}, elemOffBits=$elemOffBits")
 
-      new shfHbIdx(lane, laneOff)
+      new shfNbIdx(lane, laneOff)
     }
 
     override def toString: String = {
@@ -156,11 +156,11 @@ trait ShuffleHelper {
    * @param laneId
    * @param laneOff
    */
-  class shfHbIdx(val laneId: Int, val laneOff: Int) {
+  class shfNbIdx(val laneId: Int, val laneOff: Int) {
     val idx = (laneId << laneOffBits) + laneOff
-    val idxBin = s"${String.format("%" + hbIdxBits + "s", idx.toBinaryString).replace(' ', '0')}"
+    val idxBin = s"${String.format("%" + nbIdxBits + "s", idx.toBinaryString).replace(' ', '0')}"
 
-    require(idx < hbNum, s"idx = $idx should always < hbNum = $hbNum. Error laneId = $laneId, laneOff = $laneOff")
+    require(idx < nbNum, s"idx = $idx should always < nbNum = $nbNum. Error laneId = $laneId, laneOff = $laneOff")
 
     override def toString: String = {
       s"[shf_half_byte: idx = $idx (bin: $idxBin)\tlane = $laneId\tlaneOff = $laneOff]"
@@ -174,9 +174,9 @@ trait ShuffleHelper {
    *  Index: Represents the original position in the sequential order.
    *  Value: Stores the target position in the shuffled order.
    *
-   * @return shfElemIdx (0 ~ 31) -> The start hbIdx of this element.
+   * @return shfElemIdx (0 ~ 31) -> The start nbIdx of this element.
    *         Typically when SLEN = 128:
-   *         start hbIdx of this element: 31 30 29 28 27 26 25 24 | 23 22 21 20 19 18 17 16 | 15 14 13 12 11 10  9  8 |  7  6  5  4  3  2  1  0 |
+   *         start nbIdx of this element: 31 30 29 28 27 26 25 24 | 23 22 21 20 19 18 17 16 | 15 14 13 12 11 10  9  8 |  7  6  5  4  3  2  1  0 |
    *         elemIdx                    : 31 15 23  7 27 11 19  3 | 30 14 22  6 26 10 18  2 | 29 13 21  5 25  9 17  1 | 28 12 20  4 24  8 16  0 |
    *
    *         ListMap( 0 ->  0,  1 ->  8,  2 -> 16,  3 -> 24,  4 ->  4,  5 -> 12,  6 -> 20,  7 -> 28,
@@ -229,7 +229,7 @@ trait ShuffleHelper {
       println(s"EW = ${1 << (eew + 2)}")
       res.zipWithIndex.foreach {
         case (shf, seq) =>
-          println(s"\tseqHbIdx: $seq -> $shf")
+          println(s"\tseqNbIdx: $seq -> $shf")
       }
       println("\n")
 
@@ -250,7 +250,7 @@ trait ShuffleHelper {
       case (vec, lane) =>
         vec.zipWithIndex.foreach {
           case (sink, off) =>
-            val shfHbIdx = new shfHbIdx(lane, off)
+            val shfNbIdx = new shfNbIdx(lane, off)
 
             /* Here, Vec is used instead of PriorityMux to ensure that
              * the Verilog generated by Chisel is more structured and organized.
@@ -267,15 +267,15 @@ trait ShuffleHelper {
             // In the foreach loop, there is an anonymous scope, so suggestName does not work.
             // INCR, STRD, 2D_ROW Mode
             val vec1 = VecInit(EWs.indices.map { eew =>
-              seqBuf(shf2seq_map(eew)(shfHbIdx.idx))
+              seqBuf(shf2seq_map(eew)(shfNbIdx.idx))
             })
             // 2D_CLN Mode
             val vec2 = VecInit(EWs.indices.map { eew =>
-              seqBuf(shf2seq_2d_cln_map(eew)(shfHbIdx.idx))
+              seqBuf(shf2seq_2d_cln_map(eew)(shfNbIdx.idx))
             })
 
             if (mask.isDefined) {
-              // shuffle hbe
+              // shuffle nbe
               sink := Mux(
                 mode.cln2D,
                 vec2(eew).andR && (mask.get(lane)(off) || vm.get),
@@ -304,10 +304,10 @@ trait ShuffleHelper {
 
             // Unlike hw_shuffle, mask should be considered at this stage when de-shuffle.
             if (mask.isDefined) {
-              // de-shuffle hbe
-              mask.get(lane)(off) || vm.get // We don't have shfBuf.hbe in STU, only consider mask from mask Unit
+              // de-shuffle nbe
+              mask.get(lane)(off) || vm.get // We don't have shfBuf.nbe in STU, only consider mask from mask Unit
             } else {
-              // de-shuffle hb
+              // de-shuffle nb
               shfBuf.get(lane)(off)
             }
 
@@ -336,11 +336,11 @@ trait ShuffleHelper {
 //    val io = IO(new Bundle {
 //      val mode   = Input(new VecMopOH)
 //      val eew    = Input(UInt(2.W))
-//      val seqBuf = Input(Vec(hbNum, gen))
-//      val shfBuf = Output(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
+//      val seqBuf = Input(Vec(nbNum, gen))
+//      val shfBuf = Output(Vec(NrLanes, Vec(nbNum/NrLanes, gen)))
 //    })
 //
-//    val shfBuf_r = Reg(Vec(NrLanes, Vec(hbNum/NrLanes, gen)))
+//    val shfBuf_r = Reg(Vec(NrLanes, Vec(nbNum/NrLanes, gen)))
 //
 //    hw_shuffle(io.mode, io.eew, io.seqBuf, shfBuf_r)
 //
@@ -398,8 +398,8 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   class CirQMetaBufPtr extends CircularQueuePtr[CirQMetaBufPtr](metaBufDep)
 
   class SeqBufBundle(implicit p: Parameters) extends VLSUBundle {
-    val hb = Vec(NrLanes*SLEN/4, UInt(4.W))
-    val en = Vec(NrLanes*SLEN/4, Bool()) // Not the hbe committing to the lane, haven't considered mask.
+    val nb = Vec(NrLanes*SLEN/4, UInt(4.W))
+    val en = Vec(NrLanes*SLEN/4, Bool()) // Not the nbe committing to the lane, haven't considered mask.
   }
 
 // ------------------------------------------ Common IO Declaration of both DataCtrl ------------------------------------------------- //
@@ -429,18 +429,15 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   val seqBufEmpty: Bool = isEmpty(enqPtr, deqPtr)
   val seqBufFull : Bool = isFull (enqPtr, deqPtr)
 // ------------------------------------------ Wire/Reg Delaration ------------------------------------------------- //
-  val busData: Vec[UInt] = Wire(Vec(busBytes * 2, UInt(4.W)))
-  val busHbe : Vec[UInt] = Wire(Vec(busBytes * 2, UInt(1.W)))
-
   // Because the remaining space in seqBuf might be less than the amount of valid data on the bus,
   // it may not be possible to commit all valid data from the bus in a single cycle.
   // Therefore, a counter is required to indicate the amount of valid data from the bus that has already been committed.
-  val busHbCnt_nxt: UInt = WireInit(0.U.asTypeOf(UInt((busSize-2).W)))
-  val busHbCnt_r  : UInt = RegNext(busHbCnt_nxt)
+  val busNbCnt_nxt: UInt = WireInit(0.U.asTypeOf(UInt((busSize-2).W)))
+  val busNbCnt_r  : UInt = RegNext(busNbCnt_nxt)
 
   // seqBuf half byte pointer
-  val seqHbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt(log2Ceil(hbNum).W)))
-  val seqHbPtr_r  : UInt = RegNext(seqHbPtr_nxt)
+  val seqNbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt(log2Ceil(nbNum).W)))
+  val seqNbPtr_r  : UInt = RegNext(seqNbPtr_nxt)
 
 // ------------------------------------------ Internal Bundles ------------------------------------------------- //
   val meta: MetaBufBundle = metaBuf(m_deqPtr.value)

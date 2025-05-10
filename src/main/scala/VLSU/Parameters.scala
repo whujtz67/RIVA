@@ -24,12 +24,18 @@ case class VLSUParamters(
   require(NrVInsn > 0)
   require(wBufDep > 1, "should be a ping-pong buffer")
 
+  // The VLSU processes addresses in nibble (4-bit) units,
+  // therefore the address bit width requires an additional bit compared to byte-aligned addressing.
+  val vlsuAddrBits = axi4Params.addrBits + 1
+
   val reqIdBits  = log2Ceil(NrVInsn)
   val maxNrElems = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
 
-  val busBits   = axi4Params.dataBits
-  val busBytes  = busBits / 8
-  val busSize   = log2Ceil(busBytes)  // The meaning of 'size' here is similar to that of AXI size.
+  val busBits    = axi4Params.dataBits
+  val busBytes   = busBits / 8
+  val busNibbles = busBits / 4
+  val busSize    = log2Ceil(busBytes)  // The meaning of 'size' here is similar to that of AXI size.
+  val busNSize   = log2Ceil(busNibbles)
   
   val maxLen   = axi4Params.maxTxnBytes / busBytes // Max AXI Burst Len
   val maxSize  = log2Ceil(busBytes)
@@ -71,11 +77,14 @@ trait HasVLSUParams {
   lazy val txnCtrlNum = vlsuParams.txnCtrlNum
 
   // derived parameters
+  lazy val vlsuAddrBits = vlsuParams.vlsuAddrBits
   lazy val reqIdBits    = vlsuParams.reqIdBits
   lazy val maxNrElems   = vlsuParams.maxNrElems
   lazy val busBits      = vlsuParams.busBits
   lazy val busBytes     = vlsuParams.busBytes
+  lazy val busNibbles   = vlsuParams.busNibbles
   lazy val busSize      = vlsuParams.busSize
+  lazy val busNSize     = vlsuParams.busNSize
   lazy val maxLen       = vlsuParams.maxLen
   lazy val maxSize      = vlsuParams.maxSize
   lazy val EWs          = vlsuParams.EWs
