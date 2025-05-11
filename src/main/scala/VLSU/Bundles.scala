@@ -52,6 +52,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
   val stride   = UInt(axi4Params.addrBits.W) // rs2/imm5
   val len      = UInt(log2Ceil(maxNrElems).W) // Length, it equals alen when requesting AM and vlen when requesting VM.
   val vstart   = UInt(log2Ceil(maxNrElems).W)
+  val isLoad   = Bool()
   val vm       = Bool()
 
   def init(full: RivaReqFull): Unit = {
@@ -63,6 +64,7 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
     this.stride   := full.stride
     this.len      := Mux(full.vd(4), full.al, full.vl)
     this.vstart   := full.vstart
+    this.isLoad   := full.isLoad
     this.vm       := full.vm
   }
 

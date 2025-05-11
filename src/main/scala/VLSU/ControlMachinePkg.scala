@@ -19,6 +19,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
   val vstart   = UInt(log2Ceil(maxNrElems).W) // The start element index in the request.
   val rmnGrp   = UInt(log2Ceil(maxNrElems*EWs.max/SLEN).W) // Txn will be divided into several groups in 2D cln mode, otherwise rmnGrp = 0
   val rmnSeg   = UInt(log2Ceil(maxNrElems).W) // Remain seg number (remain -> rmn)
+  val isLoad   = if (concurrent) None else Some(Bool())
   /*
    * 'CmtCnt' represents the number of times shfBuf is committed to either the lane or seqBuf,
    * calculated by dividing the total data volume of the current request by NrLanes * SLEN.
@@ -52,6 +53,8 @@ class global(implicit p: Parameters) extends VLSUBundle {
       this.mode.row2D -> (req.len - 1.U),
       this.mode.cln2D -> (NrLanes - 1).U
     ))
+
+    if (this.isLoad.isDefined) this.isLoad.get := req.isLoad
 
     // The tot_half_byte_number can also be obtained using rowLen * rmnSeg * EW / (NrLanes * SLEN),
     // but that would result in a 14-bit multiplier, which is too costly.
@@ -219,6 +222,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
   val rmnBeat    = UInt(log2Ceil(4096/busBytes).W) // The width not need to "+ 1" like txnNum of segInfo does.
   val lbN        = UInt((busNSize + 1).W) // last Beat nibbles WITH busOff (max lbN = busNibbles.U, whose width is busNSize + 1!)
   val isHead     = Bool()
+  val isLoad     = if (concurrent) None else Some(Bool()) // Don't need for concurrent mode.
   val isFinalTxn = Bool() // Used for the DataController to determine current Txn is the final Txn of the riva Req.
                           // Note: This method is only applicable when the TxnCtrlUnit processes requests sequentially.
 
@@ -259,6 +263,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     )
 
     this.isHead     := true.B
+    if (this.isLoad.isDefined) this.isLoad.get := meta_r.glb.isLoad.get
     this.isFinalTxn := meta_r.isFinalTxn
 
     assert((txn_nibbles_with_busOff > 0.U) && (txn_nibbles_with_busOff <= 8192.U))

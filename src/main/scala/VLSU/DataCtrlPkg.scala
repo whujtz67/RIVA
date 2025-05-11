@@ -454,7 +454,7 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   // FSM State switch
   when (idle) {
     state_nxt := Mux(
-      !metaBufEmpty,
+      !metaBufEmpty && txnInfo.valid,
       // accept a new request
       Mux(
         meta.mode.isGather,
