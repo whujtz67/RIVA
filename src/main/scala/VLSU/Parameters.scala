@@ -9,7 +9,10 @@ case object  VLSUParametersKey extends Field[VLSUParamters]
 
 case class VLSUParamters(
   NrLanes   : Int = 4,
-  NrVInsn   : Int = 8,
+  NrVInsns  : Int = 8,
+  NrVregs   : Int = 16,
+  NrAregs   : Int = 16,
+  NrVmBanks : Int = 8,
   SLEN      : Int = 128,    // slice len, lane memory Interface data width (bits)
   VLEN      : Int = 8192,   // vector register length
   ALEN      : Int = 16384,  // accu register length
@@ -22,14 +25,14 @@ case class VLSUParamters(
   concurrent: Boolean = false
 ) {
   require(NrLanes > 0)
-  require(NrVInsn > 0)
+  require(NrVInsns > 0)
   require(wBufDep > 1, "should be a ping-pong buffer")
 
   // The VLSU processes addresses in nibble (4-bit) units,
   // therefore the address bit width requires an additional bit compared to byte-aligned addressing.
   val vlsuAddrBits = axi4Params.addrBits + 1
 
-  val reqIdBits  = log2Ceil(NrVInsn)
+  val reqIdBits  = log2Ceil(NrVInsns)
   val maxNrElems = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
 
   val busBits    = axi4Params.dataBits
@@ -52,10 +55,10 @@ case class VLSUParamters(
 
   private val vmBits = VLEN * 16
   private val amBits = ALEN * 16
-  val bankNum        = VLEN / NrLanes / SLEN
-  private val vtmBitsPerLane = (vmBits + amBits) / NrLanes // vtm: Vector Type Memory, including VM and AM
-  private val bankBits       = vtmBitsPerLane / bankNum
-  val bankDep        = bankBits / SLEN
+
+  private val vregSramDepth = (VLEN / NrLanes / (NrVmBanks * SLEN)) * NrVregs
+  private val aregSramDepth = (ALEN / NrLanes / (NrVmBanks * SLEN)) * NrAregs
+  val vmSramDepth = vregSramDepth + aregSramDepth
 
   val tilenBits = 16 // TODO: confirm tilen width
 
@@ -67,6 +70,10 @@ trait HasVLSUParams {
 
   // input parameters
   lazy val NrLanes    = vlsuParams.NrLanes
+  lazy val NrVInsns   = vlsuParams.NrVInsns
+  lazy val NrVregs    = vlsuParams.NrVregs
+  lazy val NrAregs    = vlsuParams.NrAregs
+  lazy val NrVmBanks  = vlsuParams.NrVmBanks
   lazy val SLEN       = vlsuParams.SLEN
   lazy val VLEN       = vlsuParams.VLEN
   lazy val ALEN       = vlsuParams.ALEN
@@ -94,8 +101,7 @@ trait HasVLSUParams {
   lazy val allElen      = vlsuParams.allElen
   lazy val dataBufWidth = vlsuParams.dataBufWidth
   lazy val maxDataBytes = vlsuParams.maxDataBytes
-  lazy val bankNum      = vlsuParams.bankNum
-  lazy val bankDep      = vlsuParams.bankDep
+  lazy val vmSramDepth  = vlsuParams.vmSramDepth
   lazy val tilenBits    = vlsuParams.tilenBits
 
 }
