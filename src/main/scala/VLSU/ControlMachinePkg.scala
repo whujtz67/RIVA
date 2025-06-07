@@ -238,9 +238,11 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
 
   // The first Txn Ctrl Unit will be initiated in the next cycle following the initialization of the metadata.
   def init(meta_r: MetaCtrlInfo): Unit = {
+    val nxt = this
+
     val seg_r = meta_r.seg
 
-    this.addr := Mux(
+    nxt.addr := Mux(
       seg_r.isHeadTxn,
       seg_r.segBaseAddr,
       ((seg_r.segBaseAddr >> 13).asUInt + seg_r.txnCnt) << 13
@@ -249,7 +251,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     // We need to avoid the impact of pageOff when calculating the number of bytes in the transaction (txn),
     // while still taking busOff into account. Therefore, we need 'pageOff_without_busOff'.
     // 'pageOff_without_busOff' is always 0 when this is not the first txn.
-    val pageOff = this.addr(12, 0)
+    val pageOff = nxt.addr(12, 0)
     val busOffMask = (((1 << 13) - 1) - ((1 << busNSize) - 1)).U(13.W)
     val pageOff_without_busOff = pageOff & busOffMask.asUInt
 
@@ -262,29 +264,33 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     // For all subsequent transactions, this term is inherently zero, ensuring no impact on the final result.
     val txn_nibbles_with_busOff = txn_nibbles_with_pageOff - pageOff_without_busOff
 
-    dontTouch(txn_nibbles_with_busOff)
-    dontTouch(txn_nibbles_with_pageOff)
-    dontTouch(pageOff_without_busOff)
-
-    this.rmnBeat    := txn_nibbles_with_busOff >> busNSize
+    nxt.rmnBeat := txn_nibbles_with_busOff >> busNSize
 
     // lbN should be busNibbles.U instead of 0.U when all bytes are valid (in this case txnBytes(busNSize - 1, 0) = 0)!
-    this.lbN        := Mux(
-      txn_nibbles_with_busOff(busNSize - 1, 0).orR,
+    nxt.lbN := Mux(
+      nxt.rmnBeat === 0.U,
       txn_nibbles_with_busOff(busNSize - 1, 0),
       busNibbles.U
     )
 
-    this.isHead     := true.B
-    if (this.isLoad.isDefined) this.isLoad.get := meta_r.glb.isLoad.get
-    this.isFinalTxn := meta_r.isFinalTxn
+    nxt.isHead     := true.B
+    if (nxt.isLoad.isDefined) nxt.isLoad.get := meta_r.glb.isLoad.get
+    nxt.isFinalTxn := meta_r.isFinalTxn
 
-    assert((txn_nibbles_with_busOff > 0.U) && (txn_nibbles_with_busOff <= 8192.U))
+    assert((txn_nibbles_with_busOff > 0.U) && (txn_nibbles_with_busOff <= 8192.U), s"txn_nibbles_with_busOff should in range(0, 8192). However, got %d\n", txn_nibbles_with_busOff)
+
+    dontTouch(pageOff)
+    dontTouch(txn_nibbles_with_busOff)
+    dontTouch(txn_nibbles_with_pageOff)
+    dontTouch(pageOff_without_busOff)
+
   }
-
+  
   def update(r: TxnCtrlInfo): Unit = {
-    this.rmnBeat := r.rmnBeat - 1.U
-    this.isHead  := false.B
+    val nxt = this
+    
+    nxt.rmnBeat := r.rmnBeat - 1.U
+    nxt.isHead  := false.B
   }
 
   def isLastBeat: Bool = !this.rmnBeat.orR

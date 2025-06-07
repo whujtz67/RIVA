@@ -31,7 +31,8 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
 
   // ------------------------------------------ Wire/Reg Declaration ---------------------------------------------- //
   // single txn controls are actually a series of registers.
-  private val tcs = Reg(Vec(txnCtrlNum, new TxnCtrlInfo()))
+  private val tcs_nxt = Wire(Vec(txnCtrlNum, new TxnCtrlInfo()))
+  private val tcs_r = RegNext(tcs_nxt)
 
   // Pointers
   private val enqPtr  = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr))
@@ -47,7 +48,8 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
   //
   // tc initialize and update logics
   //
-  tcs.zipWithIndex.foreach {
+  tcs_nxt := tcs_r
+  tcs_nxt.zipWithIndex.foreach {
     case (tc, i) =>
       /* Do Init (enq) when:
        * 1. EnqPtr is pointing to the current tc.
@@ -65,18 +67,18 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
        * NOTE: We assume that update will never be true when TC is empty.
        */
       when (dataPtr.value === i.U && io.update) {
-        tc.update(tc)
+        tc.update(tcs_r(i))
       }
   }
 
   //
   // Pointer update logics
   //
-  private val dataPtrAdd = tcs(dataPtr.value).isLastBeat && io.update // add data ptr when last beat done.
+  private val dataPtrAdd = tcs_r(dataPtr.value).isLastBeat && io.update // add data ptr when last beat done.
   private val do_enq     = WireDefault(io.meta.fire)
   // dataPtr and deqPtr is always synchronous for Load. TODO: Don't need dataPtr for Load.
   // TODO: Maybe do not need to wait for b because Ax id is the same. （当然保守起见还是可以先这么写，ara中，b通道收到后会返回一个信号）
-  private val do_deq     = Mux(tcs(deqPtr.value).isLoad.get, dataPtrAdd, b.fire)
+  private val do_deq     = Mux(tcs_r(deqPtr.value).isLoad.get, dataPtrAdd, b.fire)
 
   when (do_enq)             { enqPtr  := enqPtr  + 1.U }
   when (do_deq)             { deqPtr  := deqPtr  + 1.U }
@@ -97,8 +99,8 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
   private val axValid = (txnPtr === deqPtr) && !empty
   io.meta.ready    := !full
   io.txnCtrl.valid := !empty
-  aw.valid         := axValid && !tcs(txnPtr.value).isLoad.get
-  ar.valid         := axValid && tcs(txnPtr.value).isLoad.get
+  aw.valid         := axValid && !tcs_r(txnPtr.value).isLoad.get
+  ar.valid         := axValid && tcs_r(txnPtr.value).isLoad.get
   b.ready          := !empty
 
   //
@@ -107,9 +109,9 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
   when(aw.fire) {
     aw.bits.set(
       id    = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
-      addr  = (tcs(txnPtr.value).addr >> 1).asUInt,
-      len   = tcs(txnPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
-      size  = tcs(txnPtr.value).size,
+      addr  = (tcs_r(txnPtr.value).addr >> 1).asUInt,
+      len   = tcs_r(txnPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
+      size  = tcs_r(txnPtr.value).size,
       burst = Burst.Incr,
       cache = Cache.Modifiable
     )
@@ -120,9 +122,9 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
   when(ar.fire) {
     ar.bits.set(
       id    = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
-      addr  = (tcs(txnPtr.value).addr >> 1).asUInt,
-      len   = tcs(txnPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
-      size  = tcs(txnPtr.value).size,
+      addr  = (tcs_r(txnPtr.value).addr >> 1).asUInt,
+      len   = tcs_r(txnPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
+      size  = tcs_r(txnPtr.value).size,
       burst = Burst.Incr,
       cache = Cache.Modifiable
     )
@@ -130,7 +132,7 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
     ar.bits := 0.U.asTypeOf(ar.bits)
   }
 
-  io.txnCtrl.bits := tcs(dataPtr.value) // NOTE: Should be dataPtr here, because deqPtr will wait for b resp.
+  io.txnCtrl.bits := tcs_r(dataPtr.value) // NOTE: Should be dataPtr here, because deqPtr will wait for b resp.
 
   // ------------------------------------------ Assertions ---------------------------------------------- //
   when(io.update) { assert(!empty, "should not update when there are no control information in TC") }

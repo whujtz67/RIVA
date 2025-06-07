@@ -105,7 +105,8 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
 
 // ------------------------------------------ Wire/Reg Declaration ---------------------------------------------- //
   // single txn controls are actually a series of registers.
-  private val tcs = Reg(Vec(txnCtrlNum, new TxnCtrlInfo()))
+  private val tcs_nxt = Wire(Vec(txnCtrlNum, new TxnCtrlInfo()))
+  private val tcs_r = RegNext(Vec(txnCtrlNum, new TxnCtrlInfo()))
 
   // Pointers
   private val enqPtr  = RegInit(0.U.asTypeOf(new CirQTxnCtrlPtr))
@@ -121,7 +122,8 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   //
   // tc initialize and update logics
   //
-  tcs.zipWithIndex.foreach {
+  tcs_nxt := tcs_r
+  tcs_nxt.zipWithIndex.foreach {
     case (tc, i) =>
       /* Do Init (enq) when:
        * 1. EnqPtr is pointing to the current tc.
@@ -139,14 +141,14 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
        * NOTE: We assume that update will never be true when TC is empty.
        */
       when (dataPtr.value === i.U && io.update) {
-        tc.update(tc)
+        tc.update(tcs_r(i))
       }
   }
 
   //
   // Pointer update logics
   //
-  private val dataPtrAdd = tcs(dataPtr.value).isLastBeat && io.update // add data ptr when last beat done.
+  private val dataPtrAdd = tcs_r(dataPtr.value).isLastBeat && io.update // add data ptr when last beat done.
   private val do_enq     = WireDefault(io.meta.fire)
   private val do_deq     = WireDefault(if (isLoad) dataPtrAdd else b.get.fire) // dataPtr and deqPtr is always synchronous
 
@@ -160,14 +162,14 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   //
   ax.bits.set(
     id    = 0.U,  // DONT SUPPORT out-of-order. TODO: support it in the next generation.
-    addr  = (tcs(axPtr.value).addr >> 1).asUInt,
-    len   = tcs(axPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
-    size  = tcs(axPtr.value).size,
+    addr  = (tcs_r(axPtr.value).addr >> 1).asUInt,
+    len   = tcs_r(axPtr.value).rmnBeat, // RmnBeat is dynamic, but it shouldn't be a problem because the update signal will not be issued ahead of the transmission of the Ax request.
+    size  = tcs_r(axPtr.value).size,
     burst = Burst.Incr,
     cache = Cache.Modifiable
   )
 
-  io.txnCtrl.bits := tcs(dataPtr.value) // NOTE: Should be dataPtr here.
+  io.txnCtrl.bits := tcs_r(dataPtr.value) // NOTE: Should be dataPtr here.
 
 
   //
