@@ -477,4 +477,6 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
     m_enqPtr := m_enqPtr + 1.U
   }
   metaInfo.ready := !metaBufFull
+
+// ------------------------------------------ Don't Touch ------------------------------------------------- //
 }

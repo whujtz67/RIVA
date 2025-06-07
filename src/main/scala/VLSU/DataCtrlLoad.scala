@@ -220,4 +220,5 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(idle)
   dontTouch(do_cmt_seq_to_shf)
+  dontTouch(vaddr_nxt)
 }

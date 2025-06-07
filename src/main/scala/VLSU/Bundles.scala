@@ -14,14 +14,18 @@ class VAddrBundle(implicit p: Parameters) extends VLSUBundle {
   def init(meta: MetaBufBundle): Unit = {
     val setPerVReg = VLEN / NrLanes / SLEN / NrVmBanks
     val setPerAReg = ALEN / NrLanes / SLEN / NrVmBanks
-    val aregBaseSet = setPerVReg * 16
+    val aregBaseSet = setPerVReg * NrVregs
+    val vd_msb = log2Ceil(NrVregs)
 
     this.set := Mux(
-      meta.vd(4),
-      aregBaseSet.U + (meta.vd << log2Ceil(setPerAReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt,
-      (meta.vd << log2Ceil(setPerVReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt
+      meta.vd(vd_msb),
+      aregBaseSet.U + (meta.vd(vd_msb - 1, 0) << log2Ceil(setPerAReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt,
+      (meta.vd(vd_msb - 1, 0) << log2Ceil(setPerVReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt
     )
     this.bank := meta.vstart(log2Ceil(NrVmBanks) - 1, 0)
+
+    assert(this.set < vmSramDepth.U)
+    assert(this.bank < NrVmBanks.U)
   }
 }
 
