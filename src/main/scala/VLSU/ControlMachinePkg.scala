@@ -35,6 +35,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
     this.reqId    := req.reqId
     this.mode     := (1.U << req.mop).asTypeOf(this.mode)
     this.baseAddr := (req.baseAddr << 1).asUInt
+    this.vd       := req.vd
     this.eew      := req.eew
     this.EW       := req.getEW
     this.vm       := req.vm
@@ -56,7 +57,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
 
     if (this.isLoad.isDefined) this.isLoad.get := req.isLoad
 
-    // The tot_half_byte_number can also be obtained using rowLen * rmnSeg * EW / (NrLanes * SLEN),
+    // The tot_half_byte_number can also be obtained using segLen * rmnSeg * EW / (NrLanes * SLEN),
     // but that would result in a 14-bit multiplier, which is too costly.
     val tot_half_byte_number = Mux(
       this.mode.is2D,
@@ -66,14 +67,15 @@ class global(implicit p: Parameters) extends VLSUBundle {
     this.cmtCnt := tot_half_byte_number >> log2Ceil(NrLanes * SLEN / 4)
 
     assert(req.len > req.vstart, "vlen/alen must > vstart. Otherwise, the request is meaningless")
-    assert(!(req.baseAddr & ((1.U << req.eew).asUInt - 1.U)).orR, "baseAddr should be aligned to EW!")
+
+    assert(!(req.baseAddr & (((1.U << req.eew).asUInt - 1.U) >> 1).asUInt).orR, "baseAddr should be aligned to EW!")
   }
 
-  // Update when Row Finish
+  // Update when Segment Finish
   def update(r: global): Unit = {
     this := r
 
-    when(r.isLastRow) {
+    when(r.isLastSeg) {
       // ONLY 2D cln will cause more than 1 groups.
       // There is no need to include '&& !r.isLastGrp' here, because we do not perform an update when reqIssueDone is triggered.
       // Therefore, by the time execution reaches this point, r.isLastGrp is implicitly false.
@@ -87,13 +89,13 @@ class global(implicit p: Parameters) extends VLSUBundle {
     }
   }
 
-  def isLastRow: Bool = !this.rmnSeg.orR
+  def isLastSeg: Bool = !this.rmnSeg.orR
 
   def isLastGrp: Bool = !this.rmnGrp.orR
 }
 
 class segLevel(implicit p: Parameters) extends VLSUBundle {
-  val rowBaseAddr = UInt(vlsuAddrBits.W)
+  val segBaseAddr = UInt(vlsuAddrBits.W)
   val txnNum      = UInt(log2Ceil(maxNrElems*EWs.max/8/4096 + 1).W) // +1 for unaligned situations, which will cause an additional txn
   val txnCnt      = UInt(log2Ceil(maxNrElems*EWs.max/8/4096 + 1).W)
   val ltN         = UInt(14.W) // last Txn Nibbles WITH pageOff (max = 4096 * 2, whose width is 14 instead of 13!)
@@ -107,11 +109,11 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
   def init(glb_r: global): Unit = {
     val nextAddr = PriorityMux(Seq(
       glb_r.mode.Incr -> (glb_r.baseAddr + (glb_r.vstart << glb_r.eew).asUInt),
-      // By aligning both stride and address to 4-bit boundaries, the rowBaseAddr calculation in stride access mode is simplified.
+      // By aligning both stride and address to 4-bit boundaries, the segBaseAddr calculation in stride access mode is simplified.
       glb_r.mode.Strd -> (glb_r.baseAddr + glb_r.vstart * glb_r.stride), // This section involves adders and multipliers, TIMING crucial
       glb_r.mode.is2D -> glb_r.baseAddr  // We don't take vstart into consideration in 2D modes at present.
-    ))
-    this.common_init(nextAddr, glb_r)
+    )).suggestName("seglv_init_next_addr")
+    this.seglv_init_common(nextAddr, glb_r)
   }
 
   /*** switch between groups
@@ -120,24 +122,29 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
    */
   def switchGrpInit(glb_nxt: global): Unit = {
     val nextAddr = glb_nxt.baseAddr
-    this.common_init(nextAddr, glb_nxt)
+    this.seglv_init_common(nextAddr, glb_nxt)
   }
 
 
-  /*** switch between different rows in the SAME group.
+  /*** switch between different segs in the SAME group.
    *
-   * @param glb_r The main payloads of glb info remain unchanged when switching row, so that the input is '_r'.
+   * @param glb_r The main payloads of glb info remain unchanged when switching seg, so that the input is '_r'.
    * @note Only Stride and 2D mode will lead to seg switch.
    */
-  def switchRowInit(r: segLevel, glb_r: global): Unit = {
-    val nextAddr = r.rowBaseAddr + glb_r.stride
-    this.common_init(nextAddr, glb_r)
+  def switchSegInit(r: segLevel, glb_r: global): Unit = {
+    val nextAddr = r.segBaseAddr + glb_r.stride
+    this.seglv_init_common(nextAddr, glb_r)
   }
 
-  def common_init(nextAddr: UInt, glb: global): Unit = {
-    this.rowBaseAddr := nextAddr
+  /*** The common parts shared by init, switchGrpInit, and switchSegInit
+   *
+   * @param nextAddr
+   * @param glb
+   */
+  private def seglv_init_common(nextAddr: UInt, glb: global): Unit = {
+    this.segBaseAddr := nextAddr
 
-    val pageOff  = this.rowBaseAddr(12, 0)
+    val pageOff  = this.segBaseAddr(12, 0)
     val seg_nibbles_with_pageOff = pageOff + (glb.seglen << glb.eew).asUInt
 
     this.txnNum := seg_nibbles_with_pageOff >> 13
@@ -145,15 +152,18 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
 
     // In the TxnCtrlInfo module, the value of "txn_nibbles_with_pageOff" is calculated as 8192 ('pageOff-inclusive') when the current transaction is not the final beat,
     // otherwise it equals ltN. Therefore, ltN must also adopt a 'pageOff-inclusive' format.
-    this.ltN    := Mux(
-      seg_nibbles_with_pageOff(12, 0).orR,
+    this.ltN := Mux(
+      this.txnNum === 0.U,
       seg_nibbles_with_pageOff(12, 0),
       8192.U
     )
+
+    dontTouch(pageOff)
+    dontTouch(seg_nibbles_with_pageOff)
   }
 
   // update in seg
-  def update(r: segLevel) = {
+  def update(r: segLevel): Unit = {
     this.txnCnt := r.txnCnt + 1.U
   }
 
@@ -190,14 +200,14 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     // It should remain active until the completion of the final data transfer cycle before being deallocated.
     when(doUpdate && !r.isFinalTxn) {
       when (r.seg.isLastTxn) {
-        // update global info (isLastRow and isLastGrp is already considered in glb.update)
+        // update global info (isLastSeg and isLastGrp is already considered in glb.update)
         this.glb.update(r.glb)
 
         // update seg Level info (switch seg / group)
-        when(r.glb.isLastRow) { // Last Row but not the last group, switch GROUP
+        when(r.glb.isLastSeg) { // Last Segment but not the last group, switch GROUP
           this.seg.switchGrpInit(this.glb)
-        }.otherwise {           // Not the last seg, switch ROW
-          this.seg.switchRowInit(r.seg, this.glb)
+        }.otherwise {           // Not the last seg, switch Segment
+          this.seg.switchSegInit(r.seg, this.glb)
         }
       }
       this.seg.update(r.seg)
@@ -208,7 +218,7 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
    *
    * @note The ReqFragmenter will be released after reqIssueDone. However, it DOES NOT indicates that the request is all Done.
    */
-  def isFinalTxn: Bool = this.glb.isLastGrp && this.glb.isLastRow && this.seg.isLastTxn
+  def isFinalTxn: Bool = this.glb.isLastGrp && this.glb.isLastSeg && this.seg.isLastTxn
 
 }
 
@@ -232,8 +242,8 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
 
     this.addr := Mux(
       seg_r.isHeadTxn,
-      seg_r.rowBaseAddr,
-      ((seg_r.rowBaseAddr >> 13).asUInt + seg_r.txnCnt) << 13
+      seg_r.segBaseAddr,
+      ((seg_r.segBaseAddr >> 13).asUInt + seg_r.txnCnt) << 13
     )
 
     // We need to avoid the impact of pageOff when calculating the number of bytes in the transaction (txn),
@@ -248,10 +258,13 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
       seg_r.ltN, // PageOff is included in ltN
       8192.U
     )
-
     // The subtraction of pageOff_without_busOffset is designed to account for initialization adjustments when the current transaction is the first in a sequence.
     // For all subsequent transactions, this term is inherently zero, ensuring no impact on the final result.
     val txn_nibbles_with_busOff = txn_nibbles_with_pageOff - pageOff_without_busOff
+
+    dontTouch(txn_nibbles_with_busOff)
+    dontTouch(txn_nibbles_with_pageOff)
+    dontTouch(pageOff_without_busOff)
 
     this.rmnBeat    := txn_nibbles_with_busOff >> busNSize
 

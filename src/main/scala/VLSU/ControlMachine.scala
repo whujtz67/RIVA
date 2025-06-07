@@ -19,11 +19,11 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
     val metaBufFull    = Input(Bool())
   })
 
-  private val s_idle :: s_row_lv_init :: s_fragmenting :: s_stall :: Nil = Enum(4)
+  private val s_idle :: s_seg_lv_init :: s_fragmenting :: s_stall :: Nil = Enum(4)
   private val state_nxt   = WireInit(s_idle)
   private val state_r     = RegNext(state_nxt)
   private val idle        = state_r === s_idle
-  private val row_lv_init = state_r === s_row_lv_init
+  private val seg_lv_init = state_r === s_seg_lv_init
   private val fragmenting = state_r === s_fragmenting
   private val stall       = state_r === s_stall
 
@@ -35,8 +35,8 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
 
   // FSM state switch
   when (idle) {
-    state_nxt := Mux(io.rivaReq.valid, s_row_lv_init, s_idle)
-  }.elsewhen(row_lv_init) {
+    state_nxt := Mux(io.rivaReq.valid, s_seg_lv_init, s_idle)
+  }.elsewhen(seg_lv_init) {
     state_nxt := Mux(io.coreStPending || io.metaBufFull, s_stall, s_fragmenting)
   }.elsewhen(fragmenting) {
     state_nxt := Mux(finalTxnIssued, s_idle, s_fragmenting)
@@ -51,18 +51,12 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   when (idle) {
     when (io.rivaReq.valid) {
       meta_nxt.glb.init(io.rivaReq.bits)
-      meta_nxt.seg := meta_r.seg // Won't initialize seg level info in this state.
-    }.otherwise {
-      meta_nxt := meta_r // do nothing when req not valid
+      // Won't initialize seg level info in this state.
     }
-  }.elsewhen(row_lv_init) {
+  }.elsewhen(seg_lv_init) {
     meta_nxt.seg.init(meta_r.glb)
-    meta_nxt.glb := meta_r.glb   // Keep the glb value
   }.elsewhen(fragmenting) {
     meta_nxt.resolve(meta_r, doUpdate)
-  }.otherwise {
-    // Do nothing, including stall mode
-    meta_nxt := meta_r
   }
 
   io.meta.bits  := meta_r
@@ -75,9 +69,12 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
 
 // ------------------------------------------ Don't Touch ---------------------------------------------- //
   dontTouch(idle)
-  dontTouch(row_lv_init)
+  dontTouch(seg_lv_init)
   dontTouch(fragmenting)
   dontTouch(stall)
+
+  dontTouch(meta_r)
+  dontTouch(meta_nxt)
 }
 
 /** TxnControlUnit

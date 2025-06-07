@@ -362,7 +362,7 @@ trait ShuffleHelper {
  * This ensures a one-to-one correspondence between meta information and requests through physical queue binding.
  *
  * 3. Enq
- * In the 's_row_lv_init' state of the ReqFragmenter, the enq.valid signal is asserted.
+ * In the 's_seg_lv_init' state of the ReqFragmenter, the enq.valid signal is asserted.
  * If the MetaBuf is full at this time, it will cause the ReqFragmenter to enter a stalled state,
  * thereby preventing the loss of requests.
  *
