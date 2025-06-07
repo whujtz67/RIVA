@@ -8,20 +8,20 @@ import org.chipsalliance.cde.config.Parameters
 // VM Address Bundle
 // -------------------------------
 class VAddrBundle(implicit p: Parameters) extends VLSUBundle {
-  val set  = UInt(log2Ceil(bankDep).W)
-  val bank = UInt(log2Ceil(bankNum).W)
+  val set  = UInt(log2Ceil(vmSramDepth).W)
+  val bank = UInt(log2Ceil(NrVmBanks).W)
 
   def init(meta: MetaBufBundle): Unit = {
-    val setPerVReg = VLEN / NrLanes / SLEN / bankNum
-    val setPerAReg = ALEN / NrLanes / SLEN / bankNum
+    val setPerVReg = VLEN / NrLanes / SLEN / NrVmBanks
+    val setPerAReg = ALEN / NrLanes / SLEN / NrVmBanks
     val aregBaseSet = setPerVReg * 16
 
     this.set := Mux(
       meta.vd(4),
-      aregBaseSet.U + (meta.vd << log2Ceil(setPerAReg)).asUInt + (meta.vstart >> log2Ceil(bankNum)).asUInt,
-      (meta.vd << log2Ceil(setPerVReg)).asUInt + (meta.vstart >> log2Ceil(bankNum)).asUInt
+      aregBaseSet.U + (meta.vd << log2Ceil(setPerAReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt,
+      (meta.vd << log2Ceil(setPerVReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt
     )
-    this.bank := meta.vstart(log2Ceil(bankNum) - 1, 0)
+    this.bank := meta.vstart(log2Ceil(NrVmBanks) - 1, 0)
   }
 }
 
