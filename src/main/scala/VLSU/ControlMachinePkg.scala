@@ -162,9 +162,13 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
     dontTouch(seg_nibbles_with_pageOff)
   }
 
-  // update in seg
+  // simple update in seg
   def update(r: segLevel): Unit = {
-    this.txnCnt := r.txnCnt + 1.U
+    val nxt = this
+
+    nxt.txnCnt := r.txnCnt + 1.U
+
+    assert(nxt.txnCnt <= r.txnNum, s"[ReqFragmenter seglv simple update] nxt.txnCnt(%d) has exceeded r.txnNum(%d)!", nxt.txnCnt, r.txnCnt)
   }
 
   // isHead txn in the segment, not head seg!!!
@@ -189,8 +193,10 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
    * @param doUpdate Update the MetaCtrlInfo every time a set of information is injected into the TxnCtrlUnit.
    */
   def resolve(r: MetaCtrlInfo, doUpdate: Bool): Unit = {
+    val nxt = this
+    
     // default connection
-    this := r
+    nxt := r
 
     val isFinalTxn = WireDefault(r.isFinalTxn)
 
@@ -203,16 +209,17 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     when(doUpdate && !isFinalTxn) {
       when (r.seg.isLastTxn) {
         // update global info (isLastSeg and isLastGrp is already considered in glb.update)
-        this.glb.update(r.glb)
+        nxt.glb.update(r.glb)
 
         // update seg Level info (switch seg / group)
         when(r.glb.isLastSeg) { // Last Segment but not the last group, switch GROUP
-          this.seg.switchGrpInit(this.glb)
+          nxt.seg.switchGrpInit(nxt.glb)
         }.otherwise {           // Not the last seg, switch Segment
-          this.seg.switchSegInit(r.seg, this.glb)
+          nxt.seg.switchSegInit(r.seg, nxt.glb)
         }
+      }.otherwise {
+        nxt.seg.update(r.seg)
       }
-      this.seg.update(r.seg)
     }
 
     dontTouch(isFinalTxn)
