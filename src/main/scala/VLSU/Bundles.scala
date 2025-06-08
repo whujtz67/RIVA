@@ -76,10 +76,10 @@ class RivaReqPtl(implicit p: Parameters) extends VLSUBundle {
 }
 
 class VecMopOH extends Bundle {
-  val Incr  = Bool()
-  val Strd  = Bool()
+  val cln2D = Bool() // cln major: MSB
   val row2D = Bool() // row major
-  val cln2D = Bool() // cln major
+  val Strd  = Bool()
+  val Incr  = Bool() // LSB
 
   def isOH: Bool = PopCount(this.asUInt) === 1.U
 

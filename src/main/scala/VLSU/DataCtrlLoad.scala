@@ -42,7 +42,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
       seqNbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(nbNum)-1, 0)
       vaddr_nxt.init(meta)
 
-      assert(txnInfo.valid)
+      assert(txnInfo.valid, "There should be at least one valid tc!")
     }
   }.elsewhen(serial_cmt) {
     val lower_nibble = Mux(

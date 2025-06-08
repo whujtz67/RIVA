@@ -192,13 +192,15 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     // default connection
     this := r
 
+    val isFinalTxn = WireDefault(r.isFinalTxn)
+
     // When 'reqIssueDone' is triggered alongside 'doUpdate',
     // it signifies that the last Txn of the request has been fully issued,
     // meaning the entire request has entered the processing pipeline.
     //
     // NOTE: The register storing 'MetaCtrlInfo' for this request MUST NOT be released immediately.
     // It should remain active until the completion of the final data transfer cycle before being deallocated.
-    when(doUpdate && !r.isFinalTxn) {
+    when(doUpdate && !isFinalTxn) {
       when (r.seg.isLastTxn) {
         // update global info (isLastSeg and isLastGrp is already considered in glb.update)
         this.glb.update(r.glb)
@@ -212,6 +214,8 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
       }
       this.seg.update(r.seg)
     }
+
+    dontTouch(isFinalTxn)
   }
 
   /*** The isFinalTxn signal indicates that the Txn currently being issued is the final one of the entire request.
@@ -277,6 +281,10 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     if (nxt.isLoad.isDefined) nxt.isLoad.get := meta_r.glb.isLoad.get
     nxt.isFinalTxn := meta_r.isFinalTxn
 
+    assert(txn_nibbles_with_pageOff >= pageOff_without_busOff,
+      s"txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %d, pageOff_without_busOff = %d",
+      txn_nibbles_with_pageOff, pageOff_without_busOff
+    )
     assert((txn_nibbles_with_busOff > 0.U) && (txn_nibbles_with_busOff <= 8192.U), s"txn_nibbles_with_busOff should in range(0, 8192). However, got %d\n", txn_nibbles_with_busOff)
 
     dontTouch(pageOff)

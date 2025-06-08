@@ -72,6 +72,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   dontTouch(seg_lv_init)
   dontTouch(fragmenting)
   dontTouch(stall)
+  dontTouch(state_nxt)
 
   dontTouch(meta_r)
   dontTouch(meta_nxt)
