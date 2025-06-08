@@ -423,8 +423,11 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
 // ------------------------------------------ Sequential Buffer ------------------------------------------------- //
   val seqBuf: Vec[SeqBufBundle] = RegInit(0.U.asTypeOf(Vec(2, new SeqBufBundle()))) // Ping-pong buffer
 
-  val enqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
+//  val enqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
   val deqPtr: CirQSeqBufPtr = RegInit(0.U.asTypeOf(new CirQSeqBufPtr()))
+
+  val enqPtr_nxt: CirQSeqBufPtr = WireInit(0.U.asTypeOf(new CirQSeqBufPtr()))
+  val enqPtr: CirQSeqBufPtr = RegNext(enqPtr_nxt)
 
   val seqBufEmpty: Bool = isEmpty(enqPtr, deqPtr)
   val seqBufFull : Bool = isFull (enqPtr, deqPtr)

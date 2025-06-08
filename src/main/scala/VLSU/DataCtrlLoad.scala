@@ -39,7 +39,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     // initialize Pointers and vaddr
     when(!metaBufEmpty) {
       busNbCnt_nxt := 0.U // busNbCnt is the counter of valid nbs from the bus that has already been committed, so it should be initialized as 0.
-      seqNbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(nbNum)-1, 0)
+      seqNbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(nbNum)-1, 0) // Only the initialization of seqNbPtr_nxt needs to consider vstart.
       vaddr_nxt.init(meta)
 
       assert(txnInfo.valid, "There should be at least one valid tc!")
@@ -70,7 +70,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
         cmtNbNum       := seqBufValidNb
         busNbCnt_nxt   := busNbCnt_r + cmtNbNum
         seqNbPtr_nxt   := 0.U
-        enqPtr         := enqPtr + 1.U // Current slice of seqBuf is full, add the enqPtr.
+        enqPtr_nxt     := enqPtr + 1.U // Current slice of seqBuf is full, add the enqPtr.
       }.otherwise {
         // seqBuf still has enough space for the next r beat.
         cmtNbNum       := busValidNb
@@ -82,13 +82,15 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
         // Still need to do enq for the seqBuf is busValidNb = seqBufValidNb
         // TODO: is there better way to achieve this?
         when (busValidNb === seqBufValidNb) {
-          enqPtr := enqPtr + 1.U
+          enqPtr_nxt := enqPtr + 1.U
+          seqNbPtr_nxt := 0.U
         }
 
         // Haven't occupied all valid nbs in the seqBuf,
         // but the current beat is already the final beat of the whole riva request.
         when (txnInfo.bits.isFinalBeat) {
-          enqPtr := enqPtr + 1.U
+          enqPtr_nxt := enqPtr + 1.U
+          seqNbPtr_nxt := 0.U
         }
       }
 
@@ -134,6 +136,8 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
           }
       }
 
+      dontTouch(busValidNb)
+      dontTouch(seqBufValidNb)
     }
   }.elsewhen(gather_cmt) {
     assert(false.B, "We don't support gather mode now!")
@@ -223,4 +227,6 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   dontTouch(idle)
   dontTouch(do_cmt_seq_to_shf)
   dontTouch(vaddr_nxt)
+  dontTouch(seqNbPtr_nxt)
+  dontTouch(enqPtr_nxt)
 }

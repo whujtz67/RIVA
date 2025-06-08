@@ -30,6 +30,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 
   // Input from Lane Exits
   val rxs = IO(Vec(NrLanes, Flipped(Decoupled(new RxLane())))).suggestName("io_rxs") // to Lane
+
 // ------------------------------------------ Wire/Reg Declaration ------------------------------------------------- //
   private val shfBuf      = RegInit(0.U.asTypeOf(Vec(NrLanes, Valid(new RxLane()))))
   private val shfBufFull  = shfBuf.map(_.valid).reduce(_ && _)
@@ -62,6 +63,8 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 // ------------------------------------------ shfBuf -> seqBuf ------------------------------------------------- //
   private val do_cmt_shf_to_seq = shfBufFull && !seqBufFull && !metaBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
 
+  enqPtr_nxt := enqPtr
+
   when (do_cmt_shf_to_seq) {
     val seqBuf_nb = seqBuf(enqPtr.value).nb
     val seqBuf_en = seqBuf(enqPtr.value).en
@@ -74,7 +77,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
     maskReady := !meta.vm // mask has been consumed
 
     // do enq of seqBuf
-    enqPtr := enqPtr + 1.U
+    enqPtr_nxt := enqPtr + 1.U
 
     // do deq of shfBuf
     shfBuf.foreach { source =>
@@ -140,6 +143,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
         // Still need to do deq for the seqBuf is busValidNb = seqBufValidNb
         when (busValidNb === seqBufValidNb) {
           deqPtr := deqPtr + 1.U
+          seqNbPtr_nxt := 0.U
         }
 
         // do enq for wBuf
@@ -149,6 +153,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
         // but the current beat is already the final beat of the whole riva request.
         when (txnInfo.bits.isFinalBeat) {
           deqPtr := deqPtr + 1.U
+          seqNbPtr_nxt := 0.U
         }
       }
 
