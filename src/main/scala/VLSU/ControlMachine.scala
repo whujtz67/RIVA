@@ -13,10 +13,11 @@ import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
  */
 class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   val io = IO(new Bundle {
-    val rivaReq        = Flipped(Decoupled(new RivaReqPtl()))
-    val coreStPending  = Input(Bool())
-    val meta           = Decoupled(new MetaCtrlInfo())  // 'meta.ready' means a TxnCtrlInfo can be injected to a free tc
-    val metaBufFull    = Input(Bool())
+    val rivaReq         = Flipped(Decoupled(new RivaReqPtl()))
+    val coreStPending   = Input(Bool())
+    val meta            = Decoupled(new MetaCtrlInfo())  // 'meta.ready' means a TxnCtrlInfo can be injected to a free tc
+    val metaBufFull     = Input(Bool())
+    val metaBufEnqValid = Output(Bool())
   })
 
   private val s_idle :: s_seg_lv_init :: s_fragmenting :: s_stall :: Nil = Enum(4)
@@ -29,6 +30,16 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
 
   private val meta_nxt = WireInit(0.U.asTypeOf(new MetaCtrlInfo()))
   private val meta_r   = RegNext(meta_nxt)
+
+  // io.meta.valid is always asserted during fragmentation, which will leads to
+  // duplicated payloads in data control meta buffer if 'metaBufEnqValid := io.meta.valid'.
+  // As a result, there should be a signal which is only asserted at the first cycle of 'fragmenting' state.
+  //
+  // We shouldn't connect data control meta buffer with riva req buffer,
+  // because meta buffer need 'cmtCnt', which is calculated in reqFragmenter.
+  //
+  // TODO: maybe can put the decode of global info outside reqFragmenter.
+  private val start_fragmenting = RegInit(false.B)
 
   private val doUpdate = io.meta.ready
   private val finalTxnIssued = WireDefault(meta_r.isFinalTxn && doUpdate) // The final Txn of the riva Req is issued to the tc
@@ -55,8 +66,16 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
     }
   }.elsewhen(seg_lv_init) {
     meta_nxt.seg.init(meta_r.glb)
+
+    start_fragmenting := !(io.coreStPending || io.metaBufFull)
   }.elsewhen(fragmenting) {
     meta_nxt.resolve(meta_r, doUpdate)
+
+    // We expect there to always be empty spaces in the data control meta buffer during fragmentation,
+    // so we don't need to wait for the meta buffer to fire.
+    start_fragmenting := false.B
+  }.elsewhen(stall) {
+    start_fragmenting := !(io.coreStPending || io.metaBufFull)
   }
 
   io.meta.bits  := meta_r
@@ -67,6 +86,8 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   // Therefore, during the IDLE state, the Instruction Queue can be dequeued.
   io.rivaReq.ready := idle
 
+  io.metaBufEnqValid := start_fragmenting
+
 // ------------------------------------------ Don't Touch ---------------------------------------------- //
   dontTouch(idle)
   dontTouch(seg_lv_init)
@@ -76,6 +97,8 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
 
   dontTouch(meta_r)
   dontTouch(meta_nxt)
+
+  dontTouch(start_fragmenting)
 }
 
 /** TxnControlUnit
@@ -239,7 +262,7 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   tc.io.update      := io.update
   io.txnCtrl        <> tc.io.txnCtrl
   io.metaCtrl.bits  := rf.io.meta.bits
-  io.metaCtrl.valid := rf.io.meta.valid
+  io.metaCtrl.valid := rf.io.metaBufEnqValid
   rf.io.metaBufFull := !io.metaCtrl.ready // metaCtrl.ready is metaBuf's enq.ready
 
   ax       <> tc.ax

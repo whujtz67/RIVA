@@ -183,7 +183,7 @@ class ControlMachineNC(implicit p: Parameters) extends VLSUModule {
   tc.io.update      := io.update
   io.txnCtrl        <> tc.io.txnCtrl
   io.metaCtrl.bits  := rf.io.meta.bits
-  io.metaCtrl.valid := rf.io.meta.valid
+  io.metaCtrl.valid := rf.io.metaBufEnqValid
   rf.io.metaBufFull := !io.metaCtrl.ready // metaCtrl.ready is metaBuf's enq.ready
 
   aw <> tc.aw
