@@ -428,6 +428,11 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
 
   val seqBufEmpty: Bool = isEmpty(enqPtr, deqPtr)
   val seqBufFull : Bool = isFull (enqPtr, deqPtr)
+
+// ------------------------------------------ Internal Bundles ------------------------------------------------- //
+  val meta: MetaBufBundle = metaBuf(m_deqPtr.value)
+  val txn : TxnCtrlInfo   = txnInfo.bits
+
 // ------------------------------------------ Wire/Reg Delaration ------------------------------------------------- //
   // Because the remaining space in seqBuf might be less than the amount of valid data on the bus,
   // it may not be possible to commit all valid data from the bus in a single cycle.
@@ -439,9 +444,7 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   val seqNbPtr_nxt: UInt = WireInit(0.U.asTypeOf(UInt(log2Ceil(nbNum).W)))
   val seqNbPtr_r  : UInt = RegNext(seqNbPtr_nxt)
 
-// ------------------------------------------ Internal Bundles ------------------------------------------------- //
-  val meta: MetaBufBundle = metaBuf(m_deqPtr.value)
-  val txn : TxnCtrlInfo   = txnInfo.bits
+  val isFinalBeat: Bool = WireDefault(txn.isFinalBeat)
 
 // ------------------------------------------ FSM Logics ------------------------------------------------- //
   val s_idle :: s_serial_cmt :: s_gather_cmt :: Nil = Enum(3)
@@ -464,16 +467,16 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
       s_idle
     )
   }.elsewhen(serial_cmt) {
-    state_nxt := Mux(txn.isFinalBeat && txnInfo.ready, s_idle, s_serial_cmt) // txnInfo.ready is do Update
+    state_nxt := Mux(isFinalBeat && txnInfo.ready, s_idle, s_serial_cmt) // txnInfo.ready is do Update
   }.elsewhen(gather_cmt) {
-    state_nxt := Mux(txn.isFinalBeat && txnInfo.ready, s_idle, s_gather_cmt)
+    state_nxt := Mux(isFinalBeat && txnInfo.ready, s_idle, s_gather_cmt)
   }.otherwise {
     state_nxt := state_r
   }
 
 // ------------------------------------------ Connections ------------------------------------------------- //
-  metaBuf(m_enqPtr.value).init(metaInfo.bits)
   when (metaInfo.fire) {
+    metaBuf(m_enqPtr.value).init(metaInfo.bits)
     m_enqPtr := m_enqPtr + 1.U
   }
   metaInfo.ready := !metaBufFull
@@ -483,4 +486,5 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   dontTouch(metaBufFull)
   dontTouch(seqBufEmpty)
   dontTouch(seqBufFull)
+  dontTouch(isFinalBeat)
 }

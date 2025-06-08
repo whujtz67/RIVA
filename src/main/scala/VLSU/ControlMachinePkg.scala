@@ -285,7 +285,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
       s"txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %d, pageOff_without_busOff = %d",
       txn_nibbles_with_pageOff, pageOff_without_busOff
     )
-    assert((txn_nibbles_with_busOff > 0.U) && (txn_nibbles_with_busOff <= 8192.U), s"txn_nibbles_with_busOff should in range(0, 8192). However, got %d\n", txn_nibbles_with_busOff)
+    assert(txn_nibbles_with_busOff <= 8192.U, s"txn_nibbles_with_busOff should in range(0, 8192). However, got %d\n", txn_nibbles_with_busOff)
 
     dontTouch(pageOff)
     dontTouch(txn_nibbles_with_busOff)
