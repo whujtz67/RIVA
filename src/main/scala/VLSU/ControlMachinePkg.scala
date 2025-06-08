@@ -238,6 +238,7 @@ class MetaCtrlInfo(implicit p: Parameters) extends VLSUBundle {
  * TxnCtrlInfo is derived from MetaCtrlInfo.segLevel info
  */
 class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
+  val reqId      = if (debug) Some(UInt(reqIdBits.W)) else None
   val addr       = UInt(vlsuAddrBits.W)
   val size       = UInt(3.W)
   val rmnBeat    = UInt(log2Ceil(4096/busBytes).W) // The width not need to "+ 1" like txnNum of segInfo does.
@@ -252,6 +253,8 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     val nxt = this
 
     val seg_r = meta_r.seg
+
+    if (nxt.reqId.isDefined) nxt.reqId.get := meta_r.glb.reqId
 
     nxt.addr := Mux(
       seg_r.isHeadTxn,

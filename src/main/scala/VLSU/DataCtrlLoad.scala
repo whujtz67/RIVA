@@ -217,6 +217,8 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
       }
   }
 
+// ------------------------------------------ Assertions ------------------------------------------------- //
+
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(idle)
   dontTouch(do_cmt_seq_to_shf)

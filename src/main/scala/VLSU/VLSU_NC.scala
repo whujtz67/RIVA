@@ -43,7 +43,7 @@ class VLSU_NC(implicit p: Parameters) extends VLSUModule {
   cm.io.rivaReq  <> IQ.io.deq
 
   // coreStPending
-  cm.io.coreStPending  := coreStPending
+  cm.io.coreStPending := coreStPending
   // CM <-> DC
   LDC.metaInfo.bits  := cm.io.metaCtrl.bits
   LDC.metaInfo.valid := cm.io.metaCtrl.valid && cm.io.metaCtrl.bits.glb.isLoad.get

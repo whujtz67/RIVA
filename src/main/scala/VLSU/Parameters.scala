@@ -22,7 +22,8 @@ case class VLSUParamters(
   metaBufDep: Int = 4,
   wBufDep   : Int = 4,
   txnCtrlNum: Int = 4,
-  concurrent: Boolean = false
+  concurrent: Boolean = false,
+  debug     : Boolean = true
 ) {
   require(NrLanes > 0)
   require(NrVInsns > 0)
@@ -84,6 +85,7 @@ trait HasVLSUParams {
   lazy val wBufDep    = vlsuParams.wBufDep
   lazy val txnCtrlNum = vlsuParams.txnCtrlNum
   lazy val concurrent = vlsuParams.concurrent
+  lazy val debug      = vlsuParams.debug
 
   // derived parameters
   lazy val vlsuAddrBits = vlsuParams.vlsuAddrBits

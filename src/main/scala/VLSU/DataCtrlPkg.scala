@@ -481,6 +481,17 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   }
   metaInfo.ready := !metaBufFull
 
+// ------------------------------------------ Debug signals ------------------------------------------------- //
+  if (debug) {
+    val current_meta = WireDefault(metaBuf(m_deqPtr.value))
+    dontTouch(current_meta)
+  }
+
+// ------------------------------------------ Assertions ------------------------------------------------- //
+  when (!idle) {
+    if (txn.reqId.isDefined) assert(txn.reqId.get === meta.reqId, "[DataCtrl] io_txnCtrl_reqId and metaBuf deq reqId mismatch!")
+  }
+
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(metaBufEmpty)
   dontTouch(metaBufFull)
