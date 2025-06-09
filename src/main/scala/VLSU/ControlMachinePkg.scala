@@ -64,7 +64,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
       req.len << this.eew << log2Ceil(NrLanes),
       elemNum << this.eew
     ).asUInt
-    this.cmtCnt := tot_half_byte_number >> log2Ceil(NrLanes * SLEN / 4)
+    this.cmtCnt := (tot_half_byte_number - 1.U) >> log2Ceil(NrLanes * SLEN / 4)
 
     assert(req.len > req.vstart, "vlen/alen must > vstart. Otherwise, the request is meaningless")
 
