@@ -43,11 +43,12 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   private val wBufEmpty = isEmpty(w_enqPtr, w_deqPtr)
 
 // ------------------------------------------ give the Outputs default value ------------------------------------------------- //
-  busNbCnt_nxt   := busNbCnt_r
-  seqNbPtr_nxt   := seqNbPtr_r
-  w.valid        := false.B
-  txnInfo.ready  := false.B
-  maskReady      := false.B
+  busNbCnt_nxt  := busNbCnt_r
+  seqNbPtr_nxt  := seqNbPtr_r
+  w.valid       := false.B
+  txnInfo.ready := false.B
+  maskReady     := false.B
+  enqPtr_nxt    := enqPtr
 
   // ------------------------------------------ rx lane -> shfBuf ------------------------------------------------- //
   shfBuf.zip(rxs).foreach {

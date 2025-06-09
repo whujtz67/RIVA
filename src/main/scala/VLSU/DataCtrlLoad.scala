@@ -32,6 +32,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   r.ready        := false.B
   txnInfo.ready  := false.B
   maskReady      := false.B
+  enqPtr_nxt     := enqPtr
 
 // ------------------------------------------ AXI R bus -> seqBuf ------------------------------------------------- //
   // FSM Outputs
@@ -57,8 +58,9 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
       busNibbles.U
     )
 
+    val do_serial_cmt = r.valid && !seqBufFull
     // Won't consume data of the R Channel when seqBuf is full.
-    when (r.valid && !seqBufFull) {
+    when (do_serial_cmt) {
       val busValidNb    = upper_nibble - lower_nibble - busNbCnt_r // The amount of valid data on the bus. Don't need to '+1' because we didn't do '-1' when calculating upperNb.
       val seqBufValidNb = (NrLanes * SLEN / 4).U - seqNbPtr_r  // The amount of free space available in seqBuf
 
@@ -138,6 +140,9 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
 
       dontTouch(busValidNb)
       dontTouch(seqBufValidNb)
+      dontTouch(do_serial_cmt)
+      dontTouch(lower_nibble)
+      dontTouch(upper_nibble)
     }
   }.elsewhen(gather_cmt) {
     assert(false.B, "We don't support gather mode now!")
@@ -222,11 +227,12 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   }
 
 // ------------------------------------------ Assertions ------------------------------------------------- //
-
+  when(!seqBufEmpty) { assert(!metaBufEmpty, "[DataCtrlLoad] There should be at least one valid meta info in meta Buffer when seqBuf is not Empty!") }
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(idle)
   dontTouch(do_cmt_seq_to_shf)
   dontTouch(vaddr_nxt)
   dontTouch(seqNbPtr_nxt)
   dontTouch(enqPtr_nxt)
+  dontTouch(shfBufEmpty)
 }
