@@ -147,13 +147,13 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
     val pageOff  = this.segBaseAddr(12, 0)
     val seg_nibbles_with_pageOff = pageOff + (glb.seglen << glb.eew).asUInt
 
-    this.txnNum := seg_nibbles_with_pageOff >> 13
+    this.txnNum := (seg_nibbles_with_pageOff - 1.U) >> 13
     this.txnCnt := 0.U
 
     // In the TxnCtrlInfo module, the value of "txn_nibbles_with_pageOff" is calculated as 8192 ('pageOff-inclusive') when the current transaction is not the final beat,
     // otherwise it equals ltN. Therefore, ltN must also adopt a 'pageOff-inclusive' format.
     this.ltN := Mux(
-      this.txnNum === 0.U,
+      seg_nibbles_with_pageOff(12, 0).orR,
       seg_nibbles_with_pageOff(12, 0),
       8192.U
     )
@@ -278,11 +278,11 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
     // For all subsequent transactions, this term is inherently zero, ensuring no impact on the final result.
     val txn_nibbles_with_busOff = txn_nibbles_with_pageOff - pageOff_without_busOff
 
-    nxt.rmnBeat := txn_nibbles_with_busOff >> busNSize
+    nxt.rmnBeat := (txn_nibbles_with_busOff - 1.U) >> busNSize
 
     // lbN should be busNibbles.U instead of 0.U when all bytes are valid (in this case txnBytes(busNSize - 1, 0) = 0)!
     nxt.lbN := Mux(
-      nxt.rmnBeat === 0.U,
+      txn_nibbles_with_busOff(busNSize - 1, 0).orR,
       txn_nibbles_with_busOff(busNSize - 1, 0),
       busNibbles.U
     )
