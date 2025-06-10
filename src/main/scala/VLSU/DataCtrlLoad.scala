@@ -6,6 +6,7 @@ import org.chipsalliance.cde.config.Parameters
 import protocols.AXI.spec.RFlit
 
 class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtrl {
+  def isLoad: Boolean = true
 // ------------------------------------------ IO Declaration ------------------------------------------------- //
   // R Channel Input
   val r = IO(Flipped(Decoupled(new RFlit(axi4Params)))).suggestName("io_r")
@@ -13,26 +14,19 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   // Output to Lane Entries
   val txs = IO(Vec(NrLanes, Decoupled(new TxLane()))).suggestName("io_txs") // to Lane
 
-// ------------------------------------------ Module Declaration ------------------------------------------------- //
-
-
 // ------------------------------------------ Wire/Reg Declaration ------------------------------------------------- //
-  // vaddr
-  private val vaddr_nxt    = Wire(new VAddrBundle())
-  private val vaddr_r      = RegNext(vaddr_nxt)
-
   // shuffle buffer
   private val shfBuf = RegInit(0.U.asTypeOf(Vec(NrLanes, Valid(new TxLane()))))
   private val shfBufEmpty = !shfBuf.map(_.valid).reduce(_ || _)
 
 // ------------------------------------------ give the Outputs default value ------------------------------------------------- //
-  vaddr_nxt      := vaddr_r
   busNbCnt_nxt   := busNbCnt_r
   seqNbPtr_nxt   := seqNbPtr_r
   r.ready        := false.B
   txnInfo.ready  := false.B
   maskReady      := false.B
   enqPtr_nxt     := enqPtr
+  idleInfoQueue.io.deq.ready := false.B
 
 // ------------------------------------------ AXI R bus -> seqBuf ------------------------------------------------- //
   // FSM Outputs
@@ -40,8 +34,8 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
     // initialize Pointers and vaddr
     when(!metaBufEmpty) {
       busNbCnt_nxt := 0.U // busNbCnt is the counter of valid nbs from the bus that has already been committed, so it should be initialized as 0.
-      seqNbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(nbNum)-1, 0) // Only the initialization of seqNbPtr_nxt needs to consider vstart.
-      vaddr_nxt.init(meta)
+      seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr // Only the initialization of seqNbPtr_nxt needs to consider vstart.
+      idleInfoQueue.io.deq.ready := true.B
 
       assert(txnInfo.valid, "There should be at least one valid tc!")
     }
@@ -186,11 +180,11 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
       buf.valid := true.B
       // TODO: 是否考虑只存一份reqId和vaddr_r
       buf.bits.reqId := meta.reqId
-      buf.bits.vaddr := vaddr_r
+      buf.bits.vaddr := meta.vaddr.get
     }
 
     // add vaddr when info are committed and saved in shfBuf
-    vaddr_nxt := (vaddr_r.asUInt + 1.U).asTypeOf(new VAddrBundle)
+    meta.vaddr.get := (meta.vaddr.get.asUInt + 1.U).asTypeOf(new VAddrBundle)
     maskReady := !meta.vm // mask has been consumed
 
     /* When current seqBuf is the last set of data of the riva req, do metaReq deq.
@@ -228,10 +222,10 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
 
 // ------------------------------------------ Assertions ------------------------------------------------- //
   when(!seqBufEmpty) { assert(!metaBufEmpty, "[DataCtrlLoad] There should be at least one valid meta info in meta Buffer when seqBuf is not Empty!") }
+  assert(txs(0).bits.vaddr.set < vmSramDepth.U, s"[DataCtrlLoad] vaddr_set should < vmSramDepth = $vmSramDepth. However, got %d\n", txs(0).bits.vaddr.set)
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(idle)
   dontTouch(do_cmt_seq_to_shf)
-  dontTouch(vaddr_nxt)
   dontTouch(seqNbPtr_nxt)
   dontTouch(enqPtr_nxt)
   dontTouch(shfBufEmpty)

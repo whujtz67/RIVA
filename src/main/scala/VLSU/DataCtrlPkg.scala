@@ -371,7 +371,7 @@ trait ShuffleHelper {
  *
  * @param p
  */
-class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
+class MetaBufBundle(isLoad: Boolean)(implicit p: Parameters) extends VLSUBundle {
   val reqId  = UInt(reqIdBits.W)
   val mode   = new VecMopOH()
   val eew    = UInt(2.W)
@@ -379,6 +379,7 @@ class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
   val vstart = UInt(log2Ceil(maxNrElems).W)
   val vm     = Bool()
   val cmtCnt = UInt(log2Ceil(VLEN*EWs.max/SLEN).W)
+  val vaddr  = if (isLoad) Some(new VAddrBundle()) else None
 
   def init(meta: MetaCtrlInfo): Unit = {
     this.reqId  := meta.glb.reqId
@@ -388,18 +389,29 @@ class MetaBufBundle(implicit p: Parameters) extends VLSUBundle {
     this.vstart := meta.glb.vstart
     this.vm     := meta.glb.vm
     this.cmtCnt := meta.glb.cmtCnt
+
+    if (this.vaddr.isDefined) {
+      this.vaddr.get.init(meta.glb.vd, meta.glb.vstart)
+    }
   }
 }
 
 trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   self: VLSUModule =>
 
+  def isLoad: Boolean
+
+// -------------------------------------------------- trait classes -------------------------------------------------- //
   class CirQSeqBufPtr extends CircularQueuePtr[CirQSeqBufPtr](2)
   class CirQMetaBufPtr extends CircularQueuePtr[CirQMetaBufPtr](metaBufDep)
 
   class SeqBufBundle(implicit p: Parameters) extends VLSUBundle {
     val nb = Vec(NrLanes*SLEN/4, UInt(4.W))
     val en = Vec(NrLanes*SLEN/4, Bool()) // Not the nbe committing to the lane, haven't considered mask.
+  }
+
+  class IdleInfoBundle(implicit p: Parameters) extends VLSUBundle {
+    val seqNbPtr = UInt(log2Ceil(nbNum).W)
   }
 
 // ------------------------------------------ Common IO Declaration of both DataCtrl ------------------------------------------------- //
@@ -412,13 +424,17 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
 
 // ------------------------------------------ Meta Buffer ------------------------------------------------- //
 //  val metaBuf: Queue[MetaBufBundle] = Module(new Queue(new MetaBufBundle(), metaBufDep))
-  val metaBuf: Vec[MetaBufBundle] = RegInit(0.U.asTypeOf(Vec(metaBufDep, new MetaBufBundle())))
+  val metaBuf: Vec[MetaBufBundle] = RegInit(0.U.asTypeOf(Vec(metaBufDep, new MetaBufBundle(isLoad))))
 
   val m_enqPtr: CirQMetaBufPtr = RegInit(0.U.asTypeOf(new CirQMetaBufPtr()))
   val m_deqPtr: CirQMetaBufPtr = RegInit(0.U.asTypeOf(new CirQMetaBufPtr()))
 
   val metaBufEmpty: Bool = isEmpty(m_enqPtr, m_deqPtr)
   val metaBufFull : Bool = isFull (m_enqPtr, m_deqPtr)
+
+// ------------------------------------------ Idle Info Queue ------------------------------------------------- //
+  // skid buffer
+  val idleInfoQueue = Module(new Queue(new IdleInfoBundle(), entries = 1, flow = true))
 
 // ------------------------------------------ Sequential Buffer ------------------------------------------------- //
   val seqBuf: Vec[SeqBufBundle] = RegInit(0.U.asTypeOf(Vec(2, new SeqBufBundle()))) // Ping-pong buffer
@@ -479,10 +495,19 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
 
 // ------------------------------------------ Connections ------------------------------------------------- //
   when (metaInfo.fire) {
+    // do metaBuffer enqueue
     metaBuf(m_enqPtr.value).init(metaInfo.bits)
     m_enqPtr := m_enqPtr + 1.U
+
+    // do idleInfoQueue enqueue
+    idleInfoQueue.io.enq.bits.seqNbPtr := (metaInfo.bits.glb.vstart << metaInfo.bits.glb.eew)(log2Ceil(nbNum)-1, 0)
+    idleInfoQueue.io.enq.valid := true.B
+  }.otherwise {
+    // do nothing
+    idleInfoQueue.io.enq.bits.seqNbPtr := 0.U.asTypeOf(idleInfoQueue.io.enq.bits.seqNbPtr)
+    idleInfoQueue.io.enq.valid := false.B
   }
-  metaInfo.ready := !metaBufFull
+  metaInfo.ready := !metaBufFull && idleInfoQueue.io.enq.ready
 
 // ------------------------------------------ Debug signals ------------------------------------------------- //
   if (debug) {

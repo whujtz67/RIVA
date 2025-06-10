@@ -8,6 +8,7 @@ import xs.utils.CircularQueuePtr
 
 
 class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelper with CommonDataCtrl {
+  def isLoad: Boolean = false
 // ------------------------------------------ Private Classes ------------------------------------------------- //
   private class CirQWBufPtr extends CircularQueuePtr[CirQWBufPtr](wBufDep)
 
@@ -49,6 +50,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   txnInfo.ready := false.B
   maskReady     := false.B
   enqPtr_nxt    := enqPtr
+  idleInfoQueue.io.deq.ready := false.B
 
   // ------------------------------------------ rx lane -> shfBuf ------------------------------------------------- //
   shfBuf.zip(rxs).foreach {
@@ -98,7 +100,8 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   when (idle) {
     when(!metaBufEmpty) {
       busNbCnt_nxt := 0.U
-      seqNbPtr_nxt := (meta.vstart << meta.eew)(log2Ceil(nbNum)-1, 0)
+      seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr
+      idleInfoQueue.io.deq.ready := true.B
 
       assert(txnInfo.valid, "There should be at least one valid tc!")
     }

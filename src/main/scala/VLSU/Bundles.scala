@@ -11,18 +11,18 @@ class VAddrBundle(implicit p: Parameters) extends VLSUBundle {
   val set  = UInt(log2Ceil(vmSramDepth).W)
   val bank = UInt(log2Ceil(NrVmBanks).W)
 
-  def init(meta: MetaBufBundle): Unit = {
+  def init(vd: UInt, vstart: UInt): Unit = {
     val setPerVReg = VLEN / NrLanes / SLEN / NrVmBanks
     val setPerAReg = ALEN / NrLanes / SLEN / NrVmBanks
     val aregBaseSet = setPerVReg * NrVregs
     val vd_msb = log2Ceil(NrVregs)
 
     this.set := Mux(
-      meta.vd(vd_msb),
-      aregBaseSet.U + (meta.vd(vd_msb - 1, 0) << log2Ceil(setPerAReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt,
-      (meta.vd(vd_msb - 1, 0) << log2Ceil(setPerVReg)).asUInt + (meta.vstart >> log2Ceil(NrVmBanks)).asUInt
+      vd(vd_msb),
+      aregBaseSet.U + (vd(vd_msb - 1, 0) << log2Ceil(setPerAReg)).asUInt + (vstart >> log2Ceil(NrVmBanks)).asUInt,
+      (vd(vd_msb - 1, 0) << log2Ceil(setPerVReg)).asUInt + (vstart >> log2Ceil(NrVmBanks)).asUInt
     )
-    this.bank := meta.vstart(log2Ceil(NrVmBanks) - 1, 0)
+    this.bank := vstart(log2Ceil(NrVmBanks) - 1, 0)
 
     assert(this.set < vmSramDepth.U)
     assert(this.bank < NrVmBanks.U)
