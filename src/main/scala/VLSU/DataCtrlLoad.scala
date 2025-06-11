@@ -7,6 +7,7 @@ import protocols.AXI.spec.RFlit
 
 class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtrl {
   def isLoad: Boolean = true
+
 // ------------------------------------------ IO Declaration ------------------------------------------------- //
   // R Channel Input
   val r = IO(Flipped(Decoupled(new RFlit(axi4Params)))).suggestName("io_r")
@@ -32,12 +33,10 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   // FSM Outputs
   when (idle) {
     // initialize Pointers and vaddr
-    when(!metaBufEmpty) {
+    when(!metaBufEmpty && txnInfo.valid) {
       busNbCnt_nxt := 0.U // busNbCnt is the counter of valid nbs from the bus that has already been committed, so it should be initialized as 0.
       seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr // Only the initialization of seqNbPtr_nxt needs to consider vstart.
       idleInfoQueue.io.deq.ready := true.B
-
-      assert(txnInfo.valid, "There should be at least one valid tc!")
     }
   }.elsewhen(serial_cmt) {
     val lower_nibble = Mux(

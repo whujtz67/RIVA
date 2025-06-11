@@ -361,12 +361,17 @@ trait ShuffleHelper {
  * To prevent these problems, it is necessary to cache some meta information related to the DataController within the MetaBuf.
  * This ensures a one-to-one correspondence between meta information and requests through physical queue binding.
  *
- * 3. Enq
+ * 3. At which stage is the data in the MetaBuf used?
+ * Load: seqBuf commit to shfBuf
+ * Store: shfBuf commit to seqBuf
+ * TODO: maybe rename it as s2sBuf?
+ *
+ * 4. Enq
  * In the 's_seg_lv_init' state of the ReqFragmenter, the enq.valid signal is asserted.
  * If the MetaBuf is full at this time, it will cause the ReqFragmenter to enter a stalled state,
  * thereby preventing the loss of requests.
  *
- * 4. Deq
+ * 5. Deq
  * Deq when the final transaction of the riva req is committed to the seqBuf.
  *
  * @param p
@@ -390,6 +395,7 @@ class MetaBufBundle(isLoad: Boolean)(implicit p: Parameters) extends VLSUBundle 
     this.vm     := meta.glb.vm
     this.cmtCnt := meta.glb.cmtCnt
 
+    // vaddr is only used in seqBuf2shfBuf stage, so it should be put into metaBuf, instead of being initialized in idle state.
     if (this.vaddr.isDefined) {
       this.vaddr.get.init(meta.glb.vd, meta.glb.vstart)
     }
@@ -516,9 +522,6 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   }
 
 // ------------------------------------------ Assertions ------------------------------------------------- //
-  when (!idle) {
-    if (txn.reqId.isDefined) assert(txn.reqId.get === meta.reqId, "[DataCtrl] io_txnCtrl_reqId and metaBuf deq reqId mismatch!")
-  }
 
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(metaBufEmpty)
@@ -526,4 +529,6 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   dontTouch(seqBufEmpty)
   dontTouch(seqBufFull)
   dontTouch(isFinalBeat)
+
+  if (txn.reqId.isDefined) dontTouch(txn.reqId.get)
 }

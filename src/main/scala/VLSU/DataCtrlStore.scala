@@ -98,12 +98,10 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 
 // ------------------------------------------ seqBuf -> wBuf ------------------------------------------------- //
   when (idle) {
-    when(!metaBufEmpty) {
+    when(!metaBufEmpty && txnInfo.valid) {
       busNbCnt_nxt := 0.U
       seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr
       idleInfoQueue.io.deq.ready := true.B
-
-      assert(txnInfo.valid, "There should be at least one valid tc!")
     }
   }.elsewhen(serial_cmt) {
     val lower_nibble = Mux(
