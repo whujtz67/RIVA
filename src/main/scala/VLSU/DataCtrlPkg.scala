@@ -397,7 +397,7 @@ class MetaBufBundle(isLoad: Boolean)(implicit p: Parameters) extends VLSUBundle 
 
     // vaddr is only used in seqBuf2shfBuf stage, so it should be put into metaBuf, instead of being initialized in idle state.
     if (this.vaddr.isDefined) {
-      this.vaddr.get.init(meta.glb.vd, meta.glb.vstart)
+      this.vaddr.get.init(meta.glb.vd, meta.glb.vstart, meta.glb.eew)
     }
   }
 }

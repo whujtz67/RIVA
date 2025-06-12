@@ -8,21 +8,26 @@ import org.chipsalliance.cde.config.Parameters
 // VM Address Bundle
 // -------------------------------
 class VAddrBundle(implicit p: Parameters) extends VLSUBundle {
-  val set  = UInt(log2Ceil(vmSramDepth).W)
-  val bank = UInt(log2Ceil(NrVmBanks).W)
+  val set  = UInt(log2Ceil(vmSramDepth).W) // MSB
+  val bank = UInt(log2Ceil(NrVmBanks).W)   // LSB
 
-  def init(vd: UInt, vstart: UInt): Unit = {
+  def init(vd: UInt, vstart: UInt, eew: UInt): Unit = {
     val setPerVReg = VLEN / NrLanes / SLEN / NrVmBanks
     val setPerAReg = ALEN / NrLanes / SLEN / NrVmBanks
     val aregBaseSet = setPerVReg * NrVregs
     val vd_msb = log2Ceil(NrVregs)
 
-    this.set := Mux(
+    val vd_base_set: UInt = Mux(
       vd(vd_msb),
-      aregBaseSet.U + (vd(vd_msb - 1, 0) << log2Ceil(setPerAReg)).asUInt + (vstart >> log2Ceil(NrVmBanks)).asUInt,
-      (vd(vd_msb - 1, 0) << log2Ceil(setPerVReg)).asUInt + (vstart >> log2Ceil(NrVmBanks)).asUInt
+      aregBaseSet.U + (vd(vd_msb - 1, 0) << log2Ceil(setPerAReg)).asUInt,
+      (vd(vd_msb - 1, 0) << log2Ceil(setPerVReg)).asUInt
     )
-    this.bank := vstart(log2Ceil(NrVmBanks) - 1, 0)
+    // vstart elem index in the targeted vector/accumulator regfile
+    val start_elem_in_vd = vstart >> log2Ceil(NrLanes)
+
+    // The initialization logic is the same as ara.
+    require(eew.getWidth == 2, "We only support eew.getWidth == 2! Otherwise, there will be errors when calculating (b11.U(2.W) - eew).")
+    this := (vd_base_set + (start_elem_in_vd >> ("b11".U(2.W) - eew)).asUInt).asTypeOf(this)
 
     assert(this.set < vmSramDepth.U)
     assert(this.bank < NrVmBanks.U)
