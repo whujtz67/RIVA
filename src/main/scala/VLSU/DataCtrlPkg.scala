@@ -482,7 +482,7 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   // FSM State switch
   when (idle) {
     state_nxt := Mux(
-      !metaBufEmpty && txnInfo.valid,
+      txnInfo.valid,
       // accept a new request
       Mux(
         meta.mode.isGather,
@@ -529,6 +529,9 @@ trait CommonDataCtrl extends HasCircularQueuePtrHelper with ShuffleHelper {
   dontTouch(seqBufEmpty)
   dontTouch(seqBufFull)
   dontTouch(isFinalBeat)
+  dontTouch(idle)
+  dontTouch(serial_cmt)
+  dontTouch(gather_cmt)
 
   if (txn.reqId.isDefined) dontTouch(txn.reqId.get)
 }

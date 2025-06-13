@@ -33,6 +33,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   val rxs = IO(Vec(NrLanes, Flipped(Decoupled(new RxLane())))).suggestName("io_rxs") // to Lane
 
 // ------------------------------------------ Wire/Reg Declaration ------------------------------------------------- //
+  // TODO: why not make shfBuf a ping-pong buffer?
   private val shfBuf      = RegInit(0.U.asTypeOf(Vec(NrLanes, Valid(new RxLane()))))
   private val shfBufFull  = shfBuf.map(_.valid).reduce(_ && _)
 
@@ -98,7 +99,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 
 // ------------------------------------------ seqBuf -> wBuf ------------------------------------------------- //
   when (idle) {
-    when(!metaBufEmpty && txnInfo.valid) {
+    when(txnInfo.valid) {
       busNbCnt_nxt := 0.U
       seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr
       idleInfoQueue.io.deq.ready := true.B
@@ -120,7 +121,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
     // 1. There are valid data in seqBuf
     // 2. wBuf is not full
     when (!seqBufEmpty && !wBufFull) {
-      val busValidNb    = upper_nibble - lower_nibble + 1.U - busNbCnt_r // The amount of valid data on the bus
+      val busValidNb    = upper_nibble - lower_nibble - busNbCnt_r // The amount of valid data on the bus
       val seqBufValidNb = (NrLanes * SLEN / 4).U - seqNbPtr_r  // The amount of free space available in seqBuf
 
       val cmtNbNum = WireInit(0.U.asTypeOf(UInt((busSize + 1).W)))
@@ -178,6 +179,10 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
       wBuf(w_enqPtr.value).last := txnInfo.bits.isLastBeat
       wBuf(w_enqPtr.value).user := 0.U
 
+      dontTouch(upper_nibble)
+      dontTouch(lower_nibble)
+      dontTouch(busValidNb)
+      dontTouch(seqBufValidNb)
     }
   }.elsewhen(gather_cmt) {
     assert(false.B, "We don't support gather mode now!")
@@ -196,4 +201,5 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
   }
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(do_cmt_shf_to_seq)
+  dontTouch(shfBufFull)
 }

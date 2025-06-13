@@ -33,7 +33,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
   // FSM Outputs
   when (idle) {
     // initialize Pointers and vaddr
-    when(!metaBufEmpty && txnInfo.valid) {
+    when(txnInfo.valid) {
       busNbCnt_nxt := 0.U // busNbCnt is the counter of valid nbs from the bus that has already been committed, so it should be initialized as 0.
       seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr // Only the initialization of seqNbPtr_nxt needs to consider vstart.
       idleInfoQueue.io.deq.ready := true.B
