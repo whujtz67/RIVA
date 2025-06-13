@@ -51,7 +51,11 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
       busNibbles.U
     )
 
-    val do_serial_cmt = r.valid && !seqBufFull
+    // Commit when:
+    // 1. There are valid data on the R Bus;
+    // 2. Target seqBuf is not full;
+    // 3. TxnInfo is valid. Otherwise the txnInfo should be wrong.
+    val do_serial_cmt = r.valid && !seqBufFull && txnInfo.valid
     // Won't consume data of the R Channel when seqBuf is full.
     when (do_serial_cmt) {
       val busValidNb    = upper_nibble - lower_nibble - busNbCnt_r // The amount of valid data on the bus. Don't need to '+1' because we didn't do '-1' when calculating upperNb.

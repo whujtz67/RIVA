@@ -118,9 +118,10 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
     )
 
     // Commit when:
-    // 1. There are valid data in seqBuf
-    // 2. wBuf is not full
-    when (!seqBufEmpty && !wBufFull) {
+    // 1. There are valid data in seqBuf;
+    // 2. Target wBuf is not full;
+    // 3. TxnInfo is valid. Otherwise the txnInfo should be wrong.
+    when (!seqBufEmpty && !wBufFull && txnInfo.valid) {
       val busValidNb    = upper_nibble - lower_nibble - busNbCnt_r // The amount of valid data on the bus
       val seqBufValidNb = (NrLanes * SLEN / 4).U - seqNbPtr_r  // The amount of free space available in seqBuf
 

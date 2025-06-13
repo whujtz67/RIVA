@@ -201,7 +201,7 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   // Handshake logics
   //
   io.meta.ready    := !full
-  io.txnCtrl.valid := !empty
+  io.txnCtrl.valid := !isEmpty(enqPtr, dataPtr)
   ax.valid         := !isEmpty(enqPtr, axPtr) // isEmpty(enqPtr, axPtr) means all the valid ax txn has been issued.
   if (b.isDefined) b.get.ready := !empty
 
@@ -211,7 +211,7 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   if (b.isDefined) {
     when(b.get.valid) { assert(!empty, "should be at least one valid tc when b valid!") }
   }
-  
+
   // 'isNotAfter' means 'left' <= 'right'
   assert(isNotAfter(axPtr  , enqPtr ) || isFull(axPtr , enqPtr ), s"${addrChnlName}Ptr should not go before enqPtr")
   assert(isNotAfter(dataPtr, enqPtr ) || isFull(dataPtr, enqPtr ), "dataPtr should not go before enqPtr")

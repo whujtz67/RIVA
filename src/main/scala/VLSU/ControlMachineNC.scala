@@ -99,7 +99,7 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
    */
   private val axValid = (txnPtr === deqPtr) && !empty
   io.meta.ready    := !full
-  io.txnCtrl.valid := !empty
+  io.txnCtrl.valid := !isEmpty(enqPtr, dataPtr)
   aw.valid         := axValid && !tcs_r(txnPtr.value).isLoad.get
   ar.valid         := axValid && tcs_r(txnPtr.value).isLoad.get
   b.ready          := !empty
