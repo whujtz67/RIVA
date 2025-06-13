@@ -161,10 +161,11 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
       /* Do Update when:
        * 1. DataPtr is pointing to the current tc.
        * 2. The update from dataController is true.
+       * 3. Current beat is not the last beat.
        *
        * NOTE: We assume that update will never be true when TC is empty.
        */
-      when (dataPtr.value === i.U && io.update) {
+      when (dataPtr.value === i.U && io.update  && !tcs_r(i).isLastBeat) {
         tc.update(tcs_r(i))
       }
   }

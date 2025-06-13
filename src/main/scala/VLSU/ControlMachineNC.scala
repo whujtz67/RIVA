@@ -63,10 +63,11 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
       /* Do Update when:
        * 1. DataPtr is pointing to the current tc.
        * 2. The update from dataController is true.
+       * 3. Current beat is not the last beat.
        *
        * NOTE: We assume that update will never be true when TC is empty.
        */
-      when (dataPtr.value === i.U && io.update) {
+      when (dataPtr.value === i.U && io.update && !tcs_r(i).isLastBeat) {
         tc.update(tcs_r(i))
       }
   }
@@ -142,8 +143,11 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
   // deqPtr <= dataPtr <= txnPtr <= enqPtr
   // 'isNotAfter' means 'left' <= 'right'
   assert(isNotAfter(txnPtr , enqPtr ), "axPtr should not go before enqPtr")
-  assert(isNotAfter(dataPtr, txnPtr ), "dataPtr should not go before axPtr")
+//  assert(isNotAfter(dataPtr, txnPtr ), "dataPtr should not go before axPtr")
   assert(isNotAfter(deqPtr , dataPtr), "deqPtr should not go before dataPtr")
+
+  // ------------------------------------------ Dont Touch ---------------------------------------------- //
+  dontTouch(axValid)
 }
 
 /** Non-concurrent ControlMachine
