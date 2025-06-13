@@ -140,11 +140,13 @@ class TxnControlUnitNC(implicit p: Parameters) extends VLSUModule with HasCircul
 
   when(b.valid) { assert(!empty, "should be at least one valid tc when b valid!") }
 
-  // deqPtr <= dataPtr <= txnPtr <= enqPtr
   // 'isNotAfter' means 'left' <= 'right'
-  assert(isNotAfter(txnPtr , enqPtr ), "axPtr should not go before enqPtr")
-//  assert(isNotAfter(dataPtr, txnPtr ), "dataPtr should not go before axPtr")
-  assert(isNotAfter(deqPtr , dataPtr), "deqPtr should not go before dataPtr")
+  assert(isNotAfter(txnPtr , enqPtr ) || isFull(txnPtr , enqPtr ), "axPtr should not go before enqPtr")
+  assert(isNotAfter(dataPtr, enqPtr ) || isFull(dataPtr, enqPtr ), "dataPtr should not go before enqPtr")
+  // There is no strict ordering required between txnPtr and dataPtr,
+  // because W transactions are allowed to arrive before AW,
+  // as long as the slave is able to block W when there is no corresponding valid AW transaction.
+  assert(isNotAfter(deqPtr , dataPtr) || isFull(deqPtr , dataPtr) , "deqPtr should not go before dataPtr")
 
   // ------------------------------------------ Dont Touch ---------------------------------------------- //
   dontTouch(axValid)

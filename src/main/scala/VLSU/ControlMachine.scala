@@ -211,12 +211,14 @@ class TxnControlUnit(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   if (b.isDefined) {
     when(b.get.valid) { assert(!empty, "should be at least one valid tc when b valid!") }
   }
-
-  // deqPtr <= dataPtr <= axPtr <= enqPtr
+  
   // 'isNotAfter' means 'left' <= 'right'
-  assert(isNotAfter(axPtr  , enqPtr ), s"${addrChnlName}Ptr should not go before enqPtr")
-  assert(isNotAfter(dataPtr, axPtr  ), "dataPtr should not go before axPtr")
-  assert(isNotAfter(deqPtr , dataPtr), "deqPtr should not go before dataPtr")
+  assert(isNotAfter(axPtr  , enqPtr ) || isFull(axPtr , enqPtr ), s"${addrChnlName}Ptr should not go before enqPtr")
+  assert(isNotAfter(dataPtr, enqPtr ) || isFull(dataPtr, enqPtr ), "dataPtr should not go before enqPtr")
+  // There is no strict ordering required between txnPtr and dataPtr,
+  // because W transactions are allowed to arrive before AW,
+  // as long as the slave is able to block W when there is no corresponding valid AW transaction.
+  assert(isNotAfter(deqPtr , dataPtr) || isFull(deqPtr , dataPtr) , "deqPtr should not go before dataPtr")
 }
 
 
