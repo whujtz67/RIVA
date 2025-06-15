@@ -261,6 +261,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
       seg_r.segBaseAddr,
       ((seg_r.segBaseAddr >> 13).asUInt + seg_r.txnCnt) << 13
     )
+    nxt.size := busSize.U
 
     // We need to avoid the impact of pageOff when calculating the number of bytes in the transaction (txn),
     // while still taking busOff into account. Therefore, we need 'pageOff_without_busOff'.
@@ -280,6 +281,7 @@ class TxnCtrlInfo(implicit p: Parameters) extends VLSUBundle {
 
     nxt.rmnBeat := (txn_nibbles_with_busOff - 1.U) >> busNSize
 
+    // TODO: optimize it
     // lbN should be busNibbles.U instead of 0.U when all bytes are valid (in this case txnBytes(busNSize - 1, 0) = 0)!
     nxt.lbN := Mux(
       txn_nibbles_with_busOff(busNSize - 1, 0).orR,

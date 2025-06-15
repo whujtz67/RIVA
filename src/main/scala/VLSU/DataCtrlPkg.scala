@@ -265,6 +265,7 @@ trait ShuffleHelper {
              */
             // TODO: 合并一些重复的情况
             // In the foreach loop, there is an anonymous scope, so suggestName does not work.
+
             // INCR, STRD, 2D_ROW Mode
             val vec1 = VecInit(EWs.indices.map { eew =>
               seqBuf(shf2seq_map(eew)(shfNbIdx.idx))
