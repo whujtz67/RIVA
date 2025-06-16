@@ -80,7 +80,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
       // There is no need to include '&& !r.isLastGrp' here, because we do not perform an update when reqIssueDone is triggered.
       // Therefore, by the time execution reaches this point, r.isLastGrp is implicitly false.
       when(r.mode.cln2D) {
-        this.baseAddr := r.baseAddr + (NrLanes * SLEN / 4).U // TODO: 这边是不对非对齐传输作特殊处理的，如果128 bits跨了总线地址边界，会被拆成2拍，可能会导致一些性能的损失
+        this.baseAddr := r.baseAddr + (SLEN / 4).U // TODO: 这边是不对非对齐传输作特殊处理的，如果128 bits跨了总线地址边界，会被拆成2拍，可能会导致一些性能的损失
         this.rmnSeg   := (NrLanes - 1).U // Re-initialize rmnSeg. It is quit easy here because only cln2D will cause several grps.
         this.rmnGrp   := r.rmnGrp - 1.U
       }
