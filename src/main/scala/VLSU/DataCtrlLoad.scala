@@ -128,7 +128,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
        */
       seqBuf(enqPtr.value).nb.zip(seqBuf(enqPtr.value).en).zipWithIndex.foreach {
         case ((nb, en), seqIdx) =>
-          when ((seqIdx.U >= seqNbPtr_r) && (seqIdx.U <= (seqNbPtr_r + cmtNbNum))) {
+          when ((seqIdx.U >= seqNbPtr_r) && (seqIdx.U < (seqNbPtr_r + cmtNbNum))) {
             val idx = seqIdx.U - seqNbPtr_r + start // 'start' is needed, because 'idx' is the index of busNb.
             nb := busNibbleVec(idx)
             en := true.B // Don't consider mask of mask Unit in this stage.
@@ -137,6 +137,7 @@ class DataCtrlLoad(implicit p: Parameters) extends VLSUModule with CommonDataCtr
 
       dontTouch(busValidNb)
       dontTouch(seqBufValidNb)
+      dontTouch(cmtNbNum)
       dontTouch(do_serial_cmt)
       dontTouch(lower_nibble)
       dontTouch(upper_nibble)
