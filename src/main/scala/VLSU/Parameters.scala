@@ -34,7 +34,7 @@ case class VLSUParamters(
   val vlsuAddrBits = axi4Params.addrBits + 1
 
   val reqIdBits  = log2Ceil(NrVInsns)
-  val maxNrElems = VLEN.max(ALEN)  // max Data Segment length. We call the 1D Transfer in INCR and 2D mode a segment.
+
 
   val busBits    = axi4Params.dataBits
   val busBytes   = busBits / 8
@@ -44,6 +44,10 @@ case class VLSUParamters(
   
   val maxLen   = axi4Params.maxTxnBytes / busBytes // Max AXI Burst Len
   val maxSize  = log2Ceil(busBytes)
+
+  val maxVecLEN = VLEN.max(ALEN)
+
+  val vlenBits = log2Ceil(VLEN.max(ALEN)) + 1
 
   val EWs = Seq(4, 8, 16, 32)
 
@@ -90,7 +94,8 @@ trait HasVLSUParams {
   // derived parameters
   lazy val vlsuAddrBits = vlsuParams.vlsuAddrBits
   lazy val reqIdBits    = vlsuParams.reqIdBits
-  lazy val maxNrElems   = vlsuParams.maxNrElems
+  lazy val vlenBits     = vlsuParams.vlenBits
+  lazy val maxVecLEN   = vlsuParams.maxVecLEN
   lazy val busBits      = vlsuParams.busBits
   lazy val busBytes     = vlsuParams.busBytes
   lazy val busNibbles   = vlsuParams.busNibbles

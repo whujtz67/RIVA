@@ -382,7 +382,7 @@ class MetaBufBundle(isLoad: Boolean)(implicit p: Parameters) extends VLSUBundle 
   val mode   = new VecMopOH()
   val eew    = UInt(2.W)
   val vd     = UInt(5.W)
-  val vstart = UInt(log2Ceil(maxNrElems).W)
+  val vstart = UInt(vlenBits.W)
   val vm     = Bool()
   val cmtCnt = UInt(log2Ceil(VLEN*EWs.max/SLEN).W)
   val vaddr  = if (isLoad) Some(new VAddrBundle()) else None

@@ -91,8 +91,8 @@ class global(implicit p: Parameters) extends VLSUBundle {
 
 class segLevel(implicit p: Parameters) extends VLSUBundle {
   val segBaseAddr = UInt(vlsuAddrBits.W)
-  val txnNum      = UInt(log2Ceil(maxNrElems*EWs.max/8/4096 + 1).W) // +1 for unaligned situations, which will cause an additional txn
-  val txnCnt      = UInt(log2Ceil(maxNrElems*EWs.max/8/4096 + 1).W)
+  val txnNum      = UInt(log2Ceil(maxVecLEN*EWs.max/8/4096 + 1).W) // +1 for unaligned situations, which will cause an additional txn
+  val txnCnt      = UInt(log2Ceil(maxVecLEN*EWs.max/8/4096 + 1).W)
   val ltN         = UInt(14.W) // last Txn Nibbles WITH pageOff (max = 4096 * 2, whose width is 14 instead of 13!)
 
   /*** Initialize the seg Level info.
