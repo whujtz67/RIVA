@@ -13,12 +13,12 @@ class global(implicit p: Parameters) extends VLSUBundle {
   val vd       = UInt(5.W)
   val eew      = UInt(2.W) // The element width is encoded as 2-bit binary value: 00 01 10 11
   val EW       = UInt(6.W) // Original element width:                              4  8 16 32
+  val nrElem   = UInt(vlenBits.W)
   val stride   = UInt(axi4Params.addrBits.W)
   val vm       = Bool()
-  val seglen   = UInt(log2Ceil(maxNrElems).W) // Element number in a segment (won't '-1' like axi len)
-  val vstart   = UInt(log2Ceil(maxNrElems).W) // The start element index in the request.
-  val rmnGrp   = UInt(log2Ceil(maxNrElems*EWs.max/SLEN).W) // Txn will be divided into several groups in 2D cln mode, otherwise rmnGrp = 0
-  val rmnSeg   = UInt(log2Ceil(maxNrElems).W) // Remain seg number (remain -> rmn)
+  val vstart   = UInt(vlenBits.W) // The start element index in the request.
+  val rmnGrp   = UInt(log2Ceil(maxVecLEN/SLEN).W) // Txn will be divided into several groups in 2D cln mode, otherwise rmnGrp = 0. TODO: The width should be further considerated.
+  val rmnSeg   = UInt(vlenBits.W) // Remain seg number (remain -> rmn)
   val isLoad   = if (concurrent) None else Some(Bool())
   /*
    * 'CmtCnt' represents the number of times shfBuf is committed to either the lane or seqBuf,
@@ -27,7 +27,7 @@ class global(implicit p: Parameters) extends VLSUBundle {
    * 'CmtCnt' is the actual count - 1 (just like axi len)
    */
   // maxCmtCnt = maxDataPerReq / (SLEN * NrLanes) = (VLEN * maxEW * NrLanes(2D Row)) / (SLEN * NrLanes) = VLEN * maxEW / SLEN
-  val cmtCnt = UInt(log2Ceil(maxNrElems*EWs.max/SLEN).W)
+  val cmtCnt = UInt(log2Ceil(maxVecLEN / (SLEN * NrLanes)).W)
 
   def init(req: RivaReqPtl): Unit = {
     val elemNum = req.len - req.vstart
@@ -38,14 +38,9 @@ class global(implicit p: Parameters) extends VLSUBundle {
     this.vd       := req.vd
     this.eew      := req.eew
     this.EW       := req.getEW
+    this.nrElem   := elemNum
     this.vm       := req.vm
     this.stride   := req.stride
-    this.seglen   := PriorityMux(Seq( // wont '-1'
-      this.mode.Incr  -> elemNum,
-      this.mode.Strd  -> 1.U,
-      this.mode.row2D -> NrLanes.U,
-      this.mode.cln2D -> ((SLEN / 4).U >> req.eew) // 'seglen' is used to determine the txnNum in a seg, so that it should not be 'req.len' in 2D cln mode.
-    ))
     this.vstart  := req.vstart
     this.rmnGrp  := Mux(this.mode.cln2D, ((req.len << req.eew).asUInt - 1.U) >> log2Ceil(SLEN/4), 0.U)
     this.rmnSeg  := PriorityMux(Seq(  // do '-1'
@@ -142,10 +137,24 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
    * @param glb
    */
   private def seglv_init_common(nextAddr: UInt, glb: global): Unit = {
+    val nr_seg_nbs_row_major = (PriorityMux(Seq(
+      glb.mode.Incr  -> glb.nrElem,
+      glb.mode.Strd  -> 1.U,
+      glb.mode.row2D -> NrLanes.U
+    )) << glb.eew).asUInt
+
+    val nr_seg_nbs_cln_major = Mux(
+      glb.isLastGrp,
+      (glb.nrElem << glb.eew).asUInt(log2Ceil(SLEN/4)-1, 0),
+      (SLEN / 4).U
+    )
+
+    val nr_seg_nbs = Mux(glb.mode.cln2D, nr_seg_nbs_cln_major, nr_seg_nbs_row_major)
+
     this.segBaseAddr := nextAddr
 
     val pageOff  = this.segBaseAddr(12, 0)
-    val seg_nibbles_with_pageOff = pageOff + (glb.seglen << glb.eew).asUInt
+    val seg_nibbles_with_pageOff = pageOff + nr_seg_nbs
 
     this.txnNum := (seg_nibbles_with_pageOff - 1.U) >> 13
     this.txnCnt := 0.U
