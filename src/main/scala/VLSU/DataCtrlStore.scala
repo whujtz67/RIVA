@@ -170,6 +170,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
       wBuf(w_enqPtr.value).nbs.zip(wBuf(w_enqPtr.value).nbes).zipWithIndex.foreach {
         case ((nb, nbe), busIdx) =>
           when ((busIdx.U >= start) && (busIdx.U < end)) { // should be '< end' because we don't do '-1' when calculating upperNb.
+            // TODO: vstart should be considered!
             val idx = busIdx.U - start + seqNbPtr_r
             nb  := seqBuf(deqPtr.value).nb(idx)
             // The nbes that are outside the start-end range are always zero,
@@ -178,7 +179,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
           }
       }
       wBuf(w_enqPtr.value).last := txnInfo.bits.isLastBeat
-      wBuf(w_enqPtr.value).user := 0.U
+      wBuf(w_enqPtr.value).user := 0.U.asTypeOf(wBuf(w_enqPtr.value).user)
 
       dontTouch(upper_nibble)
       dontTouch(lower_nibble)
@@ -198,6 +199,7 @@ class DataCtrlStore(implicit p: Parameters) extends VLSUModule with ShuffleHelpe
 
   // do deq when w fire
   when (w.fire) {
+    wBuf(w_deqPtr.value) := 0.U.asTypeOf(wBuf(w_deqPtr.value))
     w_deqPtr := w_deqPtr + 1.U
   }
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
