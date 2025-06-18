@@ -145,7 +145,11 @@ class segLevel(implicit p: Parameters) extends VLSUBundle {
 
     val nr_seg_nbs_cln_major = Mux(
       glb.isLastGrp,
-      (glb.nrElem << glb.eew).asUInt(log2Ceil(SLEN/4)-1, 0),
+      Mux(
+        (glb.nrElem << glb.eew).asUInt(log2Ceil(SLEN/4)-1, 0) === 0.U,
+        (SLEN / 4).U,
+        (glb.nrElem << glb.eew).asUInt(log2Ceil(SLEN/4)-1, 0)
+      ),
       (SLEN / 4).U
     )
 
