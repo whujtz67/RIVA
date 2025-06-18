@@ -54,11 +54,19 @@ class global(implicit p: Parameters) extends VLSUBundle {
 
     // The tot_half_byte_number can also be obtained using segLen * rmnSeg * EW / (NrLanes * SLEN),
     // but that would result in a 14-bit multiplier, which is too costly.
+    // TODO: The timing of this combinational logic may be suboptimal.
+    //       Consider moving it into the FSM's idle initialization logic in DataCtrl,
+    //       or refactoring this logic for better timing closure.
+
+    // Compute total number of half-bytes (nibbles) to be committed
     val tot_half_byte_number = Mux(
       this.mode.is2D,
       req.len << this.eew << log2Ceil(NrLanes),
-      elemNum << this.eew
+      (elemNum << this.eew).asUInt +
+        (req.vstart << req.eew).asUInt(log2Ceil(NrLanes * SLEN / 4) - 1, 0) // Remember to consider vstart here!
     ).asUInt
+
+    // Initialize commit counter (cmtCnt)
     this.cmtCnt := (tot_half_byte_number - 1.U) >> log2Ceil(NrLanes * SLEN / 4)
 
     assert(req.len > req.vstart, "vlen/alen must > vstart. Otherwise, the request is meaningless")
