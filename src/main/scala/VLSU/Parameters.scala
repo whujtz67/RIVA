@@ -8,22 +8,22 @@ import protocols.AXI.spec.AXI4Params
 case object  VLSUParametersKey extends Field[VLSUParamters]
 
 case class VLSUParamters(
-  NrLanes   : Int = 4,
-  NrVInsns  : Int = 8,
-  NrVregs   : Int = 16,
-  NrAregs   : Int = 16,
-  NrVmBanks : Int = 8,
-  SLEN      : Int = 128,    // slice len, lane memory Interface data width (bits)
-  VLEN      : Int = 8192,   // vector register length
-  ALEN      : Int = 16384,  // accu register length
-  maxTilen  : Int = 16,
-  axi4Params: AXI4Params = AXI4Params(),
-  reqBufDep : Int = 4,
-  metaBufDep: Int = 4,
-  wBufDep   : Int = 4,
-  txnCtrlNum: Int = 4,
-  concurrent: Boolean = false,
-  debug     : Boolean = true
+  NrLanes      : Int = 4,
+  NrVInsns     : Int = 8,
+  NrVregs      : Int = 16,
+  NrAregs      : Int = 16,
+  NrVmBanks    : Int = 8,
+  SLEN         : Int = 128,    // slice len, lane memory Interface data width (bits)
+  VLEN         : Int = 8192,   // vector register length
+  ALEN         : Int = 16384,  // accu register length
+  maxTilen     : Int = 16,
+  axi4Params   : AXI4Params = AXI4Params(),
+  reqBufDep    : Int = 4,
+  shfInfoBufDep: Int = 4,
+  wBufDep      : Int = 4,
+  txnCtrlNum   : Int = 4,
+  concurrent   : Boolean = false,
+  debug        : Boolean = true
 ) {
   require(NrLanes > 0)
   require(NrVInsns > 0)
@@ -74,28 +74,28 @@ trait HasVLSUParams {
   lazy val vlsuParams = p(VLSUParametersKey)
 
   // input parameters
-  lazy val NrLanes    = vlsuParams.NrLanes
-  lazy val NrVInsns   = vlsuParams.NrVInsns
-  lazy val NrVregs    = vlsuParams.NrVregs
-  lazy val NrAregs    = vlsuParams.NrAregs
-  lazy val NrVmBanks  = vlsuParams.NrVmBanks
-  lazy val SLEN       = vlsuParams.SLEN
-  lazy val VLEN       = vlsuParams.VLEN
-  lazy val ALEN       = vlsuParams.ALEN
-  lazy val maxTilen   = vlsuParams.maxTilen
-  lazy val axi4Params = vlsuParams.axi4Params
-  lazy val reqBufDep  = vlsuParams.reqBufDep
-  lazy val metaBufDep = vlsuParams.metaBufDep
-  lazy val wBufDep    = vlsuParams.wBufDep
-  lazy val txnCtrlNum = vlsuParams.txnCtrlNum
-  lazy val concurrent = vlsuParams.concurrent
-  lazy val debug      = vlsuParams.debug
+  lazy val NrLanes       = vlsuParams.NrLanes
+  lazy val NrVInsns      = vlsuParams.NrVInsns
+  lazy val NrVregs       = vlsuParams.NrVregs
+  lazy val NrAregs       = vlsuParams.NrAregs
+  lazy val NrVmBanks     = vlsuParams.NrVmBanks
+  lazy val SLEN          = vlsuParams.SLEN
+  lazy val VLEN          = vlsuParams.VLEN
+  lazy val ALEN          = vlsuParams.ALEN
+  lazy val maxTilen      = vlsuParams.maxTilen
+  lazy val axi4Params    = vlsuParams.axi4Params
+  lazy val reqBufDep     = vlsuParams.reqBufDep
+  lazy val shfInfoBufDep = vlsuParams.shfInfoBufDep
+  lazy val wBufDep       = vlsuParams.wBufDep
+  lazy val txnCtrlNum    = vlsuParams.txnCtrlNum
+  lazy val concurrent    = vlsuParams.concurrent
+  lazy val debug         = vlsuParams.debug
 
   // derived parameters
   lazy val vlsuAddrBits = vlsuParams.vlsuAddrBits
   lazy val reqIdBits    = vlsuParams.reqIdBits
   lazy val vlenBits     = vlsuParams.vlenBits
-  lazy val maxVecLEN   = vlsuParams.maxVecLEN
+  lazy val maxVecLEN    = vlsuParams.maxVecLEN
   lazy val busBits      = vlsuParams.busBits
   lazy val busBytes     = vlsuParams.busBytes
   lazy val busNibbles   = vlsuParams.busNibbles

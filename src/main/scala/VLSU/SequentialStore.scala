@@ -49,15 +49,15 @@ class SequentialStore(implicit p: Parameters) extends VLSUModule with Sequential
   txnInfo.ready := false.B
   enqPtr_nxt := enqPtr
   rxDeshfu.ready := false.B
-  idleInfoQueue.io.deq.ready := false.B
+  seqInfoBuf.io.deq.ready := false.B
 
   // FSM Outputs for seqBuf -> wBuf
   when (idle) {
     // initialize Pointers and vaddr
     when(txnInfo.valid) {
       busNbCnt_nxt := 0.U
-      seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr
-      idleInfoQueue.io.deq.ready := true.B
+      seqNbPtr_nxt := seqInfoBuf.io.deq.bits.seqNbPtr
+      seqInfoBuf.io.deq.ready := true.B
     }
   }.elsewhen(serial_cmt) {
     val lower_nibble = Mux(

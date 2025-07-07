@@ -23,15 +23,15 @@ class SequentialLoad(implicit p: Parameters) extends VLSUModule with SequentialD
   txnInfo.ready := false.B
   enqPtr_nxt := enqPtr
   txShfu.valid := false.B
-  idleInfoQueue.io.deq.ready := false.B
+  seqInfoBuf.io.deq.ready := false.B
 
   // FSM Outputs for AXI R bus -> seqBuf
   when (idle) {
     // initialize Pointers and vaddr
     when(txnInfo.valid) {
       busNbCnt_nxt := 0.U // busNbCnt is the counter of valid nbs from the bus that has already been committed, so it should be initialized as 0.
-      seqNbPtr_nxt := idleInfoQueue.io.deq.bits.seqNbPtr // Only the initialization of seqNbPtr_nxt needs to consider vstart.
-      idleInfoQueue.io.deq.ready := true.B
+      seqNbPtr_nxt := seqInfoBuf.io.deq.bits.seqNbPtr // Only the initialization of seqNbPtr_nxt needs to consider vstart.
+      seqInfoBuf.io.deq.ready := true.B
     }
   }.elsewhen(serial_cmt) {
     val lower_nibble = Mux(

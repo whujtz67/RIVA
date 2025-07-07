@@ -16,7 +16,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
     val rivaReq         = Flipped(Decoupled(new RivaReqPtl()))
     val coreStPending   = Input(Bool())
     val meta            = Decoupled(new MetaCtrlInfo())  // 'meta.ready' means a TxnCtrlInfo can be injected to a free tc
-    val metaBufFull     = Input(Bool())
+    val shfInfoBufFull  = Input(Bool()) // TODO: should be connected to metaBroadcast
     val metaBufEnqValid = Output(Bool())
   })
 
@@ -48,11 +48,11 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   when (idle) {
     state_nxt := Mux(io.rivaReq.valid, s_seg_lv_init, s_idle)
   }.elsewhen(seg_lv_init) {
-    state_nxt := Mux(io.coreStPending || io.metaBufFull, s_stall, s_fragmenting)
+    state_nxt := Mux(io.coreStPending || io.shfInfoBufFull, s_stall, s_fragmenting)
   }.elsewhen(fragmenting) {
     state_nxt := Mux(finalTxnIssued, s_idle, s_fragmenting)
   }.elsewhen(stall){
-    state_nxt := Mux(io.coreStPending || io.metaBufFull, s_stall, s_fragmenting)
+    state_nxt := Mux(io.coreStPending || io.shfInfoBufFull, s_stall, s_fragmenting)
   }.otherwise {
     state_nxt := state_r
   }
@@ -67,7 +67,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
   }.elsewhen(seg_lv_init) {
     meta_nxt.seg.init(meta_r.glb)
 
-    start_fragmenting := !(io.coreStPending || io.metaBufFull)
+    start_fragmenting := !(io.coreStPending || io.shfInfoBufFull)
   }.elsewhen(fragmenting) {
     meta_nxt.resolve(meta_r, doUpdate)
 
@@ -75,7 +75,7 @@ class ReqFragmenter(implicit p: Parameters) extends VLSUModule {
     // so we don't need to wait for the meta buffer to fire.
     start_fragmenting := false.B
   }.elsewhen(stall) {
-    start_fragmenting := !(io.coreStPending || io.metaBufFull)
+    start_fragmenting := !(io.coreStPending || io.shfInfoBufFull)
   }
 
   io.meta.bits  := meta_r
@@ -266,7 +266,7 @@ class ControlMachine(isLoad: Boolean)(implicit p: Parameters) extends VLSUModule
   io.txnCtrl        <> tc.io.txnCtrl
   io.metaCtrl.bits  := rf.io.meta.bits
   io.metaCtrl.valid := rf.io.metaBufEnqValid
-  rf.io.metaBufFull := !io.metaCtrl.ready // metaCtrl.ready is metaBuf's enq.ready
+  rf.io.shfInfoBufFull := !io.metaCtrl.ready // metaCtrl.ready is metaBuf's enq.ready
 
   ax       <> tc.ax
 

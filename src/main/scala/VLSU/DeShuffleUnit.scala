@@ -26,8 +26,8 @@ class DeShuffleUnit(implicit p: Parameters) extends VLSUModule with ShuffleDataC
 
 // ------------------------------------------ give the Outputs default value ------------------------------------------------- //
   txSeqStore.valid := false.B
-  txSeqStore.bits := 0.U.asTypeOf(new SeqBufBundle())
-  maskReady := false.B
+  txSeqStore.bits  := 0.U.asTypeOf(new SeqBufBundle())
+  maskReady        := false.B
 
 // ------------------------------------------ rx lane -> shfBuf ------------------------------------------------- //
   shfBuf.zip(rxs).foreach {
@@ -41,7 +41,7 @@ class DeShuffleUnit(implicit p: Parameters) extends VLSUModule with ShuffleDataC
   }
 
 // ------------------------------------------ shfBuf -> seqBuf ------------------------------------------------- //
-  txSeqStore.valid := shfBufFull && !metaBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
+  txSeqStore.valid := shfBufFull && !shfInfoBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
   private val do_cmt_shf_to_seq = txSeqStore.fire
 
   when (do_cmt_shf_to_seq) {
@@ -60,7 +60,7 @@ class DeShuffleUnit(implicit p: Parameters) extends VLSUModule with ShuffleDataC
 
     // Consume meta from metaBuf
     when (!meta.cmtCnt.orR) {
-      m_deqPtr := m_deqPtr + 1.U
+      shfInfo_deqPtr := shfInfo_deqPtr + 1.U
     }.otherwise {
       meta.cmtCnt := meta.cmtCnt - 1.U
     }

@@ -7,7 +7,7 @@ import org.chipsalliance.cde.config.Parameters
 /** MetaInfo Broadcast Module
  * 
  * This module broadcasts metaInfo to both sequential and shuffle modules:
- * - Sequential modules: receive seqNbPtr for idleInfoQueue
+ * - Sequential modules: receive seqNbPtr for seqInfoBuf
  * - Shuffle modules: receive full metaInfo for metaBuf
  */
 class MetaInfoBroadcast(implicit p: Parameters) extends VLSUModule {

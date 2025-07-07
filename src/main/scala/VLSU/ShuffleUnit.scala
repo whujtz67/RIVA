@@ -26,13 +26,13 @@ class ShuffleUnit(implicit p: Parameters) extends VLSUModule with ShuffleDataCtr
 // ------------------------------------------ Connections ------------------------------------------------- //
   when (metaInfo.fire) {
     // do metaBuffer enqueue
-    metaBuf(m_enqPtr.value).init(metaInfo.bits)
-    m_enqPtr := m_enqPtr + 1.U
+    shfInfoBuf(shfInfo_enqPtr.value).init(metaInfo.bits)
+    shfInfo_enqPtr := shfInfo_enqPtr + 1.U
   }
-  metaInfo.ready := !metaBufFull
+  metaInfo.ready := !shfInfoBufFull
 
 // ------------------------------------------ seqBuf -> shfBuf ------------------------------------------------- //
-  rxSeqLoad.ready := shfBufEmpty && !metaBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
+  rxSeqLoad.ready := shfBufEmpty && !shfInfoBufEmpty && (meta.vm || mask.map(_.valid).reduce(_ || _))
   private val do_cmt_seq_to_shf = rxSeqLoad.fire
 
   // Shuffle and commit data and nbe in seqBuf to shfBuf
@@ -86,7 +86,7 @@ class ShuffleUnit(implicit p: Parameters) extends VLSUModule with ShuffleDataCtr
      * cmtCnt is the actually count - 1, so do deq when cmtCnt = 0 and data is committed to shfBuf to seqBuf.
      */
     when (!meta.cmtCnt.orR) {
-      m_deqPtr := m_deqPtr + 1.U
+      shfInfo_deqPtr := shfInfo_deqPtr + 1.U
     }.otherwise {
       meta.cmtCnt := meta.cmtCnt - 1.U
     }
@@ -107,18 +107,18 @@ class ShuffleUnit(implicit p: Parameters) extends VLSUModule with ShuffleDataCtr
   }
 
 // ------------------------------------------ Assertions ------------------------------------------------- //
-  when(rxSeqLoad.valid) { assert(!metaBufEmpty, "[ShuffleUnit] There should be at least one valid meta info in meta Buffer when seqBuf is not Empty!") }
+  when(rxSeqLoad.valid) { assert(!shfInfoBufEmpty, "[ShuffleUnit] There should be at least one valid meta info in meta Buffer when seqBuf is not Empty!") }
   assert(txs(0).bits.vaddr.set < vmSramDepth.U, s"[ShuffleUnit] vaddr_set should < vmSramDepth = $vmSramDepth. However, got %d\n", txs(0).bits.vaddr.set)
 
 // ------------------------------------------ Debug signals ------------------------------------------------- //
   if (debug) {
-    val current_meta = WireDefault(metaBuf(m_deqPtr.value))
+    val current_meta = WireDefault(shfInfoBuf(shfInfo_deqPtr.value))
     dontTouch(current_meta)
   }
 
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(do_cmt_seq_to_shf)
   dontTouch(shfBufEmpty)
-  dontTouch(metaBufEmpty)
-  dontTouch(metaBufFull)
+  dontTouch(shfInfoBufEmpty)
+  dontTouch(shfInfoBufFull)
 } 

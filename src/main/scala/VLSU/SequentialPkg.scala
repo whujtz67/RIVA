@@ -85,7 +85,7 @@ trait SequentialDataCtrl extends HasCircularQueuePtrHelper {
 
 // ------------------------------------------ Idle Info Queue ------------------------------------------------- //
   // skid buffer for sequential commit
-  val idleInfoQueue = Module(new Queue(new IdleInfoBundle(), entries = 1, flow = true))
+  val seqInfoBuf = Module(new Queue(new IdleInfoBundle(), entries = 1, flow = true))
 
 // ------------------------------------------ Sequential Buffer ------------------------------------------------- //
   val seqBuf: Vec[SeqBufBundle] = RegInit(0.U.asTypeOf(Vec(2, new SeqBufBundle()))) // Ping-pong buffer
@@ -141,15 +141,15 @@ trait SequentialDataCtrl extends HasCircularQueuePtrHelper {
 
 // ------------------------------------------ Connections ------------------------------------------------- //
   when (metaInfo.fire) {
-    // do idleInfoQueue enqueue
-    idleInfoQueue.io.enq.bits.seqNbPtr := (metaInfo.bits.glb.vstart << metaInfo.bits.glb.eew)(log2Ceil(nbNum)-1, 0)
-    idleInfoQueue.io.enq.valid := true.B
+    // do seqInfoBuf enqueue
+    seqInfoBuf.io.enq.bits.seqNbPtr := (metaInfo.bits.glb.vstart << metaInfo.bits.glb.eew)(log2Ceil(nbNum)-1, 0)
+    seqInfoBuf.io.enq.valid := true.B
   }.otherwise {
     // do nothing
-    idleInfoQueue.io.enq.bits.seqNbPtr := 0.U.asTypeOf(idleInfoQueue.io.enq.bits.seqNbPtr)
-    idleInfoQueue.io.enq.valid := false.B
+    seqInfoBuf.io.enq.bits.seqNbPtr := 0.U.asTypeOf(seqInfoBuf.io.enq.bits.seqNbPtr)
+    seqInfoBuf.io.enq.valid := false.B
   }
-  metaInfo.ready := idleInfoQueue.io.enq.ready
+  metaInfo.ready := seqInfoBuf.io.enq.ready
 
 // ------------------------------------------ Don't Touch ------------------------------------------------- //
   dontTouch(seqBufEmpty)
