@@ -74,18 +74,18 @@ module CircularQueuePtrTemplate #(
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       // Reset to initial state
-      ptr_flag_r <= 1'b0;
-      ptr_value_r <= 0;
+      ptr_flag_r  <= 1'b0;
+      ptr_value_r <= '0;
     end else begin
       // Update with next state
-      ptr_flag_r <= ptr_flag_nxt;
+      ptr_flag_r  <= ptr_flag_nxt;
       ptr_value_r <= ptr_value_nxt;
     end
   end
   
   // ================= Output Assignments ================= //
   // Connect internal registers to output ports
-  assign ptr_flag_o = ptr_flag_r;
+  assign ptr_flag_o  = ptr_flag_r;
   assign ptr_value_o = ptr_value_r;
 
 endmodule : CircularQueuePtrTemplate

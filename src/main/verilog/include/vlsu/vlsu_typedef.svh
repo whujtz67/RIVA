@@ -45,19 +45,19 @@ typedef struct packed {
 // Global metadata structure
 `define VLSU_TYPEDEF_META_GLB_T(meta_glb_t, rmn_grp_t, rmn_seg_t, cmt_t) \
   typedef struct packed {                                       \
-    vid_t               reqId;                                   \
+    vid_t               reqId;                                  \
     vlsu_pkg::mode_oh_t mode;                                   \
-    elen_t              baseAddr;                                \
-    logic [4:0]         vd;                                      \
-    rvmv_pkg::vew_e     sew;                                     \
-    vlen_t              nrElem;                                  \
-    elen_t              stride;                                  \
-    logic               vm;                                      \
-    vlen_t              vstart;                                  \
-    rmn_grp_t           rmnGrp;                                  \
-    rmn_seg_t           rmnSeg;                                  \
-    logic               isLoad;                                  \
-    cmt_t               cmtCnt;                                  \
+    elen_t              baseAddr;                               \
+    logic [4:0]         vd;                                     \
+    rvmv_pkg::vew_e     sew;                                    \
+    vlen_t              nrElem;                                 \
+    elen_t              stride;                                 \
+    logic               vm;                                     \
+    vlen_t              vstart;                                 \
+    rmn_grp_t           rmnGrp;                                 \
+    vlen_t              rmnSeg;                                 \
+    logic               isLoad;                                 \
+    cmt_t               cmtCnt;                                 \
   } meta_glb_t
 
 // Segment-level metadata structure

@@ -12,14 +12,15 @@ import axi_pkg::*;
 // Add a typedef for TxnCtrlInfo_t as a type parameter, to be passed in from outside
 // (In SystemVerilog, you can use typedef as a parameter, or require the user to import it before instantiating this module)
 
-module TxnCtrlUnit #(
-  parameter int  TXN_CTRL_NUM = 4,           // Example value, should match your design
-  parameter type txn_ctrl_t   = logic,       // <-- User must typedef txn_ctrl_t before instantiating this module
-  parameter type aw_flit_t    = logic,       // <-- User must typedef aw_flit_t before instantiating this module
-  parameter type ar_flit_t    = logic,       // <-- User must typedef ar_flit_t before instantiating this module
-  parameter type meta_glb_t   = logic,       // <-- User must typedef meta_glb_t before instantiating this module
-  parameter type meta_seglv_t = logic,       // <-- User must typedef meta_seglv_t before instantiating this module
-  parameter int  PTR_WIDTH    = $clog2(TXN_CTRL_NUM)
+module TxnCtrlUnit import vlsu_pkg::*; #(
+  parameter int   unsigned NrLanes      = 0,
+  parameter int   unsigned VLEN         = 0,
+  parameter int   unsigned ALEN         = 0,
+  parameter type           txn_ctrl_t   = logic,       // <-- User must typedef txn_ctrl_t before instantiating this module
+  parameter type           axi_aw_t     = logic,       // <-- User must typedef axi_aw_t before instantiating this module
+  parameter type           axi_ar_t     = logic,       // <-- User must typedef axi_ar_t before instantiating this module
+  parameter type           meta_glb_t   = logic,       // <-- User must typedef meta_glb_t before instantiating this module
+  parameter type           meta_seglv_t = logic        // <-- User must typedef meta_seglv_t before instantiating this module
 ) (
   input  logic                  clk_i,
   input  logic                  rst_ni,
@@ -40,23 +41,24 @@ module TxnCtrlUnit #(
   // AXI4 AW/AR/B channels
   output logic                  aw_valid_o,
   input  logic                  aw_ready_i,
-  output aw_flit_t              aw_o,
+  output axi_aw_t               aw_o,
 
   output logic                  ar_valid_o,
   input  logic                  ar_ready_i,
-  output ar_flit_t              ar_o,
+  output axi_ar_t               ar_o,
 
   input  logic                  b_valid_i,
   output logic                  b_ready_o
 );
+  
   // --------------------- Internal Signals --------------------- //
   // Pointers
   logic enq_ptr_flag, deq_ptr_flag, txn_ptr_flag, data_ptr_flag;
-  logic [PTR_WIDTH-1:0] enq_ptr_value, deq_ptr_value, txn_ptr_value, data_ptr_value;
+  logic [$clog2(txnCtrlNum)-1:0] enq_ptr_value, deq_ptr_value, txn_ptr_value, data_ptr_value;
 
   // Registers for TxnCtrlInfo
-  txn_ctrl_t tcs_r   [TXN_CTRL_NUM];
-  txn_ctrl_t tcs_nxt [TXN_CTRL_NUM];
+  txn_ctrl_t tcs_r   [txnCtrlNum];
+  txn_ctrl_t tcs_nxt [txnCtrlNum];
 
   // Empty/Full Flags
   logic empty, full;
@@ -131,7 +133,7 @@ module TxnCtrlUnit #(
 
   // -------- Instantiate 4 CircularQueuePtrTemplate modules for each pointer -------- //
   CircularQueuePtrTemplate #(
-    .ENTRIES(TXN_CTRL_NUM)
+    .ENTRIES(txnCtrlNum)
   ) enq_ptr_inst (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
@@ -141,7 +143,7 @@ module TxnCtrlUnit #(
   );
 
   CircularQueuePtrTemplate #(
-    .ENTRIES(TXN_CTRL_NUM)
+    .ENTRIES(txnCtrlNum)
   ) deq_ptr_inst (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
@@ -151,7 +153,7 @@ module TxnCtrlUnit #(
   );
 
   CircularQueuePtrTemplate #(
-    .ENTRIES(TXN_CTRL_NUM)
+    .ENTRIES(txnCtrlNum)
   ) txn_ptr_inst (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
@@ -161,7 +163,7 @@ module TxnCtrlUnit #(
   );
 
   CircularQueuePtrTemplate #(
-    .ENTRIES(TXN_CTRL_NUM)
+    .ENTRIES(txnCtrlNum)
   ) data_ptr_inst (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
