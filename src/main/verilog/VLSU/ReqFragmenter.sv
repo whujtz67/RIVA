@@ -198,14 +198,14 @@ module ReqFragmenter import riva_pkg::*; #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      state_r <= S_IDLE;
-      meta_glb_r <= '0;
-      meta_seglv_r <= '0;
+      state_r             <= S_IDLE;
+      meta_glb_r          <= '0;
+      meta_seglv_r        <= '0;
       start_fragmenting_r <= 1'b0;
     end else begin
-      state_r <= state_nxt;
-      meta_glb_r <= meta_glb_nxt;
-      meta_seglv_r <= meta_seglv_nxt;
+      state_r             <= state_nxt;
+      meta_glb_r          <= meta_glb_nxt;
+      meta_seglv_r        <= meta_seglv_nxt;
       start_fragmenting_r <= start_fragmenting_nxt;
     end
   end
@@ -259,39 +259,43 @@ module SegLvInitCommon import riva_pkg::*; #(
   logic [$max(clog2MaxNbs, 12): 0] seg_nibbles_with_pageOff;
 
   always_comb begin
+    // Mode decode - always calculated
+    is_incr   = isIncr (glb_i.mode);
+    is_strd   = isStrd (glb_i.mode);
+    is_row2d  = isRow2D(glb_i.mode);
+    is_cln2d  = isCln2D(glb_i.mode);
+
+    // Calculate number of nibbles in the segment for row-major modes - always calculated
+    nr_seg_elems_row_major = is_incr  ? glb_i.nrElem :
+                             is_strd  ? 1            :
+                             is_row2d ? NrLanes      : 
+                                        0            ;
+    nr_seg_nbs_row_major = nr_seg_elems_row_major << glb_i.sew;
+
+    // Calculate number of nibbles in the segment for column-major (cln2D) mode - always calculated
+    nr_all_grp_nbs       = (glb_i.nrElem << glb_i.sew);
+    nr_last_grp_nbs      = nr_all_grp_nbs[$clog2(DLEN/4)-1: 0];
+    nr_seg_nbs_cln_major = isLastGrp(glb_i) ?
+                              (
+                                nr_last_grp_nbs == 0 ? 
+                                  (DLEN/4) : 
+                                  nr_last_grp_nbs
+                              ) : 
+                              (DLEN/4);
+
+    // Select row-major or column-major segment nibbles - always calculated
+    nr_seg_nbs               = is_cln2d ? nr_seg_nbs_cln_major : nr_seg_nbs_row_major;
+    page_off                 = next_addr_i[12:0];
+    seg_nibbles_with_pageOff = page_off + nr_seg_nbs;
+
+    // Output assignment based on enable signal
     if (en_i) begin
-      is_incr   = isIncr (glb_i.mode);
-      is_strd   = isStrd (glb_i.mode);
-      is_row2d  = isRow2D(glb_i.mode);
-      is_cln2d  = isCln2D(glb_i.mode);
-
-      nr_seg_elems_row_major = is_incr  ? glb_i.nrElem :
-                               is_strd  ? 1            :
-                               is_row2d ? NrLanes      : 
-                                          0            ;
-      nr_seg_nbs_row_major = nr_seg_elems_row_major << glb_i.sew;
-
-      nr_all_grp_nbs       = (glb_i.nrElem << glb_i.sew);
-      nr_last_grp_nbs      = nr_all_grp_nbs[$clog2(DLEN/4)-1: 0];
-      nr_seg_nbs_cln_major = isLastGrp(glb_i) ?
-                                (
-                                  nr_last_grp_nbs == 0 ? 
-                                    (DLEN/4) : 
-                                    nr_last_grp_nbs
-                                ) : 
-                                (DLEN/4);
-
-      nr_seg_nbs               = is_cln2d ? nr_seg_nbs_cln_major : nr_seg_nbs_row_major;
-      page_off                 = next_addr_i[12:0];
-      seg_nibbles_with_pageOff = page_off + nr_seg_nbs;
-
       seg_nxt_o.segBaseAddr = next_addr_i;
       seg_nxt_o.txnNum      = (seg_nibbles_with_pageOff - 1) >> 13;
       seg_nxt_o.txnCnt      = 0;
       seg_nxt_o.ltN         = (seg_nibbles_with_pageOff[12:0] != 0) ?
         seg_nibbles_with_pageOff[12:0] : 
         DLEN/4;
-        
     end else begin
       seg_nxt_o = seg_r_i;
     end
