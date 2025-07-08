@@ -24,62 +24,66 @@
 `ifndef VLSU_TYPEDEF_SVH
 `define VLSU_TYPEDEF_SVH
 
-// ================= VLSU Request Structure ================= //
+  // ================= VLSU Request Structure ================= //
 
-// VLSU request structure (based on RivaReqPtl)
-typedef struct packed {
-  vid_t              reqId;
-  logic [1:0]        mop;
-  elen_t             baseAddr;
-  rvmv_pkg::vew_e    sew;
-  logic [4:0]        vd;
-  elen_t             stride;
-  vlen_t             len;
-  vlen_t             vstart;
-  logic              isLoad;
-  logic              vm;
-} vlsu_req_t;
-
-// ================= Typedef Macros ================= //
-
-// Global metadata structure
-`define VLSU_TYPEDEF_META_GLB_T(meta_glb_t, rmn_grp_t, rmn_seg_t, cmt_t) \
-  typedef struct packed {                                       \
-    vid_t               reqId;                                  \
-    vlsu_pkg::mode_oh_t mode;                                   \
-    elen_t              baseAddr;                               \
-    logic [4:0]         vd;                                     \
-    rvmv_pkg::vew_e     sew;                                    \
-    vlen_t              nrElem;                                 \
-    elen_t              stride;                                 \
-    logic               vm;                                     \
-    vlen_t              vstart;                                 \
-    rmn_grp_t           rmnGrp;                                 \
-    vlen_t              rmnSeg;                                 \
-    logic               isLoad;                                 \
-    cmt_t               cmtCnt;                                 \
-  } meta_glb_t
-
-// Segment-level metadata structure
-`define VLSU_TYPEDEF_META_SEGLV_T(meta_seglv_t, txn_num_t, ltn_t) \
-  typedef struct packed {                                       \
-    elen_t             segBaseAddr;                             \
-    txn_num_t          txnNum;                                  \
-    txn_num_t          txnCnt;                                  \
-    ltn_t              ltN;                                     \
-  } meta_seglv_t
-
-// Transaction control info structure (based on TxnCtrlInfo)
-`define VLSU_TYPEDEF_TXN_CTRL_T(txn_ctrl_t, rmn_beat_t, lbn_t) \
-  typedef struct packed {                                       \
-    vid_t              reqId;                                   /* Not always needed, defined for debug convenience */ \
-    elen_t             addr;                                    \
-    axi_pkg::size_t    size;                                    \
-    rmn_beat_t         rmnBeat;                                 \
-    lbn_t              lbN;                                     \
-    logic              isHead;                                  \
-    logic              isLoad;                                  \
-    logic              isFinalTxn;                              \
-  } txn_ctrl_t
+  // VLSU request structure (based on RivaReqPtl)
+  // This structure contains all the information needed to initiate a vector load/store operation
+  typedef struct packed {
+    vid_t              reqId;        // Request ID for tracking and debugging
+    logic [1:0]        mop;          // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
+    elen_t             baseAddr;     // Base address for the vector operation
+    rvmv_pkg::vew_e    sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
+    logic [4:0]        vd;           // Vector destination register index
+    elen_t             stride;       // Stride value for strided access mode
+    vlen_t             len;          // Total number of elements to process
+    vlen_t             vstart;       // Starting element index (for partial vector operations)
+    logic              isLoad;       // 1: load operation, 0: store operation
+    logic              vm;           // Vector mask enable (1: masked, 0: unmasked)
+  } vlsu_req_t;
+    
+    // ================= Typedef Structures ================= //
+    
+    // Global metadata structure
+  // Contains global information decoded from the VLSU request
+  // Most fields remain unchanged throughout the request processing
+  typedef struct packed {
+    vid_t               reqId;        // Request ID for tracking and debugging
+    vlsu_pkg::mode_oh_t mode;         // Memory operation mode (one-hot encoded)
+    elen_t              baseAddr;     // Base address for the vector operation
+    logic [4:0]         vd;           // Vector destination register index
+    rvmv_pkg::vew_e     sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
+    vlen_t              nrElem;       // Number of elements to process (len - vstart)
+    elen_t              stride;       // Stride value for strided access mode
+    logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
+    vlen_t              vstart;       // Starting element index for partial vector operations
+    rmn_grp_t           rmnGrp;       // Remaining groups (for 2D column-major mode)
+    vlen_t              rmnSeg;       // Remaining segments within current group
+    logic               isLoad;       // 1: load operation, 0: store operation
+    cmt_cnt_t           cmtCnt;       // Commit counter (used to determine when to dequeue meta buffer)
+  } meta_glb_t;
+    
+    // Segment-level metadata structure
+  // Contains segment-level information for the current memory segment
+  // This information is updated as transactions are issued within the segment
+  typedef struct packed {
+    elen_t             segBaseAddr;       // Base address of the current segment
+    txn_num_t          txnNum;            // Total number of transactions needed for this segment
+    txn_num_t          txnCnt;            // Current transaction count within this segment
+    logic [13:0]       ltN;               // Number of nibbles in the last transaction (1 ~ 4096 * 2)
+  } meta_seglv_t;
+    
+    // Transaction control info structure (based on TxnCtrlInfo)
+  // Contains transaction-level control information for AXI bus transactions
+  // This structure is derived from MetaCtrlInfo.segLevel information
+  typedef struct packed {
+    vid_t              reqId;             // Request ID (not always needed, defined for debug convenience)
+    elen_t             addr;              // Transaction address
+    axi_pkg::size_t    size;              // AXI transaction size
+    rmn_beat_t         rmnBeat;           // Remaining beats in current transaction
+    lbn_t              lbN;               // Number of nibbles in the last beat
+    logic              isHead;            // 1: first transaction in segment, 0: subsequent transactions
+    logic              isLoad;            // 1: load operation, 0: store operation
+    logic              isFinalTxn;        // 1: final transaction of the entire request
+  } txn_ctrl_t;
 
 `endif // VLSU_TYPEDEF_SVH

@@ -224,11 +224,11 @@ endmodule
 module SegLvInitCommon import riva_pkg::*; #(
   parameter  int   unsigned  NrLanes        = 0,
   parameter  int   unsigned  VLEN           = 0,
-  parameter  int   unsigned  ALEN           = 0
+  parameter  int   unsigned  ALEN           = 0,
 
   // Dependant parameters. DO NOT CHANGE!
   localparam int   unsigned  MaxLEN         = $max(VLEN, ALEN),
-  localparam int   unsigned  clog2MaxNbs    = $clog2(MaxLEN * ELEN)
+  localparam int   unsigned  clog2MaxNbs    = $clog2(MaxLEN * ELEN / 4)
 ) (
   input  logic                        en_i,
   input  elen_t                       next_addr_i,

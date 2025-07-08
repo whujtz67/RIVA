@@ -10,25 +10,30 @@ import ControlMachinePkg::*;
 import axi_pkg::*;
 
 module VLSU #(
-    parameter  int   unsigned NrLanes      = 0,
-    parameter  int   unsigned VLEN         = 0,
-    parameter  int   unsigned ALEN         = 0,
-    parameter  type           vaddr_t      = logic,
-    parameter  type           pe_req_t     = logic,
-    parameter  type           pe_resp_t    = logic,
+    parameter  int   unsigned  NrLanes      = 0,
+    parameter  int   unsigned  VLEN         = 0,
+    parameter  int   unsigned  ALEN         = 0,
+    parameter  type            vaddr_t      = logic,
+    parameter  type            pe_req_t     = logic,
+    parameter  type            pe_resp_t    = logic,
     
     // AXI type parameters (from upstream)
-    parameter  type           axi_aw_t     = logic,
-    parameter  type           axi_ar_t     = logic,
-    parameter  type           axi_w_t      = logic,
-    parameter  type           axi_r_t      = logic,
-    parameter  type           axi_b_t      = logic,
+    parameter  int   unsigned  AxiDataWidth = 0,
+    parameter  int   unsigned  AxiAddrWidth = 0,
 
-    parameter  type           axi_req_t    = logic,
-    parameter  type           axi_resp_t   = logic,
+    parameter  type            axi_aw_t     = logic,
+    parameter  type            axi_ar_t     = logic,
+    parameter  type            axi_w_t      = logic,
+    parameter  type            axi_r_t      = logic,
+    parameter  type            axi_b_t      = logic,
+ 
+    parameter  type            axi_req_t    = logic,
+    parameter  type            axi_resp_t   = logic,
     // Dependant parameters. DO NOT CHANGE!
-    localparam type           vlen_t       = logic [$clog2(VLEN+1)-1:0],
-	localparam type           alen_t       = logic [$clog2(ALEN+1)-1:0],
+    localparam int   unsigned  MaxLEN       = $max(VLEN, ALEN),
+    localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
+    localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
+	localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0]
 ) (
     // Clock and Reset
     input  logic          clk_i,
@@ -61,6 +66,16 @@ module VLSU #(
     output logic          m_axi_r_ready_o,
     input  axi_r_t        m_axi_r_i
 );
+
+    // TODO: maybe do not need to multiply ELEN here
+    typedef logic [$clog2(MaxLEN*ELEN/DLEN)-1    :0] rmn_grp_t; // 0 ~ (MaxLEN*ELEN/DLEN)-1
+    typedef logic [$clog2(MaxLEN*ELEN/DLEN)-1    :0] cmt_cnt_t; // 0 ~ (MaxLEN*ELEN*NrLanes/DLEN*NrLanes)-1
+    
+    typedef logic [$clog2(MaxLEN*ELEN/(8*4096))-1:0] txn_num_t; // 0 ~ (MaxLEN*ELEN/8*4096)-1
+
+    typedef logic [$clog2(4096/AxiDataWidth)-1   :0] rmn_beat_t; // 0 ~ (4096/AxiDataWidth)-1 
+    typedef logic [$clog2(AxiDataWidth/4)        :0] lbn_t; // 1 ~ AxiDataWidth/4
+
     // Include type definitions
     `include "vlsu/vlsu_typedef.svh"
 
@@ -94,7 +109,7 @@ module VLSU #(
         .meta_glb_t   (meta_glb_t  ),
         .meta_seglv_t (meta_seglv_t),
         .txn_ctrl_t   (txn_ctrl_t  )
-    ) control_machine_inst (
+    ) i_cm (
         .clk_i             (clk_i           ),
         .rst_ni            (rst_ni          ),
         .vlsu_req_valid_i  (vlsu_req_valid_i),
