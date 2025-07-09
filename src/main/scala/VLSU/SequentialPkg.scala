@@ -75,7 +75,7 @@ trait SequentialDataCtrl extends HasCircularQueuePtrHelper {
 // -------------------------------------------------- trait classes -------------------------------------------------- //
   class CirQSeqBufPtr extends CircularQueuePtr[CirQSeqBufPtr](2)
 
-  class IdleInfoBundle(implicit p: Parameters) extends VLSUBundle {
+  class SeqInfoBundle(implicit p: Parameters) extends VLSUBundle {
     val seqNbPtr = UInt(log2Ceil(nbNum).W)
   }
 
@@ -85,7 +85,7 @@ trait SequentialDataCtrl extends HasCircularQueuePtrHelper {
 
 // ------------------------------------------ Idle Info Queue ------------------------------------------------- //
   // skid buffer for sequential commit
-  val seqInfoBuf = Module(new Queue(new IdleInfoBundle(), entries = 1, flow = true))
+  val seqInfoBuf = Module(new Queue(new SeqInfoBundle(), entries = 1, flow = true))
 
 // ------------------------------------------ Sequential Buffer ------------------------------------------------- //
   val seqBuf: Vec[SeqBufBundle] = RegInit(0.U.asTypeOf(Vec(2, new SeqBufBundle()))) // Ping-pong buffer
