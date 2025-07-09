@@ -185,15 +185,15 @@ module ReqFragmenter import riva_pkg::*; #(
 
   // seglv_init_common module instantiation
   SegLvInitCommon #(
-      .NrLanes        (NrLanes),
-      .VLEN           (VLEN   ),
-      .ALEN           (ALEN   )
+    .NrLanes        (NrLanes),
+    .VLEN           (VLEN   ),
+    .ALEN           (ALEN   )
   ) i_seglv_init_common (
-      .en_i           (seglv_init_en  ),
-      .next_addr_i    (seglv_next_addr),
-      .glb_i          (seglv_glb      ),
-      .seg_r_i        (meta_seglv_r   ),
-      .seg_nxt_o      (meta_seglv_nxt )
+    .en_i           (seglv_init_en  ),
+    .next_addr_i    (seglv_next_addr),
+    .glb_i          (seglv_glb      ),
+    .seg_r_i        (meta_seglv_r   ),
+    .seg_nxt_o      (meta_seglv_nxt )
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin

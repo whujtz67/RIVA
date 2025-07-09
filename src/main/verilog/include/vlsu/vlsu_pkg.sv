@@ -19,14 +19,14 @@ package vlsu_pkg;
   } mode_oh_t;
 
   // ================= Data Width Parameters ================= //
-  parameter int unsigned busBits    = 512;            // Data bus width
-  parameter int unsigned addrBits   = 32;            // Address bus width
-  parameter int unsigned idBits     = 1;             // AXI ID width
-  parameter int unsigned userBits   = 0;             // AXI User signal width
+  parameter int unsigned busBits      = 512;            // Data bus width
+  parameter int unsigned addrBits     = 32;            // Address bus width
+  parameter int unsigned idBits       = 1;             // AXI ID width
   
   // ================= Buffer and Cache Parameters ================= //
   parameter int unsigned metaBufDepth = 4;           // Meta buffer depth
   parameter int unsigned txnCtrlNum   = 4;           // Number of transaction controllers
+  parameter int unsigned wBufDep      = 2;           // Write buffer depth for SequentialStore
   
   // ================= Derived Parameters ================= //
   parameter int unsigned busBytes   = busBits / 8;

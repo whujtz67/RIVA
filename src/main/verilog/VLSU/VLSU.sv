@@ -33,7 +33,7 @@ module VLSU #(
     localparam int   unsigned  MaxLEN       = $max(VLEN, ALEN),
     localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
     localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
-	localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0]
+	  localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0]
 ) (
     // Clock and Reset
     input  logic          clk_i,
@@ -100,37 +100,37 @@ module VLSU #(
     
     // ================= Control Machine Instance ================= //
     ControlMachine #(
-        .NrLanes      (NrLanes      ),
-        .VLEN         (VLEN         ),
-        .ALEN         (ALEN         ),
-        .axi_aw_t     (axi_aw_t     ),
-        .axi_ar_t     (axi_ar_t     ),
-        .vlsu_req_t   (vlsu_req_t  ),
-        .meta_glb_t   (meta_glb_t  ),
-        .meta_seglv_t (meta_seglv_t),
-        .txn_ctrl_t   (txn_ctrl_t  )
+      .NrLanes      (NrLanes      ),
+      .VLEN         (VLEN         ),
+      .ALEN         (ALEN         ),
+      .axi_aw_t     (axi_aw_t     ),
+      .axi_ar_t     (axi_ar_t     ),
+      .vlsu_req_t   (vlsu_req_t  ),
+      .meta_glb_t   (meta_glb_t  ),
+      .meta_seglv_t (meta_seglv_t),
+      .txn_ctrl_t   (txn_ctrl_t  )
     ) i_cm (
-        .clk_i             (clk_i           ),
-        .rst_ni            (rst_ni          ),
-        .vlsu_req_valid_i  (vlsu_req_valid_i),
-        .vlsu_req_ready_o  (vlsu_req_ready_o),
-        .vlsu_req_i        (vlsu_req_i      ),
-        .core_st_pending_i (core_st_pending_i),
-        .meta_ctrl_valid_o (meta_ctrl_valid ),
-        .meta_ctrl_ready_i (meta_ctrl_ready ),
-        .meta_glb_o        (meta_glb        ),
-        .meta_seglv_o      (meta_seglv      ),
-        .txn_ctrl_valid_o  (txn_ctrl_valid  ),
-        .txn_ctrl_o        (txn_ctrl        ),
-        .update_i          (update_signal   ),
-        .aw_valid_o        (aw_valid        ),
-        .aw_ready_i        (aw_ready        ),
-        .aw_o              (aw_flit         ),
-        .ar_valid_o        (ar_valid        ),
-        .ar_ready_i        (ar_ready        ),
-        .ar_o              (ar_flit         ),
-        .b_valid_i         (b_valid         ),
-        .b_ready_o         (b_ready         )
+      .clk_i             (clk_i           ),
+      .rst_ni            (rst_ni          ),
+      .vlsu_req_valid_i  (vlsu_req_valid_i),
+      .vlsu_req_ready_o  (vlsu_req_ready_o),
+      .vlsu_req_i        (vlsu_req_i      ),
+      .core_st_pending_i (core_st_pending_i),
+      .meta_ctrl_valid_o (meta_ctrl_valid ),
+      .meta_ctrl_ready_i (meta_ctrl_ready ),
+      .meta_glb_o        (meta_glb        ),
+      .meta_seglv_o      (meta_seglv      ),
+      .txn_ctrl_valid_o  (txn_ctrl_valid  ),
+      .txn_ctrl_o        (txn_ctrl        ),
+      .update_i          (update_signal   ),
+      .aw_valid_o        (aw_valid        ),
+      .aw_ready_i        (aw_ready        ),
+      .aw_o              (aw_flit         ),
+      .ar_valid_o        (ar_valid        ),
+      .ar_ready_i        (ar_ready        ),
+      .ar_o              (ar_flit         ),
+      .b_valid_i         (b_valid         ),
+      .b_ready_o         (b_ready         )
     );
     
     // ================= AXI Interface Connections ================= //

@@ -60,54 +60,54 @@ module ControlMachine import vlsu_pkg::*; #(
 
     // --------------------- Submodule Instantiation --------------------- //
     ReqFragmenter #(
-        .NrLanes      (NrLanes      ),
-        .VLEN         (VLEN         ),
-        .ALEN         (ALEN         ),
-        .vlsu_req_t   (vlsu_req_t   ),
-        .meta_glb_t   (meta_glb_t   ),
-        .meta_seglv_t (meta_seglv_t )
+      .NrLanes      (NrLanes      ),
+      .VLEN         (VLEN         ),
+      .ALEN         (ALEN         ),
+      .vlsu_req_t   (vlsu_req_t   ),
+      .meta_glb_t   (meta_glb_t   ),
+      .meta_seglv_t (meta_seglv_t )
     ) i_rf (
-        .clk_i                (clk_i               ),
-        .rst_ni               (rst_ni              ),
-        .vlsu_req_valid_i     (vlsu_req_valid_i    ),
-        .vlsu_req_ready_o     (vlsu_req_ready_o    ),
-        .vlsu_req_i           (vlsu_req_i          ),
-        .core_st_pending_i    (core_st_pending_i   ),
-        .meta_valid_o         (meta_valid          ),
-        .meta_ready_i         (meta_ready          ),
-        .meta_glb_o           (meta_glb            ),
-        .meta_seglv_o         (meta_seglv          ),
-        .meta_buf_full_i      (meta_buf_full       ),
-        .meta_buf_enq_valid_o (meta_buf_enq_valid  )
+      .clk_i                (clk_i               ),
+      .rst_ni               (rst_ni              ),
+      .vlsu_req_valid_i     (vlsu_req_valid_i    ),
+      .vlsu_req_ready_o     (vlsu_req_ready_o    ),
+      .vlsu_req_i           (vlsu_req_i          ),
+      .core_st_pending_i    (core_st_pending_i   ),
+      .meta_valid_o         (meta_valid          ),
+      .meta_ready_i         (meta_ready          ),
+      .meta_glb_o           (meta_glb            ),
+      .meta_seglv_o         (meta_seglv          ),
+      .meta_buf_full_i      (meta_buf_full       ),
+      .meta_buf_enq_valid_o (meta_buf_enq_valid  )
     );
 
     TxnCtrlUnit #(
-        .NrLanes      (NrLanes      ),
-        .VLEN         (VLEN         ),
-        .ALEN         (ALEN         ),
-        .txn_ctrl_t   (txn_ctrl_t   ),
-        .axi_aw_t     (axi_aw_t     ),
-        .axi_ar_t     (axi_ar_t     ),
-        .meta_glb_t   (meta_glb_t   ),
-        .meta_seglv_t (meta_seglv_t )
+      .NrLanes      (NrLanes      ),
+      .VLEN         (VLEN         ),
+      .ALEN         (ALEN         ),
+      .txn_ctrl_t   (txn_ctrl_t   ),
+      .axi_aw_t     (axi_aw_t     ),
+      .axi_ar_t     (axi_ar_t     ),
+      .meta_glb_t   (meta_glb_t   ),
+      .meta_seglv_t (meta_seglv_t )
     ) i_tc (
-        .clk_i            (clk_i           ),
-        .rst_ni           (rst_ni          ),
-        .meta_valid_i     (meta_valid      ),
-        .meta_ready_o     (meta_ready      ),
-        .meta_glb_i       (meta_glb        ),
-        .meta_seglv_i     (meta_seglv      ),
-        .txn_ctrl_valid_o (txn_ctrl_valid_o),
-        .txn_ctrl_o       (txn_ctrl_o      ),
-        .update_i         (update_i        ),
-        .aw_valid_o       (aw_valid_o      ),
-        .aw_ready_i       (aw_ready_i      ),
-        .aw_o             (aw_o            ),
-        .ar_valid_o       (ar_valid_o      ),
-        .ar_ready_i       (ar_ready_i      ),
-        .ar_o             (ar_o            ),
-        .b_valid_i        (b_valid_i       ),
-        .b_ready_o        (b_ready_o       )
+      .clk_i            (clk_i           ),
+      .rst_ni           (rst_ni          ),
+      .meta_valid_i     (meta_valid      ),
+      .meta_ready_o     (meta_ready      ),
+      .meta_glb_i       (meta_glb        ),
+      .meta_seglv_i     (meta_seglv      ),
+      .txn_ctrl_valid_o (txn_ctrl_valid_o),
+      .txn_ctrl_o       (txn_ctrl_o      ),
+      .update_i         (update_i        ),
+      .aw_valid_o       (aw_valid_o      ),
+      .aw_ready_i       (aw_ready_i      ),
+      .aw_o             (aw_o            ),
+      .ar_valid_o       (ar_valid_o      ),
+      .ar_ready_i       (ar_ready_i      ),
+      .ar_o             (ar_o            ),
+      .b_valid_i        (b_valid_i       ),
+      .b_ready_o        (b_ready_o       )
     );
 
     // --------------------- Meta Buffer Full Signal --------------------- //
