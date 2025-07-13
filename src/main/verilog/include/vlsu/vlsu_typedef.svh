@@ -86,4 +86,30 @@
     logic              isFinalTxn;        // 1: final transaction of the entire request
   } txn_ctrl_t;
 
+  // ================= Lane Data Structures ================= //
+  
+  // TxLane structure (based on Chisel TxLane)
+  // Contains data to be sent from VLSU to lane units
+  // Note: reqId and vaddr are the same for all lanes, but included for simplicity
+  typedef struct packed {
+    vid_t              reqId;             // Request ID for tracking and debugging
+    vaddr_set_t        vaddr_set;         // VRF set address
+    vaddr_off_t        vaddr_off;         // VRF offset address
+    logic [DLEN-1:0]   data;              // Data bits (DLEN = 128 bits)
+    logic [DLEN/4-1:0] nbe;               // Nibble byte enable (half byte enable)
+  } tx_lane_t;
+  
+  // RxLane structure (based on Chisel RxLane)
+  // Contains data received from lane units to VLSU
+  typedef struct packed {
+    logic [DLEN-1:0]   data;              // Data bits (DLEN = 128 bits)
+  } rx_lane_t;
+  
+  // LaneSide structure (based on Chisel LaneSide)
+  // Contains arrays of TxLane and RxLane for all lanes
+  typedef struct packed {
+    tx_lane_t [NrLanes-1:0] txs;          // Transmit lanes (VLSU to lanes)
+    rx_lane_t [NrLanes-1:0] rxs;          // Receive lanes (lanes to VLSU)
+  } lane_side_t;
+
 `endif // VLSU_TYPEDEF_SVH
