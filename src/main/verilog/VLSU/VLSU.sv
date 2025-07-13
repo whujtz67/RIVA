@@ -80,23 +80,23 @@ module VLSU #(
     `include "vlsu/vlsu_typedef.svh"
 
     // ================= Internal Signals ================= //
-    logic meta_ctrl_valid, meta_ctrl_ready;
-    meta_glb_t meta_glb;
+    logic        meta_ctrl_valid, meta_ctrl_ready;
+    meta_glb_t   meta_glb;
     meta_seglv_t meta_seglv;
 
-    logic txn_ctrl_valid, txn_ctrl_ready;
+    logic      txn_ctrl_valid, txn_ctrl_ready;
     txn_ctrl_t txn_ctrl;
 
-    logic aw_valid, aw_ready;
+    logic    aw_valid, aw_ready;
     axi_aw_t aw_flit;
 
-    logic ar_valid, ar_ready;
+    logic    ar_valid, ar_ready;
     axi_ar_t ar_flit;
 
-    logic b_valid, b_ready;
+    logic   b_valid, b_ready;
     axi_b_t b_flit;
 
-    logic update_signal;
+    logic   update_signal;
     
     // ================= Control Machine Instance ================= //
     ControlMachine #(
