@@ -13,7 +13,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
 
   parameter  type            axi_w_t          = logic,
   parameter  type            txn_ctrl_t       = logic,
-  parameter  type            meta_ctrl_t      = logic,
+  parameter  type            meta_glb_t       = logic,
   parameter  type            seq_info_t       = logic,
   parameter  type            seq_buf_t        = logic,
 
@@ -41,9 +41,9 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   input  txn_ctrl_t     txn_ctrl_i,
 
   // Meta Control Interface
-  input  logic          meta_ctrl_valid_i,
-  output logic          meta_ctrl_ready_o,
-  input  meta_ctrl_t    meta_ctrl_i
+  input  logic          meta_glb_valid_i,
+  output logic          meta_glb_ready_o,
+  input  meta_glb_t     meta_glb_i
 );
   // Write buffer
   typedef struct packed {
@@ -200,7 +200,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
     w_buf_enq           = 1'b0;
     w_buf_deq           = 1'b0;
     seq_info_enq_bits   = '0;
-    seq_info_enq_valid  = meta_ctrl_valid_i;
+    seq_info_enq_valid  = meta_glb_valid_i;
     seq_info_deq_ready  = 1'b0;
     // Default assignments for intermediate variables
     lower_nibble        = '0;
@@ -322,9 +322,9 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   end
 
   // ================= Meta Control Interface Logic ================= //
-  assign seq_info_enq_valid         = meta_ctrl_valid_i;
-  assign seq_info_enq_bits.seqNbPtr = (meta_ctrl_i.glb.vstart << meta_ctrl_i.glb.eew)[$clog2(NrLaneEntriesNbs)-1:0];
-  assign meta_ctrl_ready_o          = seq_info_enq_ready;
+  assign seq_info_enq_valid         = meta_glb_valid_i;
+  assign seq_info_enq_bits.seqNbPtr = (meta_glb_i.vstart << meta_glb_i.sew)[$clog2(NrLaneEntriesNbs)-1:0];
+  assign meta_glb_ready_o          = seq_info_enq_ready;
 
   // ================= Sequential Logic ================= //
   always_ff @(posedge clk_i or negedge rst_ni) begin

@@ -5,11 +5,7 @@
 
 `timescale 1ns/1ps
 
-import vlsu_pkg::*;
-import ControlMachinePkg::*;
-import axi_pkg::*;
-
-module VLSU #(
+module VLSU import vlsu_pkg::*; #(
     parameter  int   unsigned  NrLanes      = 0,
     parameter  int   unsigned  VLEN         = 0,
     parameter  int   unsigned  ALEN         = 0,
@@ -20,6 +16,7 @@ module VLSU #(
     // AXI type parameters (from upstream)
     parameter  int   unsigned  AxiDataWidth = 0,
     parameter  int   unsigned  AxiAddrWidth = 0,
+    parameter  int   unsigned  AxiUserWidth = 1, // TODO: pass from top level
 
     parameter  type            axi_aw_t     = logic,
     parameter  type            axi_ar_t     = logic,
@@ -32,6 +29,7 @@ module VLSU #(
     // Dependant parameters. DO NOT CHANGE!
     localparam int   unsigned  MaxLEN       = $max(VLEN, ALEN),
     localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
+    localparam type            strb_t       = logic [DLEN/4-1:0],
     localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
 	  localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0]
 ) (
@@ -64,7 +62,21 @@ module VLSU #(
     
     input  logic          m_axi_r_valid_i,
     output logic          m_axi_r_ready_o,
-    input  axi_r_t        m_axi_r_i
+    input  axi_r_t        m_axi_r_i,
+
+    // Lane Interface
+    output logic      [NrLanes-1:0]    txs_valid_o,
+    input  logic      [NrLanes-1:0]    txs_ready_i,
+    output tx_lane_t  [NrLanes-1:0]    txs_o,
+    input  logic      [NrLanes-1:0]    rxs_valid_i,
+    output logic      [NrLanes-1:0]    rxs_ready_o,
+    input  rx_lane_t  [NrLanes-1:0]    rxs_i,
+
+    // Mask Interface
+    input  logic      [NrLanes-1:0]    mask_valid_i,
+    input  strb_t     [NrLanes-1:0]    mask_bits_i,
+    output logic                       load_mask_ready_o,
+    output logic                       store_mask_ready_o
 );
 
     // TODO: maybe do not need to multiply ELEN here
@@ -84,19 +96,25 @@ module VLSU #(
     meta_glb_t   meta_glb;
     meta_seglv_t meta_seglv;
 
-    logic      txn_ctrl_valid, txn_ctrl_ready;
-    txn_ctrl_t txn_ctrl;
+    logic        txn_ctrl_valid, txn_ctrl_ready;
+    txn_ctrl_t   txn_ctrl;
 
-    logic    aw_valid, aw_ready;
-    axi_aw_t aw_flit;
+    logic        aw_valid, aw_ready;
+    axi_aw_t     aw_flit;
 
-    logic    ar_valid, ar_ready;
-    axi_ar_t ar_flit;
+    logic        ar_valid, ar_ready;
+    axi_ar_t     ar_flit;
 
-    logic   b_valid, b_ready;
-    axi_b_t b_flit;
+    logic        b_valid, b_ready;
+    axi_b_t      b_flit;
 
-    logic   update_signal;
+    logic        update_cm;
+    
+    // Load/Store Unit control signals
+    logic        load_meta_ctrl_valid , load_meta_ctrl_ready;
+    logic        store_meta_ctrl_valid, store_meta_ctrl_ready;
+    logic        load_txn_ctrl_valid  , load_txn_ctrl_ready;
+    logic        store_txn_ctrl_valid , store_txn_ctrl_ready;
     
     // ================= Control Machine Instance ================= //
     ControlMachine #(
@@ -122,7 +140,7 @@ module VLSU #(
       .meta_seglv_o      (meta_seglv      ),
       .txn_ctrl_valid_o  (txn_ctrl_valid  ),
       .txn_ctrl_o        (txn_ctrl        ),
-      .update_i          (update_signal   ),
+      .update_i          (update_cm       ),
       .aw_valid_o        (aw_valid        ),
       .aw_ready_i        (aw_ready        ),
       .aw_o              (aw_flit         ),
@@ -133,25 +151,96 @@ module VLSU #(
       .b_ready_o         (b_ready         )
     );
     
+    // ================= Load Unit Instance ================= //
+    LoadUnit #(
+      .NrLanes        (NrLanes        ),
+      .VLEN           (VLEN           ),
+      .ALEN           (ALEN           ),
+      .AxiDataWidth   (AxiDataWidth   ),
+      .AxiAddrWidth   (AxiAddrWidth   ),
+      .axi_r_t        (axi_r_t        ),
+      .txn_ctrl_t     (txn_ctrl_t     ),
+      .meta_glb_t     (meta_glb_t     ),
+      .tx_lane_t      (tx_lane_t      )
+    ) i_load_unit (
+      .clk_i                (clk_i                ),
+      .rst_ni               (rst_ni               ),
+      .axi_r_valid_i        (m_axi_r_valid_i      ),
+      .axi_r_ready_o        (m_axi_r_ready_o      ),
+      .axi_r_i              (m_axi_r_i            ),
+      .txn_ctrl_valid_i     (load_txn_ctrl_valid  ),
+      .txn_ctrl_ready_o     (load_txn_ctrl_ready  ),
+      .txn_ctrl_i           (txn_ctrl             ),
+      .meta_glb_valid_i     (load_meta_ctrl_valid ),
+      .meta_glb_ready_o     (load_meta_ctrl_ready ),
+      .meta_glb_i           (meta_glb             ),
+      .txs_valid_o          (txs_valid_o          ),
+      .txs_ready_i          (txs_ready_i          ),
+      .txs_o                (txs_o                ),
+      .mask_valid_i         (mask_valid_i         ),
+      .mask_bits_i          (mask_bits_i          ),
+      .mask_ready_o         (load_mask_ready_o    )
+    );
+    
+    // ================= Store Unit Instance ================= //
+    StoreUnit #(
+      .NrLanes        (NrLanes        ),
+      .VLEN           (VLEN           ),
+      .ALEN           (ALEN           ),
+      .AxiDataWidth   (AxiDataWidth   ),
+      .AxiAddrWidth   (AxiAddrWidth   ),
+      .AxiUserWidth   (AxiUserWidth   ),
+      .axi_w_t        (axi_w_t        ),
+      .txn_ctrl_t     (txn_ctrl_t     ),
+      .meta_glb_t     (meta_glb_t     ),
+      .rx_lane_t      (rx_lane_t      )
+    ) i_store_unit (
+      .clk_i                (clk_i                ),
+      .rst_ni               (rst_ni               ),
+      .rxs_valid_i          (rxs_valid_i          ),
+      .rxs_ready_o          (rxs_ready_o          ),
+      .rxs_i                (rxs_i                ),
+      .axi_w_valid_o        (m_axi_w_valid_o      ),
+      .axi_w_ready_i        (m_axi_w_ready_i      ),
+      .axi_w_o              (m_axi_w_o            ),
+      .txn_ctrl_valid_i     (store_txn_ctrl_valid ),
+      .txn_ctrl_ready_o     (store_txn_ctrl_ready ),
+      .txn_ctrl_i           (txn_ctrl             ),
+      .meta_glb_valid_i     (store_meta_ctrl_valid),
+      .meta_glb_ready_o     (store_meta_ctrl_ready),
+      .meta_glb_i           (meta_glb             ),
+      .mask_valid_i         (mask_valid_i         ),
+      .mask_bits_i          (mask_bits_i          ),
+      .mask_ready_o         (store_mask_ready_o   )
+    );
+    
     // ================= AXI Interface Connections ================= //
     assign m_axi_aw_valid_o = aw_valid;
-    assign aw_ready = m_axi_aw_ready_i;
-    assign m_axi_aw_o = aw_flit;
+    assign aw_ready         = m_axi_aw_ready_i;
+    assign m_axi_aw_o       = aw_flit;
     
     assign m_axi_ar_valid_o = ar_valid;
-    assign ar_ready = m_axi_ar_ready_i;
-    assign m_axi_ar_o = ar_flit;
+    assign ar_ready         = m_axi_ar_ready_i;
+    assign m_axi_ar_o       = ar_flit;
     
-    assign b_valid = m_axi_b_valid_i;
-    assign m_axi_b_ready_o = b_ready;
-    assign b_flit = m_axi_b_i;
+    assign b_valid          = m_axi_b_valid_i;
+    assign m_axi_b_ready_o  = b_ready;
+    assign b_flit           = m_axi_b_i;
     
-    // TODO: Connect w and r channels when corresponding modules are ready
-    // assign m_axi_w_valid_o = ...;
-    // assign m_axi_w_o = ...;
-    // assign m_axi_r_ready_o = ...;
+    // ================= Control Signal Routing ================= //
+    // Route meta control signals based on load/store operation
+    assign load_meta_ctrl_valid  = meta_ctrl_valid && meta_glb.isLoad;
+    assign store_meta_ctrl_valid = meta_ctrl_valid && !meta_glb.isLoad;
+    
+    // Route transaction control signals based on load/store operation
+    assign load_txn_ctrl_valid   = txn_ctrl_valid && txn_ctrl.isLoad;
+    assign store_txn_ctrl_valid  = txn_ctrl_valid && !txn_ctrl.isLoad;
+    
+    // Combine ready signals from load and store units
+    assign meta_ctrl_ready       = load_meta_ctrl_ready && store_meta_ctrl_ready;
+    assign txn_ctrl_ready        = load_txn_ctrl_ready  || store_txn_ctrl_ready;
     
     // ================= Update Signal Logic ================= //
-    assign update_signal = m_axi_b_valid_i && m_axi_b_ready_o;
+    assign update_cm             = load_txn_ctrl_ready || store_txn_ctrl_ready;
 
 endmodule : VLSU

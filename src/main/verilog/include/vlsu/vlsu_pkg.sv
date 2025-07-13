@@ -42,10 +42,9 @@ package vlsu_pkg;
   parameter int unsigned VAddrOffBits = $clog2(NrVRFBanksPerLane);
   parameter int unsigned VAddrBits    = VAddrSetBits + VAddrOffBits;
 
-  typedef struct packed {
-    logic [VAddrSetBits-1:0] set;   // Virtual address set
-    logic [VAddrOffBits-1:0] off;   // Virtual address offset
-  } vaddr_t;
+  typedef logic [VAddrSetBits-1:0] vaddr_set_t;
+  typedef logic [VAddrOffBits-1:0] vaddr_off_t;
+  typedef logic [VAddrBits   -1:0] vaddr_t;
   
   // ================= Derived Parameters ================= //
   parameter int unsigned busBytes      = busBits / 8;

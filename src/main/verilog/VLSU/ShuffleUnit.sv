@@ -10,40 +10,34 @@ module ShuffleUnit import vlsu_pkg::*; #(
   parameter  int  unsigned  NrLanes       = 0,
   parameter  int  unsigned  VLEN          = 0,
   parameter  int  unsigned  ALEN          = 0,
-  
-  // Type parameters
-  parameter  type           meta_ctrl_t    = logic,
+  parameter  type           meta_glb_t    = logic,
   parameter  type           seq_buf_t     = logic,
   parameter  type           tx_lane_t     = logic,
   parameter  type           shf_info_t    = logic,
-  
-  // Dependent parameters, DO NOT OVERRIDE!
-  parameter  int  unsigned  laneIdBits    = $clog2(NrLanes),
-  parameter  int  unsigned  laneOffBits   = $clog2(DLEN/4),
-  parameter  int  unsigned  nbIdxBits     = $clog2((DLEN/4) * NrLanes),
 
   // Dependant parameters. DO NOT CHANGE!
+  parameter  int  unsigned  laneIdBits    = $clog2(NrLanes),
+  parameter  int  unsigned  nbIdxBits     = $clog2((DLEN/4) * NrLanes),
   localparam type           strb_t        = logic [DLEN/4-1:0]
-
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
-
-  // Input from LoadUnit
+  
+  // Input from SequentialLoad
   input  logic                       rx_seq_load_valid_i,
   output logic                       rx_seq_load_ready_o,
   input  seq_buf_t                   rx_seq_load_i,
-
+  
   // Output to Lane Entries
   output logic      [NrLanes-1:0]    txs_valid_o,
   input  logic      [NrLanes-1:0]    txs_ready_i,
   output tx_lane_t  [NrLanes-1:0]    txs_o,
-
-  // MetaInfo from broadcast module
+  
+  // Meta Control Interface
   input  logic                       meta_info_valid_i,
   output logic                       meta_info_ready_o,
-  input  meta_ctrl_t                 meta_info_i,
-
+  input  meta_glb_t                  meta_info_i,
+  
   // Mask from mask unit
   input  logic      [NrLanes-1:0]    mask_valid_i,
   input  strb_t     [NrLanes-1:0]    mask_bits_i,
@@ -73,8 +67,8 @@ module ShuffleUnit import vlsu_pkg::*; #(
   CircularQueuePtrTemplate #(
     .ENTRIES(shfInfoBufDep)
   ) i_shf_info_enq_ptr (
-    .clk_i      (clk_i                    ),
-    .rst_ni     (rst_ni                   ),
+    .clk_i      (clk_i                   ),
+    .rst_ni     (rst_ni                  ),
     .ptr_inc_i  (shf_info_buf_enq        ),
     .ptr_flag_o (shf_info_enq_ptr_flag   ),
     .ptr_value_o(shf_info_enq_ptr_value  )
@@ -83,8 +77,8 @@ module ShuffleUnit import vlsu_pkg::*; #(
   CircularQueuePtrTemplate #(
     .ENTRIES(shfInfoBufDep)
   ) i_shf_info_deq_ptr (
-    .clk_i      (clk_i                    ),
-    .rst_ni     (rst_ni                   ),
+    .clk_i      (clk_i                   ),
+    .rst_ni     (rst_ni                  ),
     .ptr_inc_i  (shf_info_buf_deq        ),
     .ptr_flag_o (shf_info_deq_ptr_flag   ),
     .ptr_value_o(shf_info_deq_ptr_value  )
@@ -120,24 +114,25 @@ module ShuffleUnit import vlsu_pkg::*; #(
         automatic vaddr_set_t vd_base_set;
         automatic elen_t      start_elem_in_vd;
         
-        // Calculate vd_base_set
-        vd_base_set = meta_info_i.glb.vd[vd_msb] 
-            ? (AregBaseSet + (meta_info_i.glb.vd[vd_msb-1:0] * NrSetPerAreg))
-            : (meta_info_i.glb.vd[vd_msb-1:0] * NrSetPerVreg);
+        // Calculate vd_base_set based on vd register type
+        vd_base_set = meta_info_i.vd[vd_msb]
+          ? (AregBaseSet + (meta_info_i.vd[vd_msb-1:0] * NrSetPerAreg))
+          : (meta_info_i.vd[vd_msb-1:0] * NrSetPerVreg);
         
-        // Calculate start_elem_in_vd
-        start_elem_in_vd = meta_info_i.glb.vstart >> $clog2(NrLanes);
+        // Calculate start element index in vd
+        start_elem_in_vd = meta_info_i.vstart >> $clog2(NrLanes);
         
-        // Calculate final vaddr (same as VAddrBundle.init)
-        vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.glb.eew));
+        // Calculate virtual address
+        vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
         
-        shf_info_buf[shf_info_enq_ptr_value].req_id    <= meta_info_i.glb.req_id;
-        shf_info_buf[shf_info_enq_ptr_value].mode      <= meta_info_i.glb.mode;
-        shf_info_buf[shf_info_enq_ptr_value].eew       <= meta_info_i.glb.eew;
-        shf_info_buf[shf_info_enq_ptr_value].vd        <= meta_info_i.glb.vd;
-        shf_info_buf[shf_info_enq_ptr_value].vstart    <= meta_info_i.glb.vstart;
-        shf_info_buf[shf_info_enq_ptr_value].vm        <= meta_info_i.glb.vm;
-        shf_info_buf[shf_info_enq_ptr_value].cmt_cnt   <= meta_info_i.glb.cmt_cnt;
+        // Store meta info in shf_info_buf
+        shf_info_buf[shf_info_enq_ptr_value].req_id    <= meta_info_i.req_id;
+        shf_info_buf[shf_info_enq_ptr_value].mode      <= meta_info_i.mode;
+        shf_info_buf[shf_info_enq_ptr_value].eew       <= meta_info_i.sew;
+        shf_info_buf[shf_info_enq_ptr_value].vd        <= meta_info_i.vd;
+        shf_info_buf[shf_info_enq_ptr_value].vstart    <= meta_info_i.vstart;
+        shf_info_buf[shf_info_enq_ptr_value].vm        <= meta_info_i.vm;
+        shf_info_buf[shf_info_enq_ptr_value].cmt_cnt   <= meta_info_i.cmt_cnt;
         shf_info_buf[shf_info_enq_ptr_value].vaddr_set <= vaddr_calc[VAddrBits-1:VAddrOffBits];
         shf_info_buf[shf_info_enq_ptr_value].vaddr_off <= vaddr_calc[VAddrOffBits-1:0];
         shf_info_buf_enq <= 1'b1;

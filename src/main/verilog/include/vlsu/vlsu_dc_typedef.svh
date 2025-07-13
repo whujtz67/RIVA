@@ -24,7 +24,6 @@
 `define VLSU_DC_TYPEDEF_SVH
 
   // ================= DataCtrl Type Definitions ================= //
-
   // SeqBufBundle equivalent (from SequentialPkg.scala)
   // Contains nibbles and enables for sequential buffer
   typedef struct packed {

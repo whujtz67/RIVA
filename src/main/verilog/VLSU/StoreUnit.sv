@@ -20,7 +20,7 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
   // TODO: Define these types in vlsu_typedef.svh or create local definitions
   parameter  type            axi_w_t          = logic,
   parameter  type            txn_ctrl_t       = logic,
-  parameter  type            meta_ctrl_t      = logic,
+  parameter  type            meta_glb_t       = logic,
   parameter  type            rx_lane_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
@@ -47,10 +47,10 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
   output logic                       txn_ctrl_ready_o,
   input  txn_ctrl_t                  txn_ctrl_i,
 
-  // Meta Control Interface
-  input  logic                       meta_ctrl_valid_i,
-  output logic                       meta_ctrl_ready_o,
-  input  meta_ctrl_t                 meta_ctrl_i,
+  // Meta Control Interface - Global
+  input  logic                       meta_glb_valid_i,
+  output logic                       meta_glb_ready_o,
+  input  meta_glb_t                  meta_glb_i,
 
   // Mask from mask unit
   input  logic      [NrLanes-1:0]    mask_valid_i,
@@ -69,20 +69,20 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
   // MetaInfoBroadcast internal signals
   logic       meta_bc_seq_valid;
   logic       meta_bc_seq_ready;
-  meta_ctrl_t meta_bc_seq;
+  meta_glb_t  meta_bc_seq;
   logic       meta_bc_shf_valid;
   logic       meta_bc_shf_ready;
-  meta_ctrl_t meta_bc_shf;
+  meta_glb_t  meta_bc_shf;
 
   // ================= MetaInfoBroadcast Instantiation ================= //
   MetaInfoBroadcast #(
-    .meta_ctrl_t  (meta_ctrl_t  )
+    .meta_glb_t  (meta_glb_t  )
   ) i_meta_broadcast (
     .clk_i                (clk_i                  ),
     .rst_ni               (rst_ni                 ),
-    .meta_info_valid_i    (meta_ctrl_valid_i      ),
-    .meta_info_ready_o    (meta_ctrl_ready_o      ),
-    .meta_info_i          (meta_ctrl_i            ),
+    .meta_info_valid_i    (meta_glb_valid_i      ),
+    .meta_info_ready_o    (meta_glb_ready_o      ),
+    .meta_info_i          (meta_glb_i            ),
     .seq_valid_o          (meta_bc_seq_valid      ),
     .seq_ready_i          (meta_bc_seq_ready      ),
     .seq_o                (meta_bc_seq            ),
@@ -96,7 +96,7 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
     .NrLanes      (NrLanes      ),
     .VLEN         (VLEN         ),
     .ALEN         (ALEN         ),
-    .meta_ctrl_t  (meta_ctrl_t  ),
+    .meta_glb_t   (meta_glb_t   ),
     .seq_buf_t    (seq_buf_t    ),
     .rx_lane_t    (rx_lane_t    ),
     .shf_info_t   (shf_info_t   )
@@ -125,7 +125,7 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
     .AxiUserWidth   (AxiUserWidth   ),
     .axi_w_t        (axi_w_t        ),
     .txn_ctrl_t     (txn_ctrl_t     ),
-    .meta_ctrl_t    (meta_ctrl_t    ),
+    .meta_glb_t     (meta_glb_t     ),
     .seq_info_t     (seq_info_t     ),
     .seq_buf_t      (seq_buf_t      )
   ) i_sequential_store (
@@ -140,9 +140,9 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
     .txn_ctrl_valid_i     (txn_ctrl_valid_i     ),
     .txn_ctrl_ready_o     (txn_ctrl_ready_o     ),
     .txn_ctrl_i           (txn_ctrl_i           ),
-    .meta_ctrl_valid_i    (meta_bc_seq_valid    ),
-    .meta_ctrl_ready_o    (meta_bc_seq_ready    ),
-    .meta_ctrl_i          (meta_bc_seq          )
+    .meta_glb_valid_i     (meta_bc_seq_valid    ),
+    .meta_glb_ready_o     (meta_bc_seq_ready    ),
+    .meta_glb_i           (meta_bc_seq          )
   );
 
   // ================= Assertions ================= //

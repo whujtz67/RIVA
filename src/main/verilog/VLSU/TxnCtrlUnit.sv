@@ -53,7 +53,7 @@ module TxnCtrlUnit import vlsu_pkg::*; #(
   
   // --------------------- Internal Signals --------------------- //
   // Pointers
-  logic enq_ptr_flag, deq_ptr_flag, txn_ptr_flag, data_ptr_flag;
+  logic                          enq_ptr_flag , deq_ptr_flag , txn_ptr_flag , data_ptr_flag ;
   logic [$clog2(txnCtrlNum)-1:0] enq_ptr_value, deq_ptr_value, txn_ptr_value, data_ptr_value;
 
   // Registers for TxnCtrlInfo
