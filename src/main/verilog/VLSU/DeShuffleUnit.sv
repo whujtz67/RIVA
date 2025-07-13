@@ -154,11 +154,11 @@ module DeShuffleUnit import vlsu_pkg::*; #(
   // -------------------------------------------
   // rx lane -> shfBuf
   // -------------------------------------------
-  always_comb begin
+  always_comb begin: rx_lane_to_shfbuf_logic
     for (int lane = 0; lane < NrLanes; lane++) begin
       rxs_ready_o[lane] = !shf_buf_valid[lane];
     end
-  end
+  end: rx_lane_to_shfbuf_logic
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -185,7 +185,7 @@ module DeShuffleUnit import vlsu_pkg::*; #(
   assign do_cmt_shf_to_seq = tx_seq_store_valid_o && tx_seq_store_ready_i;
 
   // ================= tx_seq_store Logic ================= //
-  always_comb begin
+  always_comb begin: shfbuf_to_seqbuf_logic
     // Default assignments
     tx_seq_store_o = '0;
 
@@ -204,7 +204,7 @@ module DeShuffleUnit import vlsu_pkg::*; #(
         tx_seq_store_o.en[seq_idx] = shfInfo.vm || mask_bits_i[lane][off];
       end
     end
-  end
+  end: shfbuf_to_seqbuf_logic
 
   // Deshuffle and commit data from shfBuf to seqBuf
   always_ff @(posedge clk_i or negedge rst_ni) begin

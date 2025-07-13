@@ -203,12 +203,12 @@ module ShuffleUnit import vlsu_pkg::*; #(
   // -------------------------------------------
   // shfBuf -> lane
   // -------------------------------------------
-  always_comb begin
+  always_comb begin: shfbuf_to_lane_logic
     for (int lane = 0; lane < NrLanes; lane++) begin
       txs_valid_o[lane] = shf_buf_valid[lane];
       txs_o[lane] = shf_buf_bits[lane];
     end
-  end
+  end: shfbuf_to_lane_logic
 
   // Clear shuffle buffer when transaction is accepted
   always_ff @(posedge clk_i or negedge rst_ni) begin

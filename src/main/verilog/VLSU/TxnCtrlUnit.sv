@@ -6,13 +6,12 @@
 
 `timescale 1ns/1ps
 
-import ControlMachinePkg::*;
-import axi_pkg::*;
+
 
 // Add a typedef for TxnCtrlInfo_t as a type parameter, to be passed in from outside
 // (In SystemVerilog, you can use typedef as a parameter, or require the user to import it before instantiating this module)
 
-module TxnCtrlUnit import vlsu_pkg::*; #(
+module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   parameter int   unsigned NrLanes      = 0,
   parameter int   unsigned VLEN         = 0,
   parameter int   unsigned ALEN         = 0,
@@ -73,7 +72,7 @@ module TxnCtrlUnit import vlsu_pkg::*; #(
 
   // --------------------- Main Logic --------------------------------- //
   // Default: hold values
-  always_comb begin
+  always_comb begin: txn_ctrl_update_logic
     tcs_nxt = tcs_r;
     // Direct assignment for enqueue
     if (!full && meta_valid_i) begin
@@ -90,7 +89,7 @@ module TxnCtrlUnit import vlsu_pkg::*; #(
       tcs_nxt[data_ptr_value].rmnBeat = tcs_r[data_ptr_value].rmnBeat - 1;
       tcs_nxt[data_ptr_value].isHead  = 1'b0;
     end
-  end
+  end: txn_ctrl_update_logic
 
   // --------------------- Pointer Update Logic ----------------------- //
   assign data_ptr_add = (tcs_r[data_ptr_value].rmnBeat == 0) && update_i;
@@ -106,7 +105,7 @@ module TxnCtrlUnit import vlsu_pkg::*; #(
   assign b_ready_o        = !empty;
 
   // --------------------- Output Logic ------------------------------- //
-  always_comb begin
+  always_comb begin: axi_output_logic
     aw_o = '0;
     ar_o = '0;
     
@@ -127,7 +126,7 @@ module TxnCtrlUnit import vlsu_pkg::*; #(
       ar_o.burst = BURST_INCR;
       ar_o.cache = CACHE_MODIFIABLE;
     end
-  end
+  end: axi_output_logic
 
   assign txn_ctrl_o = tcs_r[data_ptr_value];
 

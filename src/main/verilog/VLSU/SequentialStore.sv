@@ -156,7 +156,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   logic [busNSize-1                              : 0] start;
 
   // ================= FSM State Transition Logic ================= //
-  always_comb begin
+  always_comb begin: fsm_state_transition
     state_nxt = state_r;
 
     case (state_r)
@@ -179,16 +179,16 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
         state_nxt = S_IDLE;
       end
     endcase
-  end
+  end: fsm_state_transition
 
   // ================= Buffer Logic ================= //
   assign seq_buf_empty = (seq_enq_ptr_value == seq_deq_ptr_value) && (seq_enq_ptr_flag == seq_deq_ptr_flag);
   assign seq_buf_full  = (seq_enq_ptr_value == seq_deq_ptr_value) && (seq_enq_ptr_flag != seq_deq_ptr_flag);
-  assign w_buf_empty   = (w_enq_ptr_value == w_deq_ptr_value) && (w_enq_ptr_flag == w_deq_ptr_flag);
-  assign w_buf_full    = (w_enq_ptr_value == w_deq_ptr_value) && (w_enq_ptr_flag != w_deq_ptr_flag);
+  assign w_buf_empty   = (w_enq_ptr_value   == w_deq_ptr_value  ) && (w_enq_ptr_flag   == w_deq_ptr_flag  );
+  assign w_buf_full    = (w_enq_ptr_value   == w_deq_ptr_value  ) && (w_enq_ptr_flag   != w_deq_ptr_flag  );
 
   // ================= seqBuf -> wBuf Logic ================= //
-  always_comb begin
+  always_comb begin: seqbuf_to_wbuf_logic
     // Default assignments
     bus_nb_cnt_nxt      = bus_nb_cnt_r;
     seq_nb_ptr_nxt      = seq_nb_ptr_r;
@@ -284,7 +284,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
         $fatal("Gather mode not supported!");
       end
     endcase
-  end
+  end: seqbuf_to_wbuf_logic
 
   // ================= seqBuf Input from DeShuffleUnit ================= //
   assign rx_deshfu_ready_o = !seq_buf_full;
@@ -300,7 +300,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   end
 
   // ================= wBuf -> AXI W Channel ================= //
-  always_comb begin
+  always_comb begin: wbuf_to_axi_w_logic
     axi_w_o.data = w_buf[w_deq_ptr_value].nbs;
     axi_w_o.strb = '0;
     for (int i = 0; i < busNibbles; i++) begin
@@ -309,7 +309,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
     axi_w_o.last  = w_buf[w_deq_ptr_value].last;
     axi_w_o.user  = w_buf[w_deq_ptr_value].user;
     axi_w_valid_o = !w_buf_empty;
-  end
+  end: wbuf_to_axi_w_logic
 
   // w buf dequeue to AXI W Channel.
   always_ff @(posedge clk_i) begin
@@ -324,7 +324,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   // ================= Meta Control Interface Logic ================= //
   assign seq_info_enq_valid         = meta_glb_valid_i;
   assign seq_info_enq_bits.seqNbPtr = (meta_glb_i.vstart << meta_glb_i.sew)[$clog2(NrLaneEntriesNbs)-1:0];
-  assign meta_glb_ready_o          = seq_info_enq_ready;
+  assign meta_glb_ready_o           = seq_info_enq_ready;
 
   // ================= Sequential Logic ================= //
   always_ff @(posedge clk_i or negedge rst_ni) begin

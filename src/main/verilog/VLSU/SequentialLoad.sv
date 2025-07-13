@@ -122,7 +122,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   logic do_serial_cmt;
   
   // ================= FSM State Transition Logic ================= //
-  always_comb begin
+  always_comb begin: fsm_state_transition
     state_nxt = state_r;
     
     case (state_r)
@@ -145,14 +145,14 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
         state_nxt = S_IDLE;
       end
     endcase
-  end
+  end: fsm_state_transition
   
   // ================= Sequential Buffer Logic ================= //
   assign seq_buf_empty = (seq_enq_ptr_value == seq_deq_ptr_value) && (seq_enq_ptr_flag == seq_deq_ptr_flag);
   assign seq_buf_full  = (seq_enq_ptr_value == seq_deq_ptr_value) && (seq_enq_ptr_flag != seq_deq_ptr_flag);
   
   // ================= AXI R Channel -> seqBuf Logic ================= //
-  always_comb begin
+  always_comb begin: axi_r_to_seqbuf_logic
     // Default assignments
     bus_nb_cnt_nxt      = bus_nb_cnt_r;
     seq_nb_ptr_nxt      = seq_nb_ptr_r;
@@ -241,7 +241,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
         $fatal("Gather mode not supported!");
       end
     endcase
-  end
+  end: axi_r_to_seqbuf_logic
   
   // ================= seqBuf -> ShuffleUnit Logic ================= //
   assign tx_shfu_valid_o = !seq_buf_empty;
