@@ -64,19 +64,28 @@ module VLSU import vlsu_pkg::*; #(
     output logic          m_axi_r_ready_o,
     input  axi_r_t        m_axi_r_i,
 
-    // Lane Interface
-    output logic      [NrLanes-1:0]    txs_valid_o,
-    input  logic      [NrLanes-1:0]    txs_ready_i,
-    output tx_lane_t  [NrLanes-1:0]    txs_o,
-    input  logic      [NrLanes-1:0]    rxs_valid_i,
-    output logic      [NrLanes-1:0]    rxs_ready_o,
-    input  rx_lane_t  [NrLanes-1:0]    rxs_i,
+    // Lane Interface - Expanded for upstream compatibility
+    // Transmit lanes (VLSU to lanes) - expanded
+    output logic       [NrLanes-1:0]              txs_valid_o,
+    input  logic       [NrLanes-1:0]              txs_ready_i,
+    // tx_lane_t fields expanded
+    output vid_t       [NrLanes-1:0]              txs_req_id_o,
+    output vaddr_set_t [NrLanes-1:0]              txs_vaddr_set_o,
+    output vaddr_off_t [NrLanes-1:0]              txs_vaddr_off_o,
+    output logic       [DLEN-1   :0][NrLanes-1:0] txs_data_o,
+    output logic       [DLEN/4 -1:0][NrLanes-1:0] txs_nbe_o,
+    
+    // Receive lanes (lanes to VLSU) - expanded
+    input  logic       [NrLanes-1:0]              rxs_valid_i,
+    output logic       [NrLanes-1:0]              rxs_ready_o,
+    // rx_lane_t fields expanded
+    input  logic       [DLEN-1   :0][NrLanes-1:0] rxs_data_i,
 
     // Mask Interface
-    input  logic      [NrLanes-1:0]    mask_valid_i,
-    input  strb_t     [NrLanes-1:0]    mask_bits_i,
-    output logic                       load_mask_ready_o,
-    output logic                       store_mask_ready_o
+    input  logic       [NrLanes-1:0]              mask_valid_i,
+    input  strb_t      [NrLanes-1:0]              mask_bits_i,
+    output logic                                  load_mask_ready_o,
+    output logic                                  store_mask_ready_o
 );
 
     // TODO: maybe do not need to multiply ELEN here
@@ -116,6 +125,10 @@ module VLSU import vlsu_pkg::*; #(
     logic        load_txn_ctrl_valid  , load_txn_ctrl_ready;
     logic        store_txn_ctrl_valid , store_txn_ctrl_ready;
     
+    // Internal lane signals for submodule connections
+    tx_lane_t    [NrLanes-1:0] txs_internal;
+    rx_lane_t    [NrLanes-1:0] rxs_internal;
+
     // ================= Control Machine Instance ================= //
     ControlMachine #(
       .NrLanes      (NrLanes      ),
@@ -177,7 +190,7 @@ module VLSU import vlsu_pkg::*; #(
       .meta_glb_i           (meta_glb             ),
       .txs_valid_o          (txs_valid_o          ),
       .txs_ready_i          (txs_ready_i          ),
-      .txs_o                (txs_o                ),
+      .txs_o                (txs_internal         ),
       .mask_valid_i         (mask_valid_i         ),
       .mask_bits_i          (mask_bits_i          ),
       .mask_ready_o         (load_mask_ready_o    )
@@ -200,7 +213,7 @@ module VLSU import vlsu_pkg::*; #(
       .rst_ni               (rst_ni               ),
       .rxs_valid_i          (rxs_valid_i          ),
       .rxs_ready_o          (rxs_ready_o          ),
-      .rxs_i                (rxs_i                ),
+      .rxs_i                (rxs_internal         ),
       .axi_w_valid_o        (m_axi_w_valid_o      ),
       .axi_w_ready_i        (m_axi_w_ready_i      ),
       .axi_w_o              (m_axi_w_o            ),
@@ -243,5 +256,21 @@ module VLSU import vlsu_pkg::*; #(
     
     // ================= Update Signal Logic ================= //
     assign update_cm             = load_txn_ctrl_ready || store_txn_ctrl_ready;
+
+    // ================= Lane Interface Connection Logic ================= //
+    // Connect expanded txs interface to internal array
+    generate
+      for (int lane = 0; lane < NrLanes; lane++) begin : lane_connections
+        // Connect txs_internal to expanded txs outputs
+        assign txs_req_id_o   [lane]  = txs_internal[lane].reqId;
+        assign txs_vaddr_set_o[lane]  = txs_internal[lane].vaddr_set;
+        assign txs_vaddr_off_o[lane]  = txs_internal[lane].vaddr_off;
+        assign txs_data_o     [lane]  = txs_internal[lane].data;
+        assign txs_nbe_o      [lane]  = txs_internal[lane].nbe;
+        
+        // Connect expanded rxs inputs to rxs_internal
+        assign rxs_internal[lane].data = rxs_data_i[lane];
+      end
+    endgenerate
 
 endmodule : VLSU
