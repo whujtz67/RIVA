@@ -80,9 +80,9 @@ module LoadUnit import vlsu_pkg::*; import axi_pkg::*; #(
   ) i_meta_broadcast (
     .clk_i                (clk_i                ),
     .rst_ni               (rst_ni               ),
-    .meta_info_valid_i    (meta_glb_valid_i    ),
-    .meta_info_ready_o    (meta_glb_ready_o    ),
-    .meta_info_i          (meta_glb_i          ),
+    .meta_info_valid_i    (meta_glb_valid_i     ),
+    .meta_info_ready_o    (meta_glb_ready_o     ),
+    .meta_info_i          (meta_glb_i           ),
     .seq_valid_o          (meta_bc_seq_valid    ),
     .seq_ready_i          (meta_bc_seq_ready    ),
     .seq_o                (meta_bc_seq_glb      ),

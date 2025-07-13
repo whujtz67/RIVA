@@ -121,6 +121,7 @@ module VLSU import vlsu_pkg::*; #(
       .NrLanes      (NrLanes      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
+      .AxiDataWidth (AxiDataWidth ),
       .axi_aw_t     (axi_aw_t     ),
       .axi_ar_t     (axi_ar_t     ),
       .vlsu_req_t   (vlsu_req_t  ),

@@ -15,6 +15,7 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   parameter int   unsigned NrLanes      = 0,
   parameter int   unsigned VLEN         = 0,
   parameter int   unsigned ALEN         = 0,
+  parameter int   unsigned AxiDataWidth = 0,  // AXI data width in bits
   parameter type           txn_ctrl_t   = logic,       // <-- User must typedef txn_ctrl_t before instantiating this module
   parameter type           axi_aw_t     = logic,       // <-- User must typedef axi_aw_t before instantiating this module
   parameter type           axi_ar_t     = logic,       // <-- User must typedef axi_ar_t before instantiating this module
@@ -77,7 +78,7 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
     // Direct assignment for enqueue
     if (!full && meta_valid_i) begin
       tcs_nxt[enq_ptr_value].addr       = meta_seglv_i.segBaseAddr;
-      tcs_nxt[enq_ptr_value].size       = 3'b100; // Example: 128 bits (should match bus size)
+      tcs_nxt[enq_ptr_value].size       = $clog2(AxiDataWidth/8); // AXI size = log2(bytes per transfer)
       tcs_nxt[enq_ptr_value].rmnBeat    = meta_seglv_i.txnNum;
       tcs_nxt[enq_ptr_value].lbN        = meta_seglv_i.ltN;
       tcs_nxt[enq_ptr_value].isHead     = 1'b1;
@@ -134,40 +135,40 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   CircularQueuePtrTemplate #(
     .ENTRIES(txnCtrlNum)
   ) enq_ptr_inst (
-    .clk_i        (clk_i),
-    .rst_ni       (rst_ni),
-    .ptr_inc_i    (do_enq),
-    .ptr_flag_o   (enq_ptr_flag),
+    .clk_i        (clk_i        ),
+    .rst_ni       (rst_ni       ),
+    .ptr_inc_i    (do_enq       ),
+    .ptr_flag_o   (enq_ptr_flag ),
     .ptr_value_o  (enq_ptr_value)
   );
 
   CircularQueuePtrTemplate #(
     .ENTRIES(txnCtrlNum)
   ) deq_ptr_inst (
-    .clk_i        (clk_i),
-    .rst_ni       (rst_ni),
-    .ptr_inc_i    (do_deq),
-    .ptr_flag_o   (deq_ptr_flag),
+    .clk_i        (clk_i        ),
+    .rst_ni       (rst_ni       ),
+    .ptr_inc_i    (do_deq       ),
+    .ptr_flag_o   (deq_ptr_flag ),
     .ptr_value_o  (deq_ptr_value)
   );
 
   CircularQueuePtrTemplate #(
     .ENTRIES(txnCtrlNum)
   ) txn_ptr_inst (
-    .clk_i        (clk_i),
-    .rst_ni       (rst_ni),
+    .clk_i        (clk_i        ),
+    .rst_ni       (rst_ni       ),
     .ptr_inc_i    ((aw_valid_o && aw_ready_i) || (ar_valid_o && ar_ready_i)),
-    .ptr_flag_o   (txn_ptr_flag),
+    .ptr_flag_o   (txn_ptr_flag ),
     .ptr_value_o  (txn_ptr_value)
   );
 
   CircularQueuePtrTemplate #(
     .ENTRIES(txnCtrlNum)
   ) data_ptr_inst (
-    .clk_i        (clk_i),
-    .rst_ni       (rst_ni),
-    .ptr_inc_i    (data_ptr_add),
-    .ptr_flag_o   (data_ptr_flag),
+    .clk_i        (clk_i         ),
+    .rst_ni       (rst_ni        ),
+    .ptr_inc_i    (data_ptr_add  ),
+    .ptr_flag_o   (data_ptr_flag ),
     .ptr_value_o  (data_ptr_value)
   );
 
@@ -182,11 +183,11 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
 
   // --------------------- Assertions ---------------------------------
   always_ff @(posedge clk_i) begin
-    if (update_i) assert(!empty);
+    if (update_i ) assert(!empty);
     if (b_valid_i) assert(!empty);
-    assert((txn_ptr_flag == enq_ptr_flag && txn_ptr_value <= enq_ptr_value) || full);
-    assert((data_ptr_flag == enq_ptr_flag && data_ptr_value <= enq_ptr_value) || full);
-    assert((deq_ptr_flag == data_ptr_flag && deq_ptr_value <= data_ptr_value) || full);
+    assert((txn_ptr_flag  == enq_ptr_flag  && txn_ptr_value  <= enq_ptr_value ) || full);
+    assert((data_ptr_flag == enq_ptr_flag  && data_ptr_value <= enq_ptr_value ) || full);
+    assert((deq_ptr_flag  == data_ptr_flag && deq_ptr_value  <= data_ptr_value) || full);
   end
 
 endmodule
