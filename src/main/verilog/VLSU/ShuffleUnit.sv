@@ -29,7 +29,7 @@ module ShuffleUnit import vlsu_pkg::*; #(
   input  logic                       clk_i,
   input  logic                       rst_ni,
 
-  // Input from DataCtrlLoad
+  // Input from LoadUnit
   input  logic                       rx_seq_load_valid_i,
   output logic                       rx_seq_load_ready_o,
   input  seq_buf_t                   rx_seq_load_i,
