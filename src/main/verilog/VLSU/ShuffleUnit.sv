@@ -9,9 +9,10 @@
 module ShuffleUnit import vlsu_pkg::*; #(
   parameter  int  unsigned  NrLanes       = 0,
   parameter  int  unsigned  VLEN          = 0,
+  parameter  int  unsigned  ALEN          = 0,
   
   // Type parameters
-  parameter  type           shfInfo_ctrl_t   = logic,
+  parameter  type           meta_ctrl_t    = logic,
   parameter  type           seq_buf_t     = logic,
   parameter  type           tx_lane_t     = logic,
   parameter  type           shf_info_t    = logic,
@@ -38,10 +39,10 @@ module ShuffleUnit import vlsu_pkg::*; #(
   input  logic      [NrLanes-1:0]    txs_ready_i,
   output tx_lane_t  [NrLanes-1:0]    txs_o,
 
-  // shfInfoInfo from broadcast module
-  input  logic                       shfInfo_info_valid_i,
-  output logic                       shfInfo_info_ready_o,
-  input  shfInfo_ctrl_t              shfInfo_info_i,
+  // MetaInfo from broadcast module
+  input  logic                       meta_info_valid_i,
+  output logic                       meta_info_ready_o,
+  input  meta_ctrl_t                 meta_info_i,
 
   // Mask from mask unit
   input  logic      [NrLanes-1:0]    mask_valid_i,
@@ -109,28 +110,47 @@ module ShuffleUnit import vlsu_pkg::*; #(
       shf_info_buf_enq <= 1'b0;
       shf_info_buf_deq <= 1'b0;
 
-      // Enqueue shfInfo info
-      if (shfInfo_info_valid_i && shfInfo_info_ready_o) begin
-        shf_info_buf[shf_info_enq_ptr_value].req_id    <= shfInfo_info_i.glb.req_id;
-        shf_info_buf[shf_info_enq_ptr_value].mode      <= shfInfo_info_i.glb.mode;
-        shf_info_buf[shf_info_enq_ptr_value].eew       <= shfInfo_info_i.glb.eew;
-        shf_info_buf[shf_info_enq_ptr_value].vd        <= shfInfo_info_i.glb.vd;
-        shf_info_buf[shf_info_enq_ptr_value].vstart    <= shfInfo_info_i.glb.vstart;
-        shf_info_buf[shf_info_enq_ptr_value].vm        <= shfInfo_info_i.glb.vm;
-        shf_info_buf[shf_info_enq_ptr_value].cmt_cnt   <= shfInfo_info_i.glb.cmt_cnt;
-        shf_info_buf[shf_info_enq_ptr_value].vaddr_set <= shfInfo_info_i.glb.vaddr.set;
-        shf_info_buf[shf_info_enq_ptr_value].vaddr_off <= shfInfo_info_i.glb.vaddr.off;
+      // Enqueue meta info
+      if (meta_info_valid_i && meta_info_ready_o) begin
+        // Software calculations (same as VAddrBundle.init)
+        automatic int unsigned vd_msb = $clog2(NrVregs);
+        
+        // Hardware signals
+        automatic vaddr_t     vaddr_calc;
+        automatic vaddr_set_t vd_base_set;
+        automatic elen_t      start_elem_in_vd;
+        
+        // Calculate vd_base_set
+        vd_base_set = meta_info_i.glb.vd[vd_msb] 
+            ? (AregBaseSet + (meta_info_i.glb.vd[vd_msb-1:0] * NrSetPerAreg))
+            : (meta_info_i.glb.vd[vd_msb-1:0] * NrSetPerVreg);
+        
+        // Calculate start_elem_in_vd
+        start_elem_in_vd = meta_info_i.glb.vstart >> $clog2(NrLanes);
+        
+        // Calculate final vaddr (same as VAddrBundle.init)
+        vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.glb.eew));
+        
+        shf_info_buf[shf_info_enq_ptr_value].req_id    <= meta_info_i.glb.req_id;
+        shf_info_buf[shf_info_enq_ptr_value].mode      <= meta_info_i.glb.mode;
+        shf_info_buf[shf_info_enq_ptr_value].eew       <= meta_info_i.glb.eew;
+        shf_info_buf[shf_info_enq_ptr_value].vd        <= meta_info_i.glb.vd;
+        shf_info_buf[shf_info_enq_ptr_value].vstart    <= meta_info_i.glb.vstart;
+        shf_info_buf[shf_info_enq_ptr_value].vm        <= meta_info_i.glb.vm;
+        shf_info_buf[shf_info_enq_ptr_value].cmt_cnt   <= meta_info_i.glb.cmt_cnt;
+        shf_info_buf[shf_info_enq_ptr_value].vaddr_set <= vaddr_calc[VAddrBits-1:VAddrOffBits];
+        shf_info_buf[shf_info_enq_ptr_value].vaddr_off <= vaddr_calc[VAddrOffBits-1:0];
         shf_info_buf_enq <= 1'b1;
       end
 
-      // Dequeue shfInfo info when commit is done
+      // Dequeue meta info when commit is done
       if (do_cmt_seq_to_shf && !shfInfo.cmt_cnt.orR) begin
         shf_info_buf_deq <= 1'b1;
       end
     end
   end
 
-  assign shfInfo_info_ready_o = !shf_info_buf_full;
+  assign meta_info_ready_o = !shf_info_buf_full;
 
   // -------------------------------------------
   // seqBuf -> shfBuf
@@ -162,7 +182,7 @@ module ShuffleUnit import vlsu_pkg::*; #(
         end
       end
 
-              // Make all shuffle buffer valid
+        // Make all shuffle buffer valid
         for (int i = 0; i < NrLanes; i++) begin
           shf_buf_valid[i]           <= 1'b1;
           shf_buf_bits [i].req_id    <= shfInfo.req_id;
@@ -221,7 +241,7 @@ module ShuffleUnit import vlsu_pkg::*; #(
 
   // Check vaddr_set bounds
   assert property (@(posedge clk_i) 
-    txs_valid_o[0] |-> txs_o[0].vaddr_set < vmSramDepth)
-    else $error("[ShuffleUnit] vaddr_set should < vmSramDepth = %d. However, got %d", vmSramDepth, txs_o[0].vaddr_set);
+    txs_valid_o[0] |-> txs_o[0].vaddr_set < NrVRFSets)
+    else $error("[ShuffleUnit] vaddr_set should < NrVRFSets = %d. However, got %d", NrVRFSets, txs_o[0].vaddr_set);
 
 endmodule : ShuffleUnit 

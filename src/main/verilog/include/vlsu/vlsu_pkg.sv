@@ -29,6 +29,23 @@ package vlsu_pkg;
   parameter int unsigned wBufDep       = 2;           // Write buffer depth for SequentialStore
   parameter int unsigned seqInfoBufDep = 2;           // Sequential info buffer depth
   parameter int unsigned shfInfoBufDep = 2;           // Shuffle info buffer depth
+
+  // ================= VAddr Parameters ================= //
+  parameter int unsigned NrVregs      = 16;
+  parameter int unsigned NrAregs      = 16;
+  parameter int unsigned NrSetPerVreg = VLEN / NrLanes / DLEN / NrVRFBanksPerLane;
+  parameter int unsigned NrSetPerAreg = ALEN / NrLanes / DLEN / NrVRFBanksPerLane;
+  parameter int unsigned NrVRFSets    = NrVregs * NrSetPerVreg + NrAregs * NrSetPerAreg;
+  parameter int unsigned AregBaseSet  = NrVregs * NrSetPerVreg;
+
+  parameter int unsigned VAddrSetBits = $clog2(NrVRFSets);
+  parameter int unsigned VAddrOffBits = $clog2(NrVRFBanksPerLane);
+  parameter int unsigned VAddrBits    = VAddrSetBits + VAddrOffBits;
+
+  typedef struct packed {
+    logic [VAddrSetBits-1:0] set;   // Virtual address set
+    logic [VAddrOffBits-1:0] off;   // Virtual address offset
+  } vaddr_t;
   
   // ================= Derived Parameters ================= //
   parameter int unsigned busBytes      = busBits / 8;

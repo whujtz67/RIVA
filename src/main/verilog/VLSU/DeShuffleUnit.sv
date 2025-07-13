@@ -9,6 +9,7 @@
 module DeShuffleUnit import vlsu_pkg::*; #(
   parameter  int  unsigned  NrLanes       = 0,
   parameter  int  unsigned  VLEN          = 0,
+  parameter  int  unsigned  ALEN          = 0,
   
   // Type parameters
   parameter  type           meta_ctrl_t   = logic,
@@ -72,8 +73,8 @@ module DeShuffleUnit import vlsu_pkg::*; #(
   CircularQueuePtrTemplate #(
     .ENTRIES(shfInfoBufDep)
   ) i_shf_info_enq_ptr (
-    .clk_i      (clk_i                    ),
-    .rst_ni     (rst_ni                   ),
+    .clk_i      (clk_i                   ),
+    .rst_ni     (rst_ni                  ),
     .ptr_inc_i  (shf_info_buf_enq        ),
     .ptr_flag_o (shf_info_enq_ptr_flag   ),
     .ptr_value_o(shf_info_enq_ptr_value  )
@@ -82,8 +83,8 @@ module DeShuffleUnit import vlsu_pkg::*; #(
   CircularQueuePtrTemplate #(
     .ENTRIES(shfInfoBufDep)
   ) i_shf_info_deq_ptr (
-    .clk_i      (clk_i                    ),
-    .rst_ni     (rst_ni                   ),
+    .clk_i      (clk_i                   ),
+    .rst_ni     (rst_ni                  ),
     .ptr_inc_i  (shf_info_buf_deq        ),
     .ptr_flag_o (shf_info_deq_ptr_flag   ),
     .ptr_value_o(shf_info_deq_ptr_value  )
@@ -114,6 +115,26 @@ module DeShuffleUnit import vlsu_pkg::*; #(
 
       // Enqueue meta info
       if (meta_info_valid_i && meta_info_ready_o) begin
+        // Software calculations (same as VAddrBundle.init)
+        automatic int unsigned vd_msb = $clog2(NrVregs);
+        
+        // Hardware signals
+        automatic vaddr_t     vaddr_calc;
+
+        automatic vaddr_set_t vd_base_set;
+        automatic elen_t      start_elem_in_vd;
+        
+        // Calculate vd_base_set
+        vd_base_set = meta_info_i.glb.vd[vd_msb] 
+            ? (AregBaseSet + (meta_info_i.glb.vd[vd_msb-1:0] * NrSetPerAreg))
+            : (meta_info_i.glb.vd[vd_msb-1:0] * NrSetPerVreg);
+        
+        // Calculate start_elem_in_vd
+        start_elem_in_vd = meta_info_i.glb.vstart >> $clog2(NrLanes);
+        
+        // Calculate final vaddr (same as VAddrBundle.init)
+        vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.glb.eew));
+        
         shf_info_buf[shf_info_enq_ptr_value].req_id    <= meta_info_i.glb.req_id;
         shf_info_buf[shf_info_enq_ptr_value].mode      <= meta_info_i.glb.mode;
         shf_info_buf[shf_info_enq_ptr_value].eew       <= meta_info_i.glb.eew;
@@ -121,8 +142,8 @@ module DeShuffleUnit import vlsu_pkg::*; #(
         shf_info_buf[shf_info_enq_ptr_value].vstart    <= meta_info_i.glb.vstart;
         shf_info_buf[shf_info_enq_ptr_value].vm        <= meta_info_i.glb.vm;
         shf_info_buf[shf_info_enq_ptr_value].cmt_cnt   <= meta_info_i.glb.cmt_cnt;
-        shf_info_buf[shf_info_enq_ptr_value].vaddr_set <= meta_info_i.glb.vaddr.set;
-        shf_info_buf[shf_info_enq_ptr_value].vaddr_off <= meta_info_i.glb.vaddr.off;
+        shf_info_buf[shf_info_enq_ptr_value].vaddr_set <= vaddr_calc[VAddrBits-1:VAddrOffBits];
+        shf_info_buf[shf_info_enq_ptr_value].vaddr_off <= vaddr_calc[VAddrOffBits-1:0];
         shf_info_buf_enq <= 1'b1;
       end
 
