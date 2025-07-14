@@ -5,11 +5,11 @@
 
 `timescale 1ns/1ps
 
-module VLSU import vlsu_pkg::*; #(
+module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     parameter  int   unsigned  NrLanes      = 0,
     parameter  int   unsigned  VLEN         = 0,
     parameter  int   unsigned  ALEN         = 0,
-    parameter  type            vaddr_t      = logic,
+    parameter  int   unsigned  MaxLEN       = 0,
     parameter  type            pe_req_t     = logic,
     parameter  type            pe_resp_t    = logic,
     
@@ -27,7 +27,6 @@ module VLSU import vlsu_pkg::*; #(
     parameter  type            axi_req_t    = logic,
     parameter  type            axi_resp_t   = logic,
     // Dependant parameters. DO NOT CHANGE!
-    localparam int   unsigned  MaxLEN       = $max(VLEN, ALEN),
     localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
     localparam type            strb_t       = logic [DLEN/4-1:0],
     localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
@@ -38,9 +37,9 @@ module VLSU import vlsu_pkg::*; #(
     input  logic          rst_ni,
     
     // VLSU Request Interface
-    input  logic          vlsu_req_valid_i,
-    output logic          vlsu_req_ready_o,
-    input  vlsu_req_t     vlsu_req_i,
+    input  logic          pe_req_valid_i,
+    output logic          pe_req_ready_o,
+    input  pe_req_t       pe_req_i,
     input  logic          core_st_pending_i,
     
     // AXI Master Interface
@@ -69,7 +68,7 @@ module VLSU import vlsu_pkg::*; #(
     output logic       [NrLanes-1:0]              txs_valid_o,
     input  logic       [NrLanes-1:0]              txs_ready_i,
     // tx_lane_t fields expanded
-    output vid_t       [NrLanes-1:0]              txs_req_id_o,
+    output vid_t       [NrLanes-1:0]              txs_reqId_o,
     output vaddr_set_t [NrLanes-1:0]              txs_vaddr_set_o,
     output vaddr_off_t [NrLanes-1:0]              txs_vaddr_off_o,
     output logic       [DLEN-1   :0][NrLanes-1:0] txs_data_o,
@@ -101,6 +100,12 @@ module VLSU import vlsu_pkg::*; #(
     `include "vlsu/vlsu_typedef.svh"
 
     // ================= Internal Signals ================= //
+    // IQ (Instruction Queue) signals
+    logic        iq_enq_valid, iq_enq_ready;
+    vlsu_req_t   iq_enq_bits;
+    logic        iq_deq_valid, iq_deq_ready;
+    vlsu_req_t   iq_deq_bits;
+
     logic        meta_ctrl_valid, meta_ctrl_ready;
     meta_glb_t   meta_glb;
     meta_seglv_t meta_seglv;
@@ -129,6 +134,45 @@ module VLSU import vlsu_pkg::*; #(
     tx_lane_t    [NrLanes-1:0] txs_internal;
     rx_lane_t    [NrLanes-1:0] rxs_internal;
 
+    // ================= pe_req to vlsu_req Conversion ================= //
+    // Convert pe_req_t to vlsu_req_t (equivalent to init function in Chisel)
+    always_comb begin: pe_req_to_vlsu_req
+      // Map pe_req fields to vlsu_req fields
+      iq_enq_bits.reqId    = pe_req_i.reqId;
+      iq_enq_bits.mop      = pe_req_i.mop;
+      iq_enq_bits.baseAddr = pe_req_i.baseAddr;
+      iq_enq_bits.sew      = pe_req_i.sew;
+      iq_enq_bits.vd       = pe_req_i.vd;
+      iq_enq_bits.stride   = pe_req_i.stride;
+      // len equals alen when requesting AM and vlen when requesting VM
+      iq_enq_bits.len      = pe_req_i.vd[4] ? pe_req_i.al : pe_req_i.vl;
+      iq_enq_bits.vstart   = pe_req_i.vstart;
+      iq_enq_bits.isLoad   = pe_req_i.isLoad;
+      iq_enq_bits.vm       = pe_req_i.vm;
+    end: pe_req_to_vlsu_req
+
+    // Connect pe_req interface to IQ
+    assign iq_enq_valid = pe_req_valid_i;
+    assign pe_req_ready_o = iq_enq_ready;
+
+    // ================= IQ (Instruction Queue) Instance ================= //
+    Queue #(
+      .T      (vlsu_req_t),
+      .DEPTH  (reqBufDep),
+      .FLOW   (1'b1)  // Enable flow mode for immediate consumption
+    ) i_iq (
+      .clk_i        (clk_i        ),
+      .rst_ni       (rst_ni       ),
+      .enq_valid_i  (iq_enq_valid ),
+      .enq_ready_o  (iq_enq_ready ),
+      .enq_bits_i   (iq_enq_bits  ),
+      .deq_valid_o  (iq_deq_valid ),
+      .deq_ready_i  (iq_deq_ready ),
+      .deq_bits_o   (iq_deq_bits  )
+    );
+
+    
+
     // ================= Control Machine Instance ================= //
     ControlMachine #(
       .NrLanes      (NrLanes      ),
@@ -137,32 +181,32 @@ module VLSU import vlsu_pkg::*; #(
       .AxiDataWidth (AxiDataWidth ),
       .axi_aw_t     (axi_aw_t     ),
       .axi_ar_t     (axi_ar_t     ),
-      .vlsu_req_t   (vlsu_req_t  ),
-      .meta_glb_t   (meta_glb_t  ),
-      .meta_seglv_t (meta_seglv_t),
-      .txn_ctrl_t   (txn_ctrl_t  )
+      .vlsu_req_t   (vlsu_req_t   ),
+      .meta_glb_t   (meta_glb_t   ),
+      .meta_seglv_t (meta_seglv_t ),
+      .txn_ctrl_t   (txn_ctrl_t   )
     ) i_cm (
-      .clk_i             (clk_i           ),
-      .rst_ni            (rst_ni          ),
-      .vlsu_req_valid_i  (vlsu_req_valid_i),
-      .vlsu_req_ready_o  (vlsu_req_ready_o),
-      .vlsu_req_i        (vlsu_req_i      ),
+      .clk_i             (clk_i            ),
+      .rst_ni            (rst_ni           ),
+      .vlsu_req_valid_i  (iq_deq_valid     ),
+      .vlsu_req_ready_o  (iq_deq_ready     ),
+      .vlsu_req_i        (iq_deq_bits      ),
       .core_st_pending_i (core_st_pending_i),
-      .meta_ctrl_valid_o (meta_ctrl_valid ),
-      .meta_ctrl_ready_i (meta_ctrl_ready ),
-      .meta_glb_o        (meta_glb        ),
-      .meta_seglv_o      (meta_seglv      ),
-      .txn_ctrl_valid_o  (txn_ctrl_valid  ),
-      .txn_ctrl_o        (txn_ctrl        ),
-      .update_i          (update_cm       ),
-      .aw_valid_o        (aw_valid        ),
-      .aw_ready_i        (aw_ready        ),
-      .aw_o              (aw_flit         ),
-      .ar_valid_o        (ar_valid        ),
-      .ar_ready_i        (ar_ready        ),
-      .ar_o              (ar_flit         ),
-      .b_valid_i         (b_valid         ),
-      .b_ready_o         (b_ready         )
+      .meta_ctrl_valid_o (meta_ctrl_valid  ),
+      .meta_ctrl_ready_i (meta_ctrl_ready  ),
+      .meta_glb_o        (meta_glb         ),
+      .meta_seglv_o      (meta_seglv       ),
+      .txn_ctrl_valid_o  (txn_ctrl_valid   ),
+      .txn_ctrl_o        (txn_ctrl         ),
+      .update_i          (update_cm        ),
+      .aw_valid_o        (aw_valid         ),
+      .aw_ready_i        (aw_ready         ),
+      .aw_o              (aw_flit          ),
+      .ar_valid_o        (ar_valid         ),
+      .ar_ready_i        (ar_ready         ),
+      .ar_o              (ar_flit          ),
+      .b_valid_i         (b_valid          ),
+      .b_ready_o         (b_ready          )
     );
     
     // ================= Load Unit Instance ================= //
@@ -259,10 +303,11 @@ module VLSU import vlsu_pkg::*; #(
 
     // ================= Lane Interface Connection Logic ================= //
     // Connect expanded txs interface to internal array
+    genvar lane;
     generate
-      for (int lane = 0; lane < NrLanes; lane++) begin : lane_connections
+      for (lane = 0; lane < NrLanes; lane++) begin : lane_connections
         // Connect txs_internal to expanded txs outputs
-        assign txs_req_id_o   [lane]  = txs_internal[lane].reqId;
+        assign txs_reqId_o   [lane]  = txs_internal[lane].reqId;
         assign txs_vaddr_set_o[lane]  = txs_internal[lane].vaddr_set;
         assign txs_vaddr_off_o[lane]  = txs_internal[lane].vaddr_off;
         assign txs_data_o     [lane]  = txs_internal[lane].data;

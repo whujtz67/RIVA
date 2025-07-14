@@ -50,7 +50,24 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   input  logic                  b_valid_i,
   output logic                  b_ready_o
 );
-  
+
+  // ------------------- Helper Functions ------------------- //
+  function automatic logic isLastSeg(input meta_glb_t g); // TODO: meta_glb_t cannot reach here?
+    return (g.rmnSeg == 0);
+  endfunction
+
+  function automatic logic isLastGrp(input meta_glb_t g);
+    return (g.rmnGrp == 0);
+  endfunction
+
+  function automatic logic isLastTxn(input meta_seglv_t s);
+    return (s.txnCnt == s.txnNum);
+  endfunction
+
+  function automatic logic isFinalTxn(input meta_glb_t glb, input meta_seglv_t seg);
+    return isLastGrp(glb) && isLastSeg(glb) && isLastTxn(seg);
+  endfunction
+
   // --------------------- Internal Signals --------------------- //
   // Pointers
   logic                          enq_ptr_flag , deq_ptr_flag , txn_ptr_flag , data_ptr_flag ;
@@ -83,7 +100,7 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
       tcs_nxt[enq_ptr_value].lbN        = meta_seglv_i.ltN;
       tcs_nxt[enq_ptr_value].isHead     = 1'b1;
       tcs_nxt[enq_ptr_value].isLoad     = meta_glb_i.isLoad;
-      tcs_nxt[enq_ptr_value].isFinalTxn = isFinalTxn(meta_seglv_i);
+      tcs_nxt[enq_ptr_value].isFinalTxn = isFinalTxn(meta_glb_i, meta_seglv_i);
     end
     // Direct assignment for update
     if (update_i && !(tcs_r[data_ptr_value].rmnBeat == 0)) begin
@@ -115,8 +132,8 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
       aw_o.addr  = tcs_r[txn_ptr_value].addr >> 1;
       aw_o.len   = tcs_r[txn_ptr_value].rmnBeat;
       aw_o.size  = tcs_r[txn_ptr_value].size;
-      aw_o.burst = BURST_INCR;
-      aw_o.cache = CACHE_MODIFIABLE;
+      aw_o.burst = axi_pkg::BURST_INCR;
+      aw_o.cache = axi_pkg::CACHE_MODIFIABLE;
     end
     
     if (ar_valid_o && ar_ready_i) begin
@@ -124,8 +141,8 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
       ar_o.addr  = tcs_r[txn_ptr_value].addr >> 1;
       ar_o.len   = tcs_r[txn_ptr_value].rmnBeat;
       ar_o.size  = tcs_r[txn_ptr_value].size;
-      ar_o.burst = BURST_INCR;
-      ar_o.cache = CACHE_MODIFIABLE;
+      ar_o.burst = axi_pkg::BURST_INCR;
+      ar_o.cache = axi_pkg::CACHE_MODIFIABLE;
     end
   end: axi_output_logic
 

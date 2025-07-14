@@ -8,23 +8,6 @@
 
 package ControlMachinePkg;
 
-  // ------------------- Helper Functions ------------------- //
-  function automatic logic isLastSeg(input meta_glb_t g); // TODO: meta_glb_t cannot reach here?
-    return (g.rmnSeg == 0);
-  endfunction
-
-  function automatic logic isLastGrp(input meta_glb_t g);
-    return (g.rmnGrp == 0);
-  endfunction
-
-  function automatic logic isLastTxn(input meta_seglv_t s);
-    return (s.txnCnt == s.txnNum);
-  endfunction
-
-  function automatic logic isFinalTxn(input meta_glb_t glb, input meta_seglv_t seg);
-    return isLastGrp(glb) && isLastSeg(glb) && isLastTxn(seg);
-  endfunction
-
   // Mode decode helpers
   function automatic logic isIncr(input logic [3:0] mode); // TODO: should be mode_oh_t
     return mode[0];

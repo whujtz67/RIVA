@@ -12,6 +12,7 @@ module ReqFragmenter import riva_pkg::*; #(
   parameter int   unsigned  NrLanes      = 0,
   parameter int   unsigned  VLEN         = 0,
   parameter int   unsigned  ALEN         = 0,
+  parameter int   unsigned  MaxLEN       = 0,
   parameter type            vlsu_req_t   = logic,
   parameter type            meta_glb_t   = logic,
   parameter type            meta_seglv_t = logic
@@ -38,6 +39,23 @@ module ReqFragmenter import riva_pkg::*; #(
   output logic                  meta_buf_enq_valid_o
 );
 
+  // ------------------- Helper Functions ------------------- //
+  function automatic logic isLastSeg(input meta_glb_t g); // TODO: meta_glb_t cannot reach here?
+    return (g.rmnSeg == 0);
+  endfunction
+
+  function automatic logic isLastGrp(input meta_glb_t g);
+    return (g.rmnGrp == 0);
+  endfunction
+
+  function automatic logic isLastTxn(input meta_seglv_t s);
+    return (s.txnCnt == s.txnNum);
+  endfunction
+
+  function automatic logic isFinalTxn(input meta_glb_t glb, input meta_seglv_t seg);
+    return isLastGrp(glb) && isLastSeg(glb) && isLastTxn(seg);
+  endfunction
+
   // FSM States
   typedef enum logic [1:0] {
     S_IDLE         = 2'd0, // Wait for new request
@@ -62,7 +80,7 @@ module ReqFragmenter import riva_pkg::*; #(
   assign do_update = meta_ready_i;
 
   // seglv_init_common module input signals
-  elen_t seglv_next_addr;
+  riva_pkg::elen_t                     seglv_next_addr;
   meta_glb_t                 seglv_glb;
   logic                      seglv_init_en;
 
@@ -76,7 +94,7 @@ module ReqFragmenter import riva_pkg::*; #(
       S_SEG_LV_INIT:  // Initialize segment-level info, then go to fragmenting or stall
         state_nxt = (core_st_pending_i || meta_buf_full_i) ? S_STALL : S_FRAGMENTING;
       S_FRAGMENTING:  // Issue transactions, return to idle when done
-        state_nxt = (isFinalTxn(meta_glb_r) && do_update) ? S_IDLE : S_FRAGMENTING;
+        state_nxt = (isFinalTxn(meta_glb_r, meta_seglv_r) && do_update) ? S_IDLE : S_FRAGMENTING;
       S_STALL:        // Wait for resources, return to fragmenting when ready
         state_nxt = (core_st_pending_i || meta_buf_full_i) ? S_STALL : S_FRAGMENTING;
       default:
@@ -104,7 +122,6 @@ module ReqFragmenter import riva_pkg::*; #(
           meta_glb_nxt.baseAddr = vlsu_req_i.baseAddr << 1;
           meta_glb_nxt.vd       = vlsu_req_i.vd;
           meta_glb_nxt.sew      = vlsu_req_i.sew;
-          meta_glb_nxt.EW       = 1 << (vlsu_req_i.sew + 2);
           meta_glb_nxt.nrElem   = vlsu_req_i.len - vlsu_req_i.vstart;
           meta_glb_nxt.vm       = vlsu_req_i.vm;
           meta_glb_nxt.stride   = vlsu_req_i.stride;
@@ -187,7 +204,10 @@ module ReqFragmenter import riva_pkg::*; #(
   SegLvInitCommon #(
     .NrLanes        (NrLanes),
     .VLEN           (VLEN   ),
-    .ALEN           (ALEN   )
+    .ALEN           (ALEN   ),
+    .MaxLEN         (MaxLEN ),
+    .meta_glb_t     (meta_glb_t     ),
+    .meta_seglv_t   (meta_seglv_t   )
   ) i_seglv_init_common (
     .en_i           (seglv_init_en  ),
     .next_addr_i    (seglv_next_addr),
@@ -225,17 +245,19 @@ module SegLvInitCommon import riva_pkg::*; #(
   parameter  int   unsigned  NrLanes        = 0,
   parameter  int   unsigned  VLEN           = 0,
   parameter  int   unsigned  ALEN           = 0,
+  parameter  int   unsigned  MaxLEN         = 0,
+  parameter  type            meta_glb_t     = logic,       // <-- User must typedef meta_glb_t before instantiating this module
+  parameter  type            meta_seglv_t   = logic,       // <-- User must typedef meta_seglv_t before instantiating this module
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  MaxLEN         = $max(VLEN, ALEN),
   localparam int   unsigned  clog2MaxNbs    = $clog2(MaxLEN * ELEN / 4)
 ) (
   input  logic                        en_i,
-  input  elen_t                       next_addr_i,
+  input  riva_pkg::elen_t             next_addr_i,
   input  meta_glb_t                   glb_i,
   input  meta_seglv_t                 seg_r_i,
 
-  output logic meta_seglv_t           seg_nxt_o
+  output meta_seglv_t                 seg_nxt_o
 );
 
   // Mode decode

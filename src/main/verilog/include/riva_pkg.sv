@@ -131,7 +131,7 @@ package riva_pkg;
     // Compress    
     VMERGE, VCOMPRESS, // 2 
     // Fast special funtion instructions (integer)
-    FASTTANH, FASTSIGMOID, FASTSWISH, FASTMISH, FASTGELU // 5
+    FASTTANH, FASTSIGMOID, FASTSWISH, FASTMISH, FASTGELU, // 5
     // Multi-operation function instructions (single operation)
     RECIP, LOG2, EXP2, RSQRT,  // 4
     // Multi-operation function instructions with ALU (multi-operations)
@@ -180,7 +180,7 @@ package riva_pkg;
     OpQueueINT16  = 4'b1010, // 16-bit signed integer
     OpQueueINT32  = 4'b1011, // 32-bit signed integer
     OpQueueNone   = 4'b0101, // NO type
-    OpQueueBF16   = 4'b1100;  // 16-bit brain floating-point
+    OpQueueBF16   = 4'b1100,  // 16-bit brain floating-point
     OpQueueFP16   = 4'b1110, // 16-bit floating-point
     OpQueueFP32   = 4'b1111  // 32-bit floating-point
   } opqueue_type_e;
@@ -201,38 +201,38 @@ package riva_pkg;
   //  PE interface  //
   ////////////////////
 
-  // Those are Function Units (FUs) of RIVA;
-  localparam int unsigned NrMVFUs = 11;
-  typedef enum logic [custom_clog2(NrVFUs)-1:0] { 
-    FU_MMu, FU_FMAu, FU_DIVu, FU_COMPu, FU_SFu, FU_MFu, FU_SLDu, FU_TopKu, FU_LOADu, FU_STOREu, FU_None
-  } mvfu_e;
+  // // Those are Function Units (FUs) of RIVA;
+  // localparam int unsigned NrMVFUs = 11;
+  // typedef enum logic [custom_clog2(NrVFUs)-1:0] { 
+  //   FU_MMu, FU_FMAu, FU_DIVu, FU_COMPu, FU_SFu, FU_MFu, FU_SLDu, FU_TopKu, FU_LOADu, FU_STOREu, FU_None
+  // } mvfu_e;
 
-  typedef enum logic [1:0] {
-    OffsetLoad, OffsetStore, OffsetTopk, OffsetSlide
-  } mvfu_offset_e;
+  // typedef enum logic [1:0] {
+  //   OffsetLoad, OffsetStore, OffsetTopk, OffsetSlide
+  // } mvfu_offset_e;
 
-  ////////////////////////
-  //  MMU definitions   //
-  ////////////////////////
-  typedef struct packed {
-    logic overflow; // do not care invalid address or beyond (Base addr + mlen)
-    //
-	  logic jump; // skip some matrix source operand
-    logic sd;   // slide direction, 1: up, 0: down
-    logic [1:0] sd_len; // stride length, 0~3.
-    logic fpad;
-    logic bpad;
-  } mu_cgfs_t;
+  // ////////////////////////
+  // //  MMU definitions   //
+  // ////////////////////////
+  // typedef struct packed {
+  //   logic overflow; // do not care invalid address or beyond (Base addr + mlen)
+  //   //
+	//   logic jump; // skip some matrix source operand
+  //   logic sd;   // slide direction, 1: up, 0: down
+  //   logic [1:0] sd_len; // stride length, 0~3.
+  //   logic fpad;
+  //   logic bpad;
+  // } mu_cgfs_t;
 
-  ////////////////////////
-  //  Lane definitions  //
-  ////////////////////////
+  // ////////////////////////
+  // //  Lane definitions  //
+  // ////////////////////////
 
-  // There are seven operand queues, serving operands to the different functional units of each lane
-  localparam int unsigned NrOperandQueues = 10;
-  typedef enum logic [custom_clog2(NrOperandQueues)-1:0] {
-    MMuM, MMuV, MMuA, AluA, AluB, AluC, SFuA, TopKuA, StA, SlideAddrGenA
-  } opqueue_e;
+  // // There are seven operand queues, serving operands to the different functional units of each lane
+  // localparam int unsigned NrOperandQueues = 10;
+  // typedef enum logic [custom_clog2(NrOperandQueues)-1:0] {
+  //   MMuM, MMuV, MMuA, AluA, AluB, AluC, SFuA, TopKuA, StA, SlideAddrGenA
+  // } opqueue_e;
 
   // Each lane has eight VRF banks
   // NOTE: values != 8 are not supported
@@ -244,14 +244,14 @@ package riva_pkg;
 
   // The address generation unit makes requests on the AR/AW buses, while the load and
   // store unit handle the R, W, and B buses. The latter need some information about the
-  // original request, namely the fields below.
-  typedef struct packed {
-    axi_pkg::largest_addr_t addr;
-    axi_pkg::size_t size;
-    axi_pkg::len_t len;
-    logic is_load;
-    logic is_exception;
-  } addrgen_axi_req_t;
+  // // original request, namely the fields below.
+  // typedef struct packed {
+  //   axi_pkg::largest_addr_t addr;
+  //   axi_pkg::size_t size;
+  //   axi_pkg::len_t len;
+  //   logic is_load;
+  //   logic is_exception;
+  // } addrgen_axi_req_t;
 
   ////////////////
   // Exceptions //
@@ -268,78 +268,78 @@ package riva_pkg;
   endfunction
 
 
-  function automatic int unsigned div_power2_by_int(
-    input int unsigned A,  // inval A (power of 2, 1~2^19)
-    input int unsigned B   // inval B (0~ 2^13)
-  );
-    // return value
-    int unsigned C;  
-    // special case
-    if (B == 0) begin
-      // NaN
-      return 0;
-    end
-    else if (B == 1) begin
-      // A
-      return A;
-    end    
+  // function automatic int unsigned div_power2_by_int(
+  //   input int unsigned A,  // inval A (power of 2, 1~2^19)
+  //   input int unsigned B   // inval B (0~ 2^13)
+  // );
+  //   // return value
+  //   int unsigned C;  
+  //   // special case
+  //   if (B == 0) begin
+  //     // NaN
+  //     return 0;
+  //   end
+  //   else if (B == 1) begin
+  //     // A
+  //     return A;
+  //   end    
 
-    int unsigned log_B = 0;
-    int unsigned B_temp = B;
+  //   int unsigned log_B = 0;
+  //   int unsigned B_temp = B;
 
-    //logic [3:0] log_b_left, log_b_right;
-    // find the log of B
-    casex (B_temp[15:0])
-      16'b1xxx_xxxx_xxxx_xxxx: log_B = 16'd15;
-      16'b01xx_xxxx_xxxx_xxxx: log_B = 16'd14;
-      16'b001x_xxxx_xxxx_xxxx: log_B = 16'd13;
-      16'b0001_xxxx_xxxx_xxxx: log_B = 16'd12;
-      16'b0000_1xxx_xxxx_xxxx: log_B = 16'd11;
-      16'b0000_01xx_xxxx_xxxx: log_B = 16'd10;
-      16'b0000_001x_xxxx_xxxx: log_B = 16'd9;
-      16'b0000_0001_xxxx_xxxx: log_B = 16'd8;
-      16'b0000_0000_1xxx_xxxx: log_B = 16'd7;
-      16'b0000_0000_01xx_xxxx: log_B = 16'd6;
-      16'b0000_0000_001x_xxxx: log_B = 16'd5;
-      16'b0000_0000_0001_xxxx: log_B = 16'd4;
-      16'b0000_0000_0000_1xxx: log_B = 16'd3;
-      16'b0000_0000_0000_01xx: log_B = 16'd2;
-      16'b0000_0000_0000_001x: log_B = 16'd1;
-      default:                 log_B = 16'd0;
-    endcase
+  //   //logic [3:0] log_b_left, log_b_right;
+  //   // find the log of B
+  //   casex (B_temp[15:0])
+  //     16'b1xxx_xxxx_xxxx_xxxx: log_B = 16'd15;
+  //     16'b01xx_xxxx_xxxx_xxxx: log_B = 16'd14;
+  //     16'b001x_xxxx_xxxx_xxxx: log_B = 16'd13;
+  //     16'b0001_xxxx_xxxx_xxxx: log_B = 16'd12;
+  //     16'b0000_1xxx_xxxx_xxxx: log_B = 16'd11;
+  //     16'b0000_01xx_xxxx_xxxx: log_B = 16'd10;
+  //     16'b0000_001x_xxxx_xxxx: log_B = 16'd9;
+  //     16'b0000_0001_xxxx_xxxx: log_B = 16'd8;
+  //     16'b0000_0000_1xxx_xxxx: log_B = 16'd7;
+  //     16'b0000_0000_01xx_xxxx: log_B = 16'd6;
+  //     16'b0000_0000_001x_xxxx: log_B = 16'd5;
+  //     16'b0000_0000_0001_xxxx: log_B = 16'd4;
+  //     16'b0000_0000_0000_1xxx: log_B = 16'd3;
+  //     16'b0000_0000_0000_01xx: log_B = 16'd2;
+  //     16'b0000_0000_0000_001x: log_B = 16'd1;
+  //     default:                 log_B = 16'd0;
+  //   endcase
 
-    // Binary search
-    if (B & (B - 1)) begin
-      // B is not 2^N
-      // initial guess
-      int unsigned initial_guess = A >> log_B;
-      // Make sure initial guess are reasonable
-      int unsigned left = (initial_guess > 0) ? (initial_guess >> 1) : 0;
-      int unsigned right = ((initial_guess << 1) < A) ? (initial_guess << 1) : A;    
+  //   // Binary search
+  //   if (B & (B - 1)) begin
+  //     // B is not 2^N
+  //     // initial guess
+  //     int unsigned initial_guess = A >> log_B;
+  //     // Make sure initial guess are reasonable
+  //     int unsigned left = (initial_guess > 0) ? (initial_guess >> 1) : 0;
+  //     int unsigned right = ((initial_guess << 1) < A) ? (initial_guess << 1) : A;    
 
-      // Binary search
-      if ((right * B) < A) right = A;
+  //     // Binary search
+  //     if ((right * B) < A) right = A;
 
-      for (int i = 0; i < 22; i++) begin // 20 > log2(2^19)
-        if (left < right) begin
-          int unsigned mid = (left + right + 1) >> 1;
-          if ((mid * B) <= A) begin
-            left = mid;
-          end else begin
-            right = mid - 1;
-          end
-        end 
-        else begin
-          break; // Exit loop when left >= right
-        end
-      end
+  //     for (int i = 0; i < 22; i++) begin // 20 > log2(2^19)
+  //       if (left < right) begin
+  //         int unsigned mid = (left + right + 1) >> 1;
+  //         if ((mid * B) <= A) begin
+  //           left = mid;
+  //         end else begin
+  //           right = mid - 1;
+  //         end
+  //       end 
+  //       else begin
+  //         break; // Exit loop when left >= right
+  //       end
+  //     end
 
-      C = left;
-    end  else begin
-      // B is 2^N
-      C = A >> log_B;
-    end
-    return C;
-  endfunction
+  //     C = left;
+  //   end  else begin
+  //     // B is 2^N
+  //     C = A >> log_B;
+  //   end
+  //   return C;
+  // endfunction
 
 endpackage

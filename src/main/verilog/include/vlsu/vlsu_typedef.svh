@@ -21,24 +21,21 @@
 //
 // ============================================================================
 
-`ifndef VLSU_TYPEDEF_SVH
-`define VLSU_TYPEDEF_SVH
-
   // ================= VLSU Request Structure ================= //
 
   // VLSU request structure (based on RivaReqPtl)
   // This structure contains all the information needed to initiate a vector load/store operation
   typedef struct packed {
-    vid_t              reqId;        // Request ID for tracking and debugging
-    logic [1:0]        mop;          // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
-    elen_t             baseAddr;     // Base address for the vector operation
-    rvmv_pkg::vew_e    sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
-    logic [4:0]        vd;           // Vector destination register index
-    elen_t             stride;       // Stride value for strided access mode
-    vlen_t             len;          // Total number of elements to process
-    vlen_t             vstart;       // Starting element index (for partial vector operations)
-    logic              isLoad;       // 1: load operation, 0: store operation
-    logic              vm;           // Vector mask enable (1: masked, 0: unmasked)
+    vid_t               reqId;        // Request ID for tracking and debugging
+    logic [1:0]         mop;          // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
+    elen_t              baseAddr;     // Base address for the vector operation
+    riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)
+    logic [4:0]         vd;           // Vector destination register index
+    elen_t              stride;       // Stride value for strided access mode
+    vlen_t              len;          // Total number of elements to process
+    vlen_t              vstart;       // Starting element index (for partial vector operations)
+    logic               isLoad;       // 1: load operation, 0: store operation
+    logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
   } vlsu_req_t;
     
     // ================= Typedef Structures ================= //
@@ -51,7 +48,7 @@
     vlsu_pkg::mode_oh_t mode;         // Memory operation mode (one-hot encoded)
     elen_t              baseAddr;     // Base address for the vector operation
     logic [4:0]         vd;           // Vector destination register index
-    rvmv_pkg::vew_e     sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
+    riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)
     vlen_t              nrElem;       // Number of elements to process (len - vstart)
     elen_t              stride;       // Stride value for strided access mode
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
@@ -111,5 +108,3 @@
     tx_lane_t [NrLanes-1:0] txs;          // Transmit lanes (VLSU to lanes)
     rx_lane_t [NrLanes-1:0] rxs;          // Receive lanes (lanes to VLSU)
   } lane_side_t;
-
-`endif // VLSU_TYPEDEF_SVH

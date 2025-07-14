@@ -20,8 +20,7 @@
 //
 // ============================================================================
 
-`ifndef VLSU_DC_TYPEDEF_SVH
-`define VLSU_DC_TYPEDEF_SVH
+
 
   // ================= DataCtrl Type Definitions ================= //
   // SeqBufBundle equivalent (from SequentialPkg.scala)
@@ -40,16 +39,14 @@
   // ShfInfoBufBundle equivalent (from ShufflePkg.scala)
   // Contains essential meta info related to DataController saved in MetaBuf
   typedef struct packed {
-    vid_t                                req_id;     // Request ID
+    vid_t                                reqId;     // Request ID
     logic [3:0]                          mode;       // Vector operation mode (one-hot)
     logic [1:0]                          sew;        // Element width encoding
     logic [4:0]                          vd;         // Vector destination register
     elen_t                               vstart;     // Starting element index
     logic                                vm;         // Vector mask enable
-    logic [$clog2(MaxLEN*ELEN/DLEN)-1:0] cmt_cnt;    // Commit counter
+    logic [$clog2(MaxLEN*ELEN/DLEN)-1:0] cmtCnt;    // Commit counter
     vaddr_set_t                          vaddr_set;  // Virtual address set
     vaddr_off_t                          vaddr_off;  // Virtual address offset
   } shf_info_t;
-
-`endif // VLSU_DC_TYPEDEF_SVH
 

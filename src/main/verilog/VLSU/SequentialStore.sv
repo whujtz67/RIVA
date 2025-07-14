@@ -18,7 +18,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   parameter  type            seq_buf_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  NrLaneEntriesNbs = (DLEN / 4) * NrLanes,
+  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrLanes,
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles)
 ) (
@@ -155,6 +155,11 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   logic [$min(busNSize, $clog2(NrLaneEntriesNbs)): 0] nr_nbs_committed;
   logic [busNSize-1                              : 0] start;
 
+  // ================= Helper Functions ================= //
+  function automatic logic isFinalBeat(input txn_ctrl_t txn_ctrl);
+    return txn_ctrl.isFinalTxn && (txn_ctrl.rmnBeat == 0);
+  endfunction
+
   // ================= FSM State Transition Logic ================= //
   always_comb begin: fsm_state_transition
     state_nxt = state_r;
@@ -166,12 +171,12 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
         end
       end
       S_SERIAL_CMT: begin
-        if (txn_ctrl_i.isFinalBeat && txn_ctrl_ready_o) begin
+        if (isFinalBeat(txn_ctrl_i) && txn_ctrl_ready_o) begin
           state_nxt = S_IDLE;
         end
       end
       S_GATHER_CMT: begin
-        if (txn_ctrl_i.isFinalBeat && txn_ctrl_ready_o) begin
+        if (isFinalBeat(txn_ctrl_i) && txn_ctrl_ready_o) begin
           state_nxt = S_IDLE;
         end
       end
@@ -215,7 +220,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
         // Initialize pointers and vaddr
         if (txn_ctrl_valid_i) begin
           bus_nb_cnt_nxt      = '0;
-          seq_nb_ptr_nxt      = seq_info_deq_bits.seq_nb_ptr;
+          seq_nb_ptr_nxt      = seq_info_deq_bits.seqNbPtr;
           seq_info_deq_ready  = 1'b1;
         end
       end
@@ -256,7 +261,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
 
             // Haven't occupied all valid nbs in the seqBuf,
             // but the current beat is already the final beat of the whole riva request
-            if (txn_ctrl_i.isFinalBeat) begin
+            if (isFinalBeat(txn_ctrl_i)) begin
               seq_buf_deq    = 1'b1;
               seq_nb_ptr_nxt = '0;
             end
@@ -322,8 +327,12 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   end
 
   // ================= Meta Control Interface Logic ================= //
+  // ================= seq_info_enq Logic ================= //
+  riva_pkg::elen_t nr_tot_nibbles;
+
   assign seq_info_enq_valid         = meta_glb_valid_i;
-  assign seq_info_enq_bits.seqNbPtr = (meta_glb_i.vstart << meta_glb_i.sew)[$clog2(NrLaneEntriesNbs)-1:0];
+  assign nr_tot_nibbles             = meta_glb_i.vstart << meta_glb_i.sew;
+  assign seq_info_enq_bits.seqNbPtr = nr_tot_nibbles[$clog2(NrLaneEntriesNbs)-1:0];
   assign meta_glb_ready_o           = seq_info_enq_ready;
 
   // ================= Sequential Logic ================= //

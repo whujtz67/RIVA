@@ -17,7 +17,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   parameter  type            seq_buf_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  NrLaneEntriesNbs = (DLEN / 4) * NrLanes,
+  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrLanes,
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles)
 ) (
@@ -44,6 +44,11 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   input  logic          tx_shfu_ready_i,
   output seq_buf_t      tx_shfu_o
 );
+
+  // ================= Helper Functions ================= //
+  function automatic logic isFinalBeat(input txn_ctrl_t txn_ctrl);
+    return txn_ctrl.isFinalTxn && (txn_ctrl.rmnBeat == 0);
+  endfunction
 
   
 
@@ -132,12 +137,12 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
         end
       end
       S_SERIAL_CMT: begin
-        if (txn_ctrl_i.isFinalBeat && txn_ctrl_ready_o) begin
+        if (isFinalBeat(txn_ctrl_i) && txn_ctrl_ready_o) begin
           state_nxt = S_IDLE;
         end
       end
       S_GATHER_CMT: begin
-        if (txn_ctrl_i.isFinalBeat && txn_ctrl_ready_o) begin
+        if (isFinalBeat(txn_ctrl_i) && txn_ctrl_ready_o) begin
           state_nxt = S_IDLE;
         end
       end
@@ -177,7 +182,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
         // Initialize pointers and vaddr
         if (txn_ctrl_valid_i) begin
           bus_nb_cnt_nxt      = '0;
-          seq_nb_ptr_nxt      = seq_info_deq_bits.seq_nb_ptr;
+          seq_nb_ptr_nxt      = seq_info_deq_bits.seqNbPtr;
           seq_info_deq_ready  = 1'b1;
         end
       end
@@ -218,7 +223,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
             
             // Haven't occupied all valid nbs in the seqBuf,
             // but the current beat is already the final beat of the whole riva request
-            if (txn_ctrl_i.isFinalBeat) begin
+            if (isFinalBeat(txn_ctrl_i)) begin
               seq_buf_enq    = 1'b1;
               seq_nb_ptr_nxt = '0;
             end

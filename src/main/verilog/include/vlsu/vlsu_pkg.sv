@@ -18,12 +18,19 @@ package vlsu_pkg;
     MODE_CLN2D = 4'b1000   // Column-major 2D mode
   } mode_oh_t;
 
+  // TODO: Temporary parameters
+  localparam int unsigned NrLanes = 4;
+  localparam int unsigned VLEN = 8192;
+  localparam int unsigned ALEN = 16384;
+
+
   // ================= Data Width Parameters ================= //
   parameter int unsigned busBits       = 512;            // Data bus width
   parameter int unsigned addrBits      = 32;            // Address bus width
   parameter int unsigned idBits        = 1;             // AXI ID width
   
   // ================= Buffer and Cache Parameters ================= //
+  parameter int unsigned reqBufDep     = 4;           // Instruction Queue depth
   parameter int unsigned metaBufDepth  = 4;           // Meta buffer depth
   parameter int unsigned txnCtrlNum    = 4;           // Number of transaction controllers
   parameter int unsigned wBufDep       = 2;           // Write buffer depth for SequentialStore

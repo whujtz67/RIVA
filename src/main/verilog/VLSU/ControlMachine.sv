@@ -6,13 +6,11 @@
 
 `timescale 1ns/1ps
 
-import ControlMachinePkg::*;
-import axi_pkg::*;
-
 module ControlMachine import vlsu_pkg::*; #(
     parameter  int   unsigned  NrLanes      = 0,
     parameter  int   unsigned  VLEN         = 0,
     parameter  int   unsigned  ALEN         = 0,
+    parameter  int   unsigned  MaxLEN       = 0,
     parameter  int   unsigned  AxiDataWidth = 0,  // AXI data width in bits
     parameter  type            axi_aw_t     = logic,
     parameter  type            axi_ar_t     = logic,
@@ -64,6 +62,7 @@ module ControlMachine import vlsu_pkg::*; #(
       .NrLanes      (NrLanes      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
+      .MaxLEN       (MaxLEN       ),
       .vlsu_req_t   (vlsu_req_t   ),
       .meta_glb_t   (meta_glb_t   ),
       .meta_seglv_t (meta_seglv_t )
@@ -86,6 +85,7 @@ module ControlMachine import vlsu_pkg::*; #(
       .NrLanes      (NrLanes      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
+      .MaxLEN       (MaxLEN       ),
       .AxiDataWidth (AxiDataWidth ),
       .txn_ctrl_t   (txn_ctrl_t   ),
       .axi_aw_t     (axi_aw_t     ),

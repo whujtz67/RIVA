@@ -8,10 +8,11 @@
 
 `timescale 1ns/1ps
 
-module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
+module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrLanes          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  ALEN             = 0,
+  parameter  int   unsigned  MaxLEN           = 0,
   parameter  int   unsigned  AxiDataWidth     = 0,
   parameter  int   unsigned  AxiAddrWidth     = 0,
   parameter  int   unsigned  AxiUserWidth     = 1, // TODO: pass from top level
@@ -24,10 +25,10 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
   parameter  type            rx_lane_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  NrLaneEntriesNbs = (DLEN / 4) * NrLanes,
+  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrLanes,
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles),
-  localparam type            strb_t           = logic [DLEN/4-1:0]
+  localparam type            strb_t           = logic [riva_pkg::DLEN/4-1:0]
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
@@ -96,6 +97,7 @@ module StoreUnit import vlsu_pkg::*; import axi_pkg::*; #(
     .NrLanes      (NrLanes      ),
     .VLEN         (VLEN         ),
     .ALEN         (ALEN         ),
+    .MaxLEN       (MaxLEN       ),
     .meta_glb_t   (meta_glb_t   ),
     .seq_buf_t    (seq_buf_t    ),
     .rx_lane_t    (rx_lane_t    ),
