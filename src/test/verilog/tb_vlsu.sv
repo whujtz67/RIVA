@@ -72,17 +72,17 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
 
   // PE Request Type - contains only the fields needed for VLSU
   typedef struct packed {
-    riva_pkg::vid_t    reqId;        // Request ID for tracking and debugging
-    logic [1:0]        mop;          // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
-    riva_pkg::elen_t   baseAddr;     // Base address for the vector operation
-    logic [1:0]        sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
-    logic [4:0]        vd;           // Vector destination register index
-    riva_pkg::elen_t   stride;       // Stride value for strided access mode
-    vlen_t             vl;           // Vector length
-    alen_t             al;           // Accumulator length
-    riva_pkg::elen_t   vstart;       // Starting element index (for partial vector operations)
-    logic              isLoad;       // 1: load operation, 0: store operation
-    logic              vm;           // Vector mask enable (1: masked, 0: unmasked)
+    riva_pkg::vid_t     reqId;        // Request ID for tracking and debugging
+    logic [1:0]         mop;          // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
+    riva_pkg::elen_t    baseAddr;     // Base address for the vector operation
+    riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
+    logic [4:0]         vd;           // Vector destination register index
+    riva_pkg::elen_t    stride;       // Stride value for strided access mode
+    vlen_t              vl;           // Vector length
+    alen_t              al;           // Accumulator length
+    riva_pkg::elen_t    vstart;       // Starting element index (for partial vector operations)
+    logic               isLoad;       // 1: load operation, 0: store operation
+    logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
   } pe_req_t;
 
   // PE Response Type - minimal definition for VLSU
@@ -94,20 +94,20 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
 // Type definitions (expanded from structs)
 // -----------------------------------------
   // VLSU Request Interface - expanded from pe_req_t
-  reg              pe_req_valid;
-  wire             pe_req_ready;
-  vid_t            pe_req_bits_reqId;
-  reg  [1:0]       pe_req_bits_mop;
-  riva_pkg::elen_t pe_req_bits_baseAddr;
-  reg  [1:0]       pe_req_bits_sew;
-  reg  [4:0]       pe_req_bits_vd;
-  riva_pkg::elen_t pe_req_bits_stride;
-  vlen_t           pe_req_bits_vl;
-  alen_t           pe_req_bits_al;
-  riva_pkg::elen_t pe_req_bits_vstart;
-  reg              pe_req_bits_isLoad;
-  reg              pe_req_bits_vm;
-  reg              core_st_pending;
+  reg                       pe_req_valid;
+  wire                      pe_req_ready;
+  vid_t                     pe_req_bits_reqId;
+  reg  [1:0]                pe_req_bits_mop;
+  riva_pkg::elen_t          pe_req_bits_baseAddr;
+  riscv_mv_pkg::vew_e       pe_req_bits_sew;
+  reg  [4:0]                pe_req_bits_vd;
+  riva_pkg::elen_t          pe_req_bits_stride;
+  vlen_t                    pe_req_bits_vl;
+  alen_t                    pe_req_bits_al;
+  riva_pkg::elen_t          pe_req_bits_vstart;
+  reg                       pe_req_bits_isLoad;
+  reg                       pe_req_bits_vm;
+  reg                       core_st_pending;
 
   // AXI Master Interface - expanded from axi_aw_t, axi_ar_t, axi_w_t, axi_r_t, axi_b_t
   // AXI AW Channel
@@ -118,7 +118,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   wire   [7:0]    m_axi_aw_bits_len;
   wire   [2:0]    m_axi_aw_bits_size;
   wire   [1:0]    m_axi_aw_bits_burst;
-  wire   [1:0]    m_axi_aw_bits_lock;
+  wire            m_axi_aw_bits_lock;
   wire   [3:0]    m_axi_aw_bits_cache;
   wire   [2:0]    m_axi_aw_bits_prot;
   wire   [3:0]    m_axi_aw_bits_qos;
@@ -133,7 +133,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   wire   [7:0]    m_axi_ar_bits_len;
   wire   [2:0]    m_axi_ar_bits_size;
   wire   [1:0]    m_axi_ar_bits_burst;
-  wire   [1:0]    m_axi_ar_bits_lock;
+  wire            m_axi_ar_bits_lock;
   wire   [3:0]    m_axi_ar_bits_cache;
   wire   [2:0]    m_axi_ar_bits_prot;
   wire   [3:0]    m_axi_ar_bits_qos;
@@ -231,7 +231,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
     pe_req_bits_reqId        = 0;
     pe_req_bits_mop          = 0;
     pe_req_bits_baseAddr     = 0;
-    pe_req_bits_sew          = 0;
+    pe_req_bits_sew          = riscv_mv_pkg::EW4;
     pe_req_bits_vd           = 0;
     pe_req_bits_stride       = 0;
     pe_req_bits_vl           = 0;
@@ -339,13 +339,11 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
     // AXI Master Interface
     .m_axi_aw_valid_o         (m_axi_aw_valid),
     .m_axi_aw_ready_i         (m_axi_aw_ready),
-    .m_axi_aw_o               ('{id: m_axi_aw_bits_id, addr: m_axi_aw_bits_addr, len: m_axi_aw_bits_len, size: m_axi_aw_bits_size,
-                                burst: m_axi_aw_bits_burst, lock: m_axi_aw_bits_lock, cache: m_axi_aw_bits_cache, prot: m_axi_aw_bits_prot,
-                                qos: m_axi_aw_bits_qos, region: m_axi_aw_bits_region, user: m_axi_aw_bits_user}),
+    .m_axi_aw_o               ('{m_axi_aw_bits_id, m_axi_aw_bits_addr, m_axi_aw_bits_len, m_axi_aw_bits_size, m_axi_aw_bits_burst, m_axi_aw_bits_lock, m_axi_aw_bits_cache, m_axi_aw_bits_prot, m_axi_aw_bits_qos, m_axi_aw_bits_region, m_axi_aw_bits_user}),
 
     .m_axi_w_valid_o          (m_axi_w_valid),
     .m_axi_w_ready_i          (m_axi_w_ready),
-    .m_axi_w_o                ('{data: m_axi_w_bits_data, strb: m_axi_w_bits_strb, last: m_axi_w_bits_last, user: m_axi_w_bits_user}),
+    .m_axi_w_o                ('{m_axi_w_bits_data, m_axi_w_bits_strb, m_axi_w_bits_last, m_axi_w_bits_user}),
 
     .m_axi_b_valid_i          (m_axi_b_valid),
     .m_axi_b_ready_o          (m_axi_b_ready),
@@ -353,9 +351,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
 
     .m_axi_ar_valid_o         (m_axi_ar_valid),
     .m_axi_ar_ready_i         (m_axi_ar_ready),
-    .m_axi_ar_o               ('{id: m_axi_ar_bits_id, addr: m_axi_ar_bits_addr, len: m_axi_ar_bits_len, size: m_axi_ar_bits_size,
-                                burst: m_axi_ar_bits_burst, lock: m_axi_ar_bits_lock, cache: m_axi_ar_bits_cache, prot: m_axi_ar_bits_prot,
-                                qos: m_axi_ar_bits_qos, region: m_axi_ar_bits_region, user: m_axi_ar_bits_user}),
+    .m_axi_ar_o               ('{m_axi_ar_bits_id, m_axi_ar_bits_addr, m_axi_ar_bits_len, m_axi_ar_bits_size, m_axi_ar_bits_burst, m_axi_ar_bits_lock, m_axi_ar_bits_cache, m_axi_ar_bits_prot, m_axi_ar_bits_qos, m_axi_ar_bits_region, m_axi_ar_bits_user}),
     
     .m_axi_r_valid_i          (m_axi_r_valid),
     .m_axi_r_ready_o          (m_axi_r_ready),

@@ -169,14 +169,14 @@ package vlsu_shuffle_pkg;
       '{9'd287, 9'd414, 9'd476, 9'd504}, '{9'd319, 9'd415, 9'd477, 9'd505}, '{9'd351, 9'd446, 9'd478, 9'd506}, '{9'd383, 9'd447, 9'd479, 9'd507}, '{9'd415, 9'd478, 9'd508, 9'd508}, '{9'd447, 9'd479, 9'd509, 9'd509}, '{9'd479, 9'd510, 9'd510, 9'd510}, '{9'd511, 9'd511, 9'd511, 9'd511}
     };
 
-    unique case (NrLanes)
+	unique case (NrLanes)
       1 : return lut_1lane [seqNbIdx][ew];
       2 : return lut_2lane [seqNbIdx][ew];
       4 : return lut_4lane [seqNbIdx][ew];
       8 : return lut_8lane [seqNbIdx][ew];
       16: return lut_16lane[seqNbIdx][ew];
-      default: return 0;
-    endcase
+        default: return 0;
+	  endcase
   endfunction
 
   function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_shf_idx_2d_cln(int NrLanes, int seqNbIdx, input riscv_mv_pkg::vew_e ew);
@@ -325,84 +325,84 @@ package vlsu_shuffle_pkg;
       4 : return lut_4lane [seqNbIdx][ew];
       8 : return lut_8lane [seqNbIdx][ew];
       16: return lut_16lane[seqNbIdx][ew];
-      default: return 0;
-    endcase
+    default: return 0;
+	  endcase
   endfunction
 
   // Input shuffle index, output sequential index  
   // Used in Shuffle Unit to convert shuffle index to sequential index
   function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx(int NrLanes, int shfNbIdx, input riscv_mv_pkg::vew_e ew);
     unique case (NrLanes)
-      1: begin
+        1: begin
         automatic logic [5-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 32; seqIdx++)
             idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      2: begin
+        end
+        2: begin
         automatic logic [6-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 64; seqIdx++)
           idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      4: begin
+        end
+        4: begin
         automatic logic [7-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 128; seqIdx++)
           idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      8: begin
+        end
+        8: begin
         automatic logic [8-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 256; seqIdx++)
           idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      16: begin
+        end
+        16: begin
         automatic logic [9-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 512; seqIdx++)
           idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      default: return 0;
-    endcase
+        end
+        default: return 0;
+      endcase
   endfunction: query_seq_idx
 
   // Input shuffle index, output sequential index for 2D column-major mode
   // Used in Shuffle Unit to convert shuffle index to sequential index
   function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx_2d_cln(int NrLanes, int shfNbIdx, input riscv_mv_pkg::vew_e ew);
     unique case (NrLanes)
-      1: begin
+        1: begin
         automatic logic [5-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 32; seqIdx++)
             idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      2: begin
+        end
+        2: begin
         automatic logic [6-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 64; seqIdx++)
           idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      4: begin
+        end
+        4: begin
         automatic logic [7-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 128; seqIdx++)
           idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      8: begin
+        end
+        8: begin
         automatic logic [8-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 256; seqIdx++)
           idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      16: begin
+        end
+        16: begin
         automatic logic [9-1:0] idx [0:3];
         for (int seqIdx = 0; seqIdx < 512; seqIdx++)
           idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
         return idx[shfNbIdx];
-      end
-      default: return 0;
-    endcase
+        end
+    default: return 0;
+	  endcase
   endfunction: query_seq_idx_2d_cln
 
 endpackage

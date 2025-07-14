@@ -45,6 +45,9 @@ package vlsu_pkg;
   parameter int unsigned NrVRFSets    = NrVregs * NrSetPerVreg + NrAregs * NrSetPerAreg;
   parameter int unsigned AregBaseSet  = NrVregs * NrSetPerVreg;
 
+  // vdMsb: used for part-select of vd field (e.g. vd[vdMsb-1:0])
+  parameter int unsigned vdMsb = $clog2(NrVregs);
+
   parameter int unsigned VAddrSetBits = $clog2(NrVRFSets);
   parameter int unsigned VAddrOffBits = $clog2(NrVRFBanksPerLane);
   parameter int unsigned VAddrBits    = VAddrSetBits + VAddrOffBits;

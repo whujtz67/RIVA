@@ -132,10 +132,9 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   logic      seq_info_deq_valid, seq_info_deq_ready;
   seq_info_t seq_info_deq_bits;
 
-  Queue #(
+  QueueFlow #(
     .T     (seq_info_t),
-    .DEPTH (1),
-    .FLOW  (1)
+    .DEPTH (1)
   ) u_seq_info_queue (
     .clk_i         (clk_i             ),
     .rst_ni        (rst_ni            ),
@@ -148,12 +147,15 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   );
 
   // Intermediate variables for S_SERIAL_CMT state
-  logic [busNSize-1                              : 0] lower_nibble;
-  logic [busNSize                                : 0] upper_nibble;
-  logic [busNSize                                : 0] bus_valid_nb;
-  logic [$clog2(NrLaneEntriesNbs)                : 0] seq_buf_valid_nb;
-  logic [$min(busNSize, $clog2(NrLaneEntriesNbs)): 0] nr_nbs_committed;
-  logic [busNSize-1                              : 0] start;
+  logic [busNSize-1              : 0] lower_nibble;
+  logic [busNSize                : 0] upper_nibble;
+  logic [busNSize                : 0] bus_valid_nb;
+  logic [$clog2(NrLaneEntriesNbs): 0] seq_buf_valid_nb;
+
+  // Use localparam for min(busNSize, $clog2(NrLaneEntriesNbs)) to ensure integral type
+  localparam int unsigned nrNbsCmtBits = (busNSize < $clog2(NrLaneEntriesNbs)) ? busNSize + 1 : $clog2(NrLaneEntriesNbs) + 1;
+  logic [nrNbsCmtBits            : 0] nr_nbs_committed;
+  logic [busNSize-1              : 0] start;
 
   // ================= Helper Functions ================= //
   function automatic logic isFinalBeat(input txn_ctrl_t txn_ctrl);
@@ -197,15 +199,9 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
     // Default assignments
     bus_nb_cnt_nxt      = bus_nb_cnt_r;
     seq_nb_ptr_nxt      = seq_nb_ptr_r;
-    axi_w_valid_o       = 1'b0;
     txn_ctrl_ready_o    = 1'b0;
-    rx_deshfu_ready_o   = 1'b0;
-    seq_buf_enq         = 1'b0;
     seq_buf_deq         = 1'b0;
     w_buf_enq           = 1'b0;
-    w_buf_deq           = 1'b0;
-    seq_info_enq_bits   = '0;
-    seq_info_enq_valid  = meta_glb_valid_i;
     seq_info_deq_ready  = 1'b0;
     // Default assignments for intermediate variables
     lower_nibble        = '0;
@@ -270,9 +266,9 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
           start = lower_nibble + bus_nb_cnt_r;
 
           // Commit data from seqBuf to wBuf
-          for (int i = 0; i < busNibbles; i++) begin
+          for (int unsigned i = 0; i < busNibbles; i++) begin
             if ((i >= start) && (i < upper_nibble)) begin
-              int idx = i - start + seq_nb_ptr_r;
+              automatic int unsigned idx = i - start + seq_nb_ptr_r;
               w_buf[w_enq_ptr_value].nbs [i] = seq_buf[seq_deq_ptr_value].nb[idx];
               w_buf[w_enq_ptr_value].nbes[i] = seq_buf[seq_deq_ptr_value].en[idx];
             end else begin
@@ -298,11 +294,9 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   always_ff @(posedge clk_i) begin
     if (rx_deshfu_valid_i && rx_deshfu_ready_o) begin
       seq_buf[seq_enq_ptr_value] <= rx_deshfu_i;
-      seq_buf_enq <= 1'b1;
-    end else begin
-      seq_buf_enq <= 1'b0;
     end
   end
+  assign seq_buf_enq = rx_deshfu_valid_i && rx_deshfu_ready_o;
 
   // ================= wBuf -> AXI W Channel ================= //
   always_comb begin: wbuf_to_axi_w_logic
@@ -313,18 +307,10 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
     end
     axi_w_o.last  = w_buf[w_deq_ptr_value].last;
     axi_w_o.user  = w_buf[w_deq_ptr_value].user;
-    axi_w_valid_o = !w_buf_empty;
   end: wbuf_to_axi_w_logic
 
-  // w buf dequeue to AXI W Channel.
-  always_ff @(posedge clk_i) begin
-    if (axi_w_valid_o && axi_w_ready_i) begin
-      w_buf[w_deq_ptr_value] <= '0;
-      w_buf_deq              <= 1'b1;
-    end else begin
-      w_buf_deq <= 1'b0;
-    end
-  end
+  assign axi_w_valid_o = !w_buf_empty;
+  assign w_buf_deq = axi_w_valid_o && axi_w_ready_i;
 
   // ================= Meta Control Interface Logic ================= //
   // ================= seq_info_enq Logic ================= //

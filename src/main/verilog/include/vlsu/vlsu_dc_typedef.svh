@@ -41,7 +41,7 @@
   typedef struct packed {
     vid_t                                reqId;     // Request ID
     logic [3:0]                          mode;       // Vector operation mode (one-hot)
-    logic [1:0]                          sew;        // Element width encoding
+    riscv_mv_pkg::vew_e                  sew;        // Element width encoding
     logic [4:0]                          vd;         // Vector destination register
     elen_t                               vstart;     // Starting element index
     logic                                vm;         // Vector mask enable

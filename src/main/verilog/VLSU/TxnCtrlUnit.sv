@@ -191,11 +191,7 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
 
   // --------------------- Registers ---------------------------------- //
   always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      tcs_r <= '0;
-    end else begin
       tcs_r <= tcs_nxt;
-    end
   end
 
   // --------------------- Assertions ---------------------------------

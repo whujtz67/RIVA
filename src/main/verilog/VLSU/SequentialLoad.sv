@@ -102,10 +102,9 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   logic      seq_info_deq_valid, seq_info_deq_ready;
   seq_info_t seq_info_deq_bits;
 
-  Queue #(
+  QueueFlow #(
     .T     (seq_info_t),
-    .DEPTH (1),
-    .FLOW  (1)
+    .DEPTH (1)
   ) u_seq_info_queue (
     .clk_i         (clk_i             ),
     .rst_ni        (rst_ni            ),
@@ -122,9 +121,12 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   logic [busNSize                                : 0] upper_nibble;
   logic [busNSize                                : 0] bus_valid_nb;
   logic [$clog2(NrLaneEntriesNbs)                : 0] seq_buf_valid_nb;
-  logic [$min(busNSize, $clog2(NrLaneEntriesNbs)): 0] nr_nbs_committed;
+
+  // Use localparam for min(busNSize, $clog2(NrLaneEntriesNbs)) to ensure integral type
+  localparam int unsigned nrNbsCmtBits = (busNSize < $clog2(NrLaneEntriesNbs)) ? busNSize + 1 : $clog2(NrLaneEntriesNbs) + 1;
+  logic [nrNbsCmtBits                            : 0] nr_nbs_committed;
   logic [busNSize-1                              : 0] start;
-  logic do_serial_cmt;
+  logic                                               do_serial_cmt;
   
   // ================= FSM State Transition Logic ================= //
   always_comb begin: fsm_state_transition
@@ -164,7 +166,6 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
     axi_r_ready_o       = 1'b0;
     txn_ctrl_ready_o    = 1'b0;
     seq_buf_enq         = 1'b0;
-    seq_buf_deq         = 1'b0;
     seq_info_enq_bits   = '0;
     seq_info_enq_valid  = meta_glb_valid_i;
     seq_info_deq_ready  = 1'b0;
@@ -240,6 +241,10 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
             end
           end
         end
+
+        if (tx_shfu_valid_o && tx_shfu_ready_i) begin
+          seq_buf[seq_deq_ptr_value] <= '0;
+        end
       end
       S_GATHER_CMT: begin
         // Not supported yet
@@ -253,11 +258,6 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   assign tx_shfu_o       = seq_buf[seq_deq_ptr_value];
 
   assign seq_buf_deq = tx_shfu_valid_o && tx_shfu_ready_i;
-  always_ff @(posedge clk_i) begin
-    if (tx_shfu_valid_o && tx_shfu_ready_i) begin
-      seq_buf[seq_deq_ptr_value] <= '0;
-    end
-  end
   
   // ================= Meta Control Interface Logic ================= //
   assign meta_glb_ready_o = seq_info_enq_ready;

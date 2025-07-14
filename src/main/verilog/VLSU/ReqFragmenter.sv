@@ -68,7 +68,7 @@ module ReqFragmenter import riva_pkg::*; #(
 
   // Registers for meta info
   meta_glb_t   meta_glb_r, meta_glb_nxt;
-  meta_seglv_t meta_seglv_r, meta_seglv_nxt;
+  meta_seglv_t meta_seglv_r, meta_seglv_nxt, seglv_init_common_o;
 
   // Indicates the first cycle of fragmenting state.
   // This register is used to generate a one-cycle pulse (meta_buf_enq_valid_o)
@@ -118,7 +118,7 @@ module ReqFragmenter import riva_pkg::*; #(
       S_IDLE: begin
         if (vlsu_req_valid_i) begin
           meta_glb_nxt.reqId    = vlsu_req_i.reqId;
-          meta_glb_nxt.mode     = 1 << vlsu_req_i.mop;
+          meta_glb_nxt.mode     = vlsu_pkg::mode_oh_t'(1 << vlsu_req_i.mop);
           meta_glb_nxt.baseAddr = vlsu_req_i.baseAddr << 1;
           meta_glb_nxt.vd       = vlsu_req_i.vd;
           meta_glb_nxt.sew      = vlsu_req_i.sew;
@@ -148,6 +148,7 @@ module ReqFragmenter import riva_pkg::*; #(
         seglv_next_addr = meta_seglv_r.segBaseAddr + meta_glb_r.stride;
         seglv_glb       = meta_glb_r;
         seglv_init_en   = 1'b1;
+        meta_seglv_nxt  = seglv_init_common_o;
       end
       // Fragmenting: update meta info as transactions are issued
       S_FRAGMENTING: begin
@@ -166,13 +167,14 @@ module ReqFragmenter import riva_pkg::*; #(
               seglv_next_addr = meta_glb_nxt.baseAddr;
               seglv_glb       = meta_glb_nxt;
               seglv_init_en   = 1'b1;
+              meta_seglv_nxt  = seglv_init_common_o;
             end else begin
               seglv_next_addr = meta_seglv_r.segBaseAddr + meta_glb_nxt.stride;
               seglv_glb       = meta_glb_nxt;
               seglv_init_en   = 1'b1;
+              meta_seglv_nxt  = seglv_init_common_o;
             end
           end else begin
-            meta_seglv_nxt = meta_seglv_r;
             meta_seglv_nxt.txnCnt = meta_seglv_r.txnCnt + 1;
           end
         end
@@ -202,18 +204,18 @@ module ReqFragmenter import riva_pkg::*; #(
 
   // seglv_init_common module instantiation
   SegLvInitCommon #(
-    .NrLanes        (NrLanes),
-    .VLEN           (VLEN   ),
-    .ALEN           (ALEN   ),
-    .MaxLEN         (MaxLEN ),
-    .meta_glb_t     (meta_glb_t     ),
-    .meta_seglv_t   (meta_seglv_t   )
+    .NrLanes        (NrLanes     ),
+    .VLEN           (VLEN        ),
+    .ALEN           (ALEN        ),
+    .MaxLEN         (MaxLEN      ),
+    .meta_glb_t     (meta_glb_t  ),
+    .meta_seglv_t   (meta_seglv_t)
   ) i_seglv_init_common (
-    .en_i           (seglv_init_en  ),
-    .next_addr_i    (seglv_next_addr),
-    .glb_i          (seglv_glb      ),
-    .seg_r_i        (meta_seglv_r   ),
-    .seg_nxt_o      (meta_seglv_nxt )
+    .en_i           (seglv_init_en       ),
+    .next_addr_i    (seglv_next_addr     ),
+    .glb_i          (seglv_glb           ),
+    .seg_r_i        (meta_seglv_r        ),
+    .seg_nxt_o      (seglv_init_common_o )
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -276,9 +278,9 @@ module SegLvInitCommon import riva_pkg::*; #(
   logic [clog2MaxNbs   : 0] nr_seg_nbs_cln_major;
 
   // Select row-major or column-major segment nibbles
-  logic [clog2MaxNbs          : 0] nr_seg_nbs;
-  logic [12                   : 0] page_off;
-  logic [$max(clog2MaxNbs, 12): 0] seg_nibbles_with_pageOff;
+  logic [clog2MaxNbs   : 0] nr_seg_nbs;
+  logic [12            : 0] page_off;
+  logic [clog2MaxNbs   : 0] seg_nibbles_with_pageOff;
 
   always_comb begin
     // Mode decode - always calculated

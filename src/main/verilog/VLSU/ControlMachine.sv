@@ -117,6 +117,5 @@ module ControlMachine import vlsu_pkg::*; #(
     assign meta_ctrl_valid_o  = meta_buf_enq_valid;
     assign meta_glb_o         = meta_glb;
     assign meta_seglv_o       = meta_seglv;
-    assign meta_ready         = meta_ctrl_ready_i;
 
 endmodule 

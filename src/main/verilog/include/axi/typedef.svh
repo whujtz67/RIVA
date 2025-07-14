@@ -42,7 +42,6 @@
     axi_pkg::prot_t   prot;                                     \
     axi_pkg::qos_t    qos;                                      \
     axi_pkg::region_t region;                                   \
-    axi_pkg::atop_t   atop ;                                     \
     user_t            user;                                     \
   } aw_chan_t;
 `define AXI_TYPEDEF_W_CHAN_T(w_chan_t, data_t, strb_t, user_t)  \

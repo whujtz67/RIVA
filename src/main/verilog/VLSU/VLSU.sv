@@ -156,10 +156,9 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     assign pe_req_ready_o = iq_enq_ready;
 
     // ================= IQ (Instruction Queue) Instance ================= //
-    Queue #(
+    QueueFlow #(
       .T      (vlsu_req_t),
-      .DEPTH  (reqBufDep),
-      .FLOW   (1'b1)  // Enable flow mode for immediate consumption
+      .DEPTH  (reqBufDep)
     ) i_iq (
       .clk_i        (clk_i        ),
       .rst_ni       (rst_ni       ),

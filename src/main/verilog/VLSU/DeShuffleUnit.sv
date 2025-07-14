@@ -56,6 +56,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   logic                   shf_info_enq_ptr_flag, shf_info_deq_ptr_flag;
   logic [$clog2(shfInfoBufDep)-1:0] shf_info_enq_ptr_value, shf_info_deq_ptr_value;
   logic                   shf_info_buf_empty, shf_info_buf_full;
+  logic                   shf_info_buf_enq, shf_info_buf_deq;
 
   // Current shuffle info
   shf_info_t              shfInfo;
@@ -108,18 +109,15 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     shf_info_buf_enq = 1'b0;
     
     if (meta_info_valid_i && meta_info_ready_o) begin
-      // Software calculations (same as VAddrBundle.init)
-      automatic int unsigned vd_msb = $clog2(NrVregs);
-      
       // Hardware signals
       automatic vaddr_t            vaddr_calc;
       automatic vaddr_set_t        vd_base_set;
       automatic riva_pkg::elen_t   start_elem_in_vd = meta_info_i.vstart >> $clog2(NrLanes);
       
       // Calculate vd_base_set based on vd register type
-      vd_base_set = meta_info_i.vd[vd_msb]
-        ? (AregBaseSet + (meta_info_i.vd[vd_msb-1:0] * NrSetPerAreg))
-        : (meta_info_i.vd[vd_msb-1:0] * NrSetPerVreg);
+      vd_base_set = meta_info_i.vd[vlsu_pkg::vdMsb]
+        ? (AregBaseSet + (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerAreg))
+        : (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerVreg);
       
       // Calculate virtual address
       vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
@@ -145,23 +143,6 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // -------------------------------------------
   assign shf_info_buf_deq = do_cmt_shf_to_seq && (shfInfo.cmtCnt == 0);
 
-  // -------------------------------------------
-  // ShfInfo Buffer Logic
-  // -------------------------------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      // Reset buffer contents
-      for (int i = 0; i < shfInfoBufDep; i++) begin
-        shf_info_buf[i] <= '0;
-      end
-    end else begin
-      // Enqueue meta info
-      if (shf_info_buf_enq) begin
-        shf_info_buf[shf_info_enq_ptr_value] <= shf_info_enq_bits;
-      end
-    end
-  end
-
   assign meta_info_ready_o = !shf_info_buf_full;
 
   // -------------------------------------------
@@ -172,22 +153,6 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       rxs_ready_o[lane] = !shf_buf_valid[lane];
     end
   end: rx_lane_to_shfbuf_logic
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      for (int i = 0; i < NrLanes; i++) begin
-        shf_buf_valid[i] <= 1'b0;
-        shf_buf_bits [i] <= '0;
-      end
-    end else begin
-      for (int lane = 0; lane < NrLanes; lane++) begin
-        if (rxs_valid_i[lane] && rxs_ready_o[lane]) begin
-          shf_buf_bits[lane] <= rxs_i[lane];
-          shf_buf_valid[lane] <= 1'b1;
-        end
-      end
-    end
-  end
 
   assign shf_buf_full = &shf_buf_valid;
   
@@ -213,28 +178,42 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         automatic int unsigned off     = shf_idx % NrLanes;
         
         // Assign data and nbe
-        tx_seq_store_o.nb[seq_idx] = shf_buf_bits[lane].data[off*4+3:off*4];
+        tx_seq_store_o.nb[seq_idx] = shf_buf_bits[lane].data[off*4 +: 4];
         tx_seq_store_o.en[seq_idx] = shfInfo.vm || mask_bits_i[lane][off];
       end
     end
   end: shfbuf_to_seqbuf_logic
 
-  // Deshuffle and commit data from shfBuf to seqBuf
+  // -------------------------------------------
+  // ShfInfo Buffer Logic + Shuffle Buffer Logic
+  // -------------------------------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      // Reset
-    end else if (do_cmt_shf_to_seq) begin
-      // Clear shuffle buffer
-      for (int i = 0; i < NrLanes; i++) begin
-        shf_buf_valid[i] <= 1'b0;
+      shf_buf_valid <= '0;
+    end 
+    else begin
+      // Enqueue meta info
+      if (shf_info_buf_enq) begin
+        shf_info_buf[shf_info_enq_ptr_value] <= shf_info_enq_bits;
       end
 
-      // Update commit counter
-      if (shfInfo.cmtCnt == 0) begin
-        // Final transaction, dequeue meta
-        shf_info_buf_deq <= 1'b1;
-      end else begin
-        shfInfo.cmtCnt <= shfInfo.cmtCnt - 1;
+      // rx lane -> shfBuf
+      for (int lane = 0; lane < NrLanes; lane++) begin
+        if (rxs_valid_i[lane] && rxs_ready_o[lane]) begin
+          shf_buf_bits[lane] <= rxs_i[lane];
+          shf_buf_valid[lane] <= 1'b1;
+        end
+      end
+
+      // shfBuf -> seqBuf
+      if (do_cmt_shf_to_seq) begin
+        // Clear shuffle buffer
+        shf_buf_valid <= '0;
+
+        // Update commit counter
+        if (!(shfInfo.cmtCnt == 0)) begin
+          shf_info_buf[shf_info_deq_ptr_value].cmtCnt <= shfInfo.cmtCnt - 1;
+        end
       end
     end
   end

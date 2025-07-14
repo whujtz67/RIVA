@@ -56,6 +56,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   logic                             shf_info_enq_ptr_flag , shf_info_deq_ptr_flag ;
   logic [$clog2(shfInfoBufDep)-1:0] shf_info_enq_ptr_value, shf_info_deq_ptr_value;
   logic                             shf_info_buf_empty, shf_info_buf_full;
+  logic                             shf_info_buf_enq, shf_info_buf_deq;
 
   // Current shuffle info
   shf_info_t              shfInfo;
@@ -109,18 +110,15 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     shf_info_buf_enq = 1'b0;
     
     if (meta_info_valid_i && meta_info_ready_o) begin
-      // Software calculations (same as VAddrBundle.init)
-      automatic int unsigned vd_msb = $clog2(NrVregs);
-      
       // Hardware signals
       automatic vaddr_t               vaddr_calc;
       automatic vaddr_set_t           vd_base_set;
       automatic riva_pkg::elen_t      start_elem_in_vd = meta_info_i.vstart >> $clog2(NrLanes);
       
       // Calculate vd_base_set based on vd register type
-      vd_base_set = meta_info_i.vd[vd_msb]
-        ? (AregBaseSet + (meta_info_i.vd[vd_msb-1:0] * NrSetPerAreg))
-        : (meta_info_i.vd[vd_msb-1:0] * NrSetPerVreg);
+      vd_base_set = meta_info_i.vd[vlsu_pkg::vdMsb]
+        ? (AregBaseSet + (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerAreg))
+        : (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerVreg);
       
       // Calculate virtual address
       vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
@@ -145,24 +143,6 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // Buffer Control Logic
   // -------------------------------------------
   assign shf_info_buf_deq = do_cmt_seq_to_shf && (shfInfo.cmtCnt == 0);
-
-  // -------------------------------------------
-  // ShfInfo Buffer Logic
-  // -------------------------------------------
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      // Reset buffer contents
-      for (int i = 0; i < shfInfoBufDep; i++) begin
-        shf_info_buf[i] <= '0;
-      end
-    end else begin
-      // Enqueue meta info
-      if (shf_info_buf_enq) begin
-        shf_info_buf[shf_info_enq_ptr_value] <= shf_info_enq_bits;
-      end
-    end
-  end
-
   assign meta_info_ready_o = !shf_info_buf_full;
 
   // -------------------------------------------
@@ -190,7 +170,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
               : query_seq_idx       (NrLanes, shf_idx, shfInfo.sew);
           
           // Assign data and nbe
-          shf_buf_bits_nxt[lane].data[off*4+3:off*4] = rx_seq_load_i.nb[seq_idx];
+          shf_buf_bits_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx];
           shf_buf_bits_nxt[lane].nbe[off] = rx_seq_load_i.en[seq_idx] && 
                                              (shfInfo.vm || mask_bits_i[lane][off]);
         end
@@ -199,9 +179,9 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       // Make all shuffle buffer valid
       for (int i = 0; i < NrLanes; i++) begin
         shf_buf_valid_nxt[i]           = 1'b1;
-        shf_buf_bits_nxt[i].reqId     = shfInfo.reqId;
-        shf_buf_bits_nxt[i].vaddr_set = shfInfo.vaddr_set;
-        shf_buf_bits_nxt[i].vaddr_off = shfInfo.vaddr_off;
+        shf_buf_bits_nxt [i].reqId     = shfInfo.reqId;
+        shf_buf_bits_nxt [i].vaddr_set = shfInfo.vaddr_set;
+        shf_buf_bits_nxt [i].vaddr_off = shfInfo.vaddr_off;
       end
     end
   end: shuffle_calc
@@ -211,22 +191,30 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     if (!rst_ni) begin
       for (int i = 0; i < NrLanes; i++) begin
         shf_buf_valid[i] <= 1'b0;
-        shf_buf_bits [i] <= '0;
       end
-    end else if (do_cmt_seq_to_shf) begin
+    end
+    else if (shf_info_buf_enq) begin
+      // Enqueue meta info
+      shf_info_buf[shf_info_enq_ptr_value] <= shf_info_enq_bits;
+    end
+    else if (do_cmt_seq_to_shf) begin
       // Update shuffle buffer
       shf_buf_valid <= shf_buf_valid_nxt;
-      shf_buf_bits <= shf_buf_bits_nxt;
+      shf_buf_bits  <= shf_buf_bits_nxt;
 
       // Update vaddr
-      shfInfo.vaddr_set <= shfInfo.vaddr_set + 1;
+      shf_info_buf[shf_info_deq_ptr_value].vaddr_set <= shfInfo.vaddr_set + 1;
 
       // Update commit counter
-      if (shfInfo.cmtCnt == 0) begin
-        // Final transaction, dequeue shfInfo
-        shf_info_buf_deq <= 1'b1;
-      end else begin
-        shfInfo.cmtCnt <= shfInfo.cmtCnt - 1;
+      if (!(shfInfo.cmtCnt == 0)) begin
+        shf_info_buf[shf_info_deq_ptr_value].cmtCnt <= shfInfo.cmtCnt - 1;
+      end
+    end
+
+    // Clear shuffle buffer when transaction is accepted
+    for (int unsigned lane = 0; lane < NrLanes; lane++) begin
+      if (txs_valid_o[lane] && txs_ready_i[lane]) begin
+        shf_buf_valid[lane] <= 1'b0;
       end
     end
   end
@@ -242,24 +230,6 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       txs_o[lane] = shf_buf_bits[lane];
     end
   end: shfbuf_to_lane_logic
-
-  // Clear shuffle buffer when transaction is accepted
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      shf_buf_empty <= 1'b1;
-      for (int i = 0; i < NrLanes; i++) begin
-        shf_buf_valid[i] <= 1'b0;
-        shf_buf_bits[i] <= '0;
-      end
-    end else begin
-      for (int lane = 0; lane < NrLanes; lane++) begin
-        if (txs_valid_o[lane] && txs_ready_i[lane]) begin
-          shf_buf_valid[lane] <= 1'b0;
-        end
-      end
-      shf_buf_empty <= !(|shf_buf_valid);
-    end
-  end
 
   // ================= Assertions ================= //
   // Check that there is at least one valid shfInfo info when seqBuf is not empty
