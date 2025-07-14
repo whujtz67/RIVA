@@ -91,7 +91,7 @@
   typedef struct packed {
     vid_t              reqId;             // Request ID for tracking and debugging
     vaddr_set_t        vaddr_set;         // VRF set address
-    vaddr_off_t        vaddr_off;         // VRF offset address
+    vaddr_bank_t       vaddr_bank;         // VRF bank address
     logic [DLEN-1:0]   data;              // Data bits (DLEN = 128 bits)
     logic [DLEN/4-1:0] nbe;               // Nibble byte enable (half byte enable)
   } tx_lane_t;

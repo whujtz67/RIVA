@@ -181,10 +181,10 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   vaddr_set_t                 txs_1_bits_vaddr_set;
   vaddr_set_t                 txs_2_bits_vaddr_set;
   vaddr_set_t                 txs_3_bits_vaddr_set;
-  vaddr_off_t                 txs_0_bits_vaddr_off;
-  vaddr_off_t                 txs_1_bits_vaddr_off;
-  vaddr_off_t                 txs_2_bits_vaddr_off;
-  vaddr_off_t                 txs_3_bits_vaddr_off;
+  vaddr_bank_t                 txs_0_bits_vaddr_bank;
+  vaddr_bank_t                 txs_1_bits_vaddr_bank;
+  vaddr_bank_t                 txs_2_bits_vaddr_bank;
+  vaddr_bank_t                 txs_3_bits_vaddr_bank;
   wire        [DLEN-1:0]      txs_0_bits_data;
   wire        [DLEN-1:0]      txs_1_bits_data;
   wire        [DLEN-1:0]      txs_2_bits_data;
@@ -362,7 +362,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
     .txs_ready_i              ({txs_3_ready, txs_2_ready, txs_1_ready, txs_0_ready}),
     .txs_reqId_o             ({txs_3_bits_reqId, txs_2_bits_reqId, txs_1_bits_reqId, txs_0_bits_reqId}),
     .txs_vaddr_set_o          ({txs_3_bits_vaddr_set, txs_2_bits_vaddr_set, txs_1_bits_vaddr_set, txs_0_bits_vaddr_set}),
-    .txs_vaddr_off_o          ({txs_3_bits_vaddr_off, txs_2_bits_vaddr_off, txs_1_bits_vaddr_off, txs_0_bits_vaddr_off}),
+    .txs_vaddr_bank_o          ({txs_3_bits_vaddr_bank, txs_2_bits_vaddr_bank, txs_1_bits_vaddr_bank, txs_0_bits_vaddr_bank}),
     .txs_data_o               ({txs_3_bits_data, txs_2_bits_data, txs_1_bits_data, txs_0_bits_data}),
     .txs_nbe_o                ({txs_3_bits_nbe, txs_2_bits_nbe, txs_1_bits_nbe, txs_0_bits_nbe}),
     
@@ -414,7 +414,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
           `ifdef SIM_VCS
             $display("[INFO] @%0t [%s:%d] start dump_fsdb at cycle => %d... ", $time, `__FILE__, `__LINE__, dump_start_cycle);
             $fsdbDumpfile({dump_file, ".fsdb"});
-            $fsdbDumpvars(0, tb_top);
+            $fsdbDumpvars(0, tb_top, "+all");
           `else
             $display("[ERROR] @%0t [%s:%d] SIM_VCS is not defined!... ", $time, `__FILE__, `__LINE__);
             $fatal;

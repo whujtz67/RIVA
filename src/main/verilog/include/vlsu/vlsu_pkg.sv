@@ -48,13 +48,13 @@ package vlsu_pkg;
   // vdMsb: used for part-select of vd field (e.g. vd[vdMsb-1:0])
   parameter int unsigned vdMsb = $clog2(NrVregs);
 
-  parameter int unsigned VAddrSetBits = $clog2(NrVRFSets);
-  parameter int unsigned VAddrOffBits = $clog2(NrVRFBanksPerLane);
-  parameter int unsigned VAddrBits    = VAddrSetBits + VAddrOffBits;
+  parameter int unsigned VAddrSetBits  = $clog2(NrVRFSets);
+  parameter int unsigned VAddrBankBits = $clog2(NrVRFBanksPerLane);
+  parameter int unsigned VAddrBits     = VAddrSetBits + VAddrBankBits;
 
-  typedef logic [VAddrSetBits-1:0] vaddr_set_t;
-  typedef logic [VAddrOffBits-1:0] vaddr_off_t;
-  typedef logic [VAddrBits   -1:0] vaddr_t;
+  typedef logic [VAddrSetBits -1:0] vaddr_set_t;
+  typedef logic [VAddrBankBits-1:0] vaddr_bank_t;
+  typedef logic [VAddrBits    -1:0] vaddr_t;
   
   // ================= Derived Parameters ================= //
   parameter int unsigned busBytes      = busBits / 8;

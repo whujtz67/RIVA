@@ -47,6 +47,6 @@
     logic                                vm;         // Vector mask enable
     logic [$clog2(MaxLEN*ELEN/DLEN)-1:0] cmtCnt;    // Commit counter
     vaddr_set_t                          vaddr_set;  // Virtual address set
-    vaddr_off_t                          vaddr_off;  // Virtual address offset
+    vaddr_bank_t                         vaddr_bank;  // Virtual address bank
   } shf_info_t;
 

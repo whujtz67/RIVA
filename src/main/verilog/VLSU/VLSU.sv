@@ -70,7 +70,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     // tx_lane_t fields expanded
     output vid_t       [NrLanes-1:0]              txs_reqId_o,
     output vaddr_set_t [NrLanes-1:0]              txs_vaddr_set_o,
-    output vaddr_off_t [NrLanes-1:0]              txs_vaddr_off_o,
+    output vaddr_bank_t [NrLanes-1:0]              txs_vaddr_bank_o,
     output logic       [DLEN-1   :0][NrLanes-1:0] txs_data_o,
     output logic       [DLEN/4 -1:0][NrLanes-1:0] txs_nbe_o,
     
@@ -308,7 +308,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
         // Connect txs_internal to expanded txs outputs
         assign txs_reqId_o   [lane]  = txs_internal[lane].reqId;
         assign txs_vaddr_set_o[lane]  = txs_internal[lane].vaddr_set;
-        assign txs_vaddr_off_o[lane]  = txs_internal[lane].vaddr_off;
+        assign txs_vaddr_bank_o[lane]  = txs_internal[lane].vaddr_bank;
         assign txs_data_o     [lane]  = txs_internal[lane].data;
         assign txs_nbe_o      [lane]  = txs_internal[lane].nbe;
         

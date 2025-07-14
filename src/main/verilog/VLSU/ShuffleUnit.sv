@@ -124,15 +124,15 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
       
       // Assign meta info to intermediate signal
-      shf_info_enq_bits.reqId     = meta_info_i.reqId;
-      shf_info_enq_bits.mode      = meta_info_i.mode;
-      shf_info_enq_bits.sew       = meta_info_i.sew;
-      shf_info_enq_bits.vd        = meta_info_i.vd;
-      shf_info_enq_bits.vstart    = meta_info_i.vstart;
-      shf_info_enq_bits.vm        = meta_info_i.vm;
-      shf_info_enq_bits.cmtCnt    = meta_info_i.cmtCnt;
-      shf_info_enq_bits.vaddr_set = vaddr_calc[VAddrBits-1:VAddrOffBits];
-      shf_info_enq_bits.vaddr_off = vaddr_calc[VAddrOffBits-1:0];
+      shf_info_enq_bits.reqId      = meta_info_i.reqId;
+      shf_info_enq_bits.mode       = meta_info_i.mode;
+      shf_info_enq_bits.sew        = meta_info_i.sew;
+      shf_info_enq_bits.vd         = meta_info_i.vd;
+      shf_info_enq_bits.vstart     = meta_info_i.vstart;
+      shf_info_enq_bits.vm         = meta_info_i.vm;
+      shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
+      shf_info_enq_bits.vaddr_set  = vaddr_calc[VAddrBits-1:VAddrBankBits];
+      shf_info_enq_bits.vaddr_bank = vaddr_calc[VAddrBankBits-1:0];
       
       // Set enqueue signal
       shf_info_buf_enq = 1'b1;
@@ -178,10 +178,10 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
 
       // Make all shuffle buffer valid
       for (int i = 0; i < NrLanes; i++) begin
-        shf_buf_valid_nxt[i]           = 1'b1;
-        shf_buf_bits_nxt [i].reqId     = shfInfo.reqId;
-        shf_buf_bits_nxt [i].vaddr_set = shfInfo.vaddr_set;
-        shf_buf_bits_nxt [i].vaddr_off = shfInfo.vaddr_off;
+        shf_buf_valid_nxt[i]            = 1'b1;
+        shf_buf_bits_nxt [i].reqId      = shfInfo.reqId;
+        shf_buf_bits_nxt [i].vaddr_set  = shfInfo.vaddr_set;
+        shf_buf_bits_nxt [i].vaddr_bank = shfInfo.vaddr_bank;
       end
     end
   end: shuffle_calc
