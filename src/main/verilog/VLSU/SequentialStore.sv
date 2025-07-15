@@ -272,10 +272,10 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
             if ((i >= start) && (i < upper_nibble)) begin
               automatic int unsigned idx = i - start + seq_nb_ptr_r;
               w_buf_nxt[w_enq_ptr_value].nbs [i*4 +: 4] = seq_buf[seq_deq_ptr_value].nb[idx*4 +: 4];
-              w_buf_nxt[w_enq_ptr_value].nbes[i] = seq_buf[seq_deq_ptr_value].en[idx];
+              w_buf_nxt[w_enq_ptr_value].nbes[i]        = seq_buf[seq_deq_ptr_value].en[idx];
             end else begin
               w_buf_nxt[w_enq_ptr_value].nbs [i*4 +: 4] = '0; // TODO: Only clear nbes[i] is enough.
-              w_buf_nxt[w_enq_ptr_value].nbes[i] = 1'b0;
+              w_buf_nxt[w_enq_ptr_value].nbes[i]        = 1'b0;
             end
           end
           w_buf_nxt[w_enq_ptr_value].last = txn_ctrl_i.rmnBeat == 0;

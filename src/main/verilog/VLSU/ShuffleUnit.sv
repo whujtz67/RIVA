@@ -17,9 +17,9 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  type           shf_info_t    = logic,
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int  unsigned  laneIdBits    = $clog2(NrLanes),
-  localparam int  unsigned  nbIdxBits     = $clog2((riva_pkg::DLEN/4) * NrLanes),
-  localparam type           strb_t        = logic [riva_pkg::DLEN/4-1:0]
+  localparam int  unsigned  laneIdBits       = $clog2(NrLanes),
+  localparam int  unsigned  nbIdxBits        = $clog2((riva_pkg::DLEN/4) * NrLanes),
+  localparam type           strb_t           = logic [riva_pkg::DLEN/4-1:0]
 ) (
   input  logic                       clk_i,
   input  logic                       rst_ni,
@@ -163,7 +163,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       // Shuffle data using query_seq_idx function
       for (int lane = 0; lane < NrLanes; lane++) begin
         for (int off = 0; off < riva_pkg::DLEN/4; off++) begin
-          automatic int unsigned shf_idx = lane * NrLanes + off;
+          automatic int unsigned shf_idx = lane * (riva_pkg::DLEN/4) + off;
           // Get sequential index for this lane/offset combination
           automatic int unsigned seq_idx = ControlMachinePkg::isCln2D(shfInfo.mode)
               ? query_seq_idx_2d_cln(NrLanes, shf_idx, shfInfo.sew)
@@ -171,8 +171,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
           
           // Assign data and nbe
           shf_buf_bits_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx*4 +: 4];
-          shf_buf_bits_nxt[lane].nbe[off] = rx_seq_load_i.en[seq_idx] && 
-                                             (shfInfo.vm || mask_bits_i[lane][off]);
+          shf_buf_bits_nxt[lane].nbe [off]        = rx_seq_load_i.en[seq_idx] && (shfInfo.vm || mask_bits_i[lane][off]);
         end
       end
 

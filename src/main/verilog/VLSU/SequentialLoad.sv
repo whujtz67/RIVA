@@ -244,7 +244,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
             if ((i >= seq_nb_ptr_r) && (i < (seq_nb_ptr_r + nr_nbs_committed))) begin
               automatic int unsigned idx = i - seq_nb_ptr_r + start;
               seq_buf_nxt[seq_enq_ptr_value].nb[i*4 +: 4] = axi_r_i.data[idx*4 +: 4];
-              seq_buf_nxt[seq_enq_ptr_value].en[i] = 1'b1;
+              seq_buf_nxt[seq_enq_ptr_value].en[i]        = 1'b1;
             end
           end
         end
@@ -282,7 +282,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
       state_r      <= state_nxt;
       bus_nb_cnt_r <= bus_nb_cnt_nxt;
       seq_nb_ptr_r <= seq_nb_ptr_nxt;
-      seq_buf     <= seq_buf_nxt;
+      seq_buf      <= seq_buf_nxt;
     end
   end
 

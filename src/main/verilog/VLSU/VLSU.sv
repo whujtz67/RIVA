@@ -71,8 +71,8 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     output vid_t        [NrLanes-1:0]              txs_reqId_o,
     output vaddr_set_t  [NrLanes-1:0]              txs_vaddr_set_o,
     output vaddr_bank_t [NrLanes-1:0]              txs_vaddr_bank_o,
-    output logic        [DLEN-1   :0][NrLanes-1:0] txs_data_o,
-    output logic        [DLEN/4 -1:0][NrLanes-1:0] txs_nbe_o,
+    output logic        [NrLanes-1:0][DLEN-1   :0] txs_data_o,
+    output logic        [NrLanes-1:0][DLEN/4 -1:0] txs_nbe_o,
     
     // Receive lanes (lanes to VLSU) - expanded
     input  logic        [NrLanes-1:0]              rxs_valid_i,
