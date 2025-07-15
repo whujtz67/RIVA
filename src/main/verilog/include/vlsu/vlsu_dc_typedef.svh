@@ -26,8 +26,8 @@
   // SeqBufBundle equivalent (from SequentialPkg.scala)
   // Contains nibbles and enables for sequential buffer
   typedef struct packed {
-    logic [$clog2(NrLaneEntriesNbs)-1:0][3:0] nb;    // nibbles
-    logic [$clog2(NrLaneEntriesNbs)-1:0]      en;    // nibble enables
+    logic [4*(NrLaneEntriesNbs)-1:0] nb;    // nibbles
+    logic [NrLaneEntriesNbs    -1:0] en;    // nibble enables
   } seq_buf_t;
 
   // SeqInfoBundle equivalent (from SequentialPkg.scala)

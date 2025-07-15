@@ -178,7 +178,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         automatic int unsigned off     = shf_idx % NrLanes;
         
         // Assign data and nbe
-        tx_seq_store_o.nb[seq_idx] = shf_buf_bits[lane].data[off*4 +: 4];
+        tx_seq_store_o.nb[seq_idx*4 +: 4] = shf_buf_bits[lane].data[off*4 +: 4];
         tx_seq_store_o.en[seq_idx] = shfInfo.vm || mask_bits_i[lane][off];
       end
     end

@@ -170,7 +170,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
               : query_seq_idx       (NrLanes, shf_idx, shfInfo.sew);
           
           // Assign data and nbe
-          shf_buf_bits_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx];
+          shf_buf_bits_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx*4 +: 4];
           shf_buf_bits_nxt[lane].nbe[off] = rx_seq_load_i.en[seq_idx] && 
                                              (shfInfo.vm || mask_bits_i[lane][off]);
         end

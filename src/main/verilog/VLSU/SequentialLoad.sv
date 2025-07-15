@@ -63,7 +63,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   state_e state_r, state_nxt;
   
   // Sequential buffer (ping-pong)
-  seq_buf_t   seq_buf [1:0];
+  seq_buf_t   seq_buf     [1:0];
   seq_buf_t   seq_buf_nxt [1:0];
   logic       seq_buf_empty, seq_buf_full;
   // Circular queue pointers for seq_buf
@@ -240,11 +240,11 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
           start = lower_nibble + bus_nb_cnt_r;
           
           // Commit data from R bus to seqBuf
-          for (int unsigned seqNbIdx = 0; seqNbIdx < 128; seqNbIdx++) begin
-            if ((seqNbIdx >= lower_bound) && (seqNbIdx < upper_bound)) begin
-              automatic int unsigned idx = seqNbIdx - seq_nb_ptr_r + start;
-              seq_buf_nxt[seq_enq_ptr_value].nb[seqNbIdx] = axi_r_i.data[idx*4 +: 4];
-              seq_buf_nxt[seq_enq_ptr_value].en[seqNbIdx] = 1'b1;
+          for (int unsigned i = 0; i < NrLaneEntriesNbs; i++) begin
+            if ((i >= seq_nb_ptr_r) && (i < (seq_nb_ptr_r + nr_nbs_committed))) begin
+              automatic int unsigned idx = i - seq_nb_ptr_r + start;
+              seq_buf_nxt[seq_enq_ptr_value].nb[i*4 +: 4] = axi_r_i.data[idx*4 +: 4];
+              seq_buf_nxt[seq_enq_ptr_value].en[i] = 1'b1;
             end
           end
         end
