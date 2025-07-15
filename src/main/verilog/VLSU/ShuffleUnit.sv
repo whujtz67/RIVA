@@ -49,7 +49,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // Shuffle buffer using registers (like Chisel implementation)
   logic     [NrLanes-1:0] shf_buf_valid;
   tx_lane_t [NrLanes-1:0] shf_buf_bits ;
-  logic                   shf_buf_empty;
+  wire                    shf_buf_empty = !(|shf_buf_valid);
 
   // ShfInfo buffer using CircularQueuePtrTemplate
   shf_info_t                        shf_info_buf [shfInfoBufDep-1:0];

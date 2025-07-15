@@ -80,8 +80,7 @@ module ReqFragmenter import riva_pkg::*; #(
   assign do_update = meta_ready_i;
 
   // seglv_init_common module input signals
-  riva_pkg::elen_t                     seglv_next_addr;
-  meta_glb_t                 seglv_glb;
+  riva_pkg::elen_t           seglv_next_addr;
   logic                      seglv_init_en;
 
   // FSM state transition
@@ -110,7 +109,6 @@ module ReqFragmenter import riva_pkg::*; #(
     vlsu_req_ready_o = 1'b0;
 
     seglv_next_addr  = '0;
-    seglv_glb        = '0;
     seglv_init_en    = 1'b0;
 
     case (state_r)
@@ -145,32 +143,42 @@ module ReqFragmenter import riva_pkg::*; #(
       end
       // Initialize segment level info for new segment
       S_SEG_LV_INIT: begin
-        seglv_next_addr = meta_seglv_r.segBaseAddr + meta_glb_r.stride;
-        seglv_glb       = meta_glb_r;
+        seglv_next_addr = isIncr(meta_glb_r.mode) ?
+          meta_glb_r.baseAddr + (meta_glb_r.vstart << meta_glb_r.sew) :
+          isStrd(meta_glb_r.mode) ?
+            meta_glb_r.baseAddr + meta_glb_r.vstart * meta_glb_r.stride :
+            meta_glb_r.baseAddr;
         seglv_init_en   = 1'b1;
         meta_seglv_nxt  = seglv_init_common_o;
       end
       // Fragmenting: update meta info as transactions are issued
       S_FRAGMENTING: begin
-        if (do_update && !(isLastGrp(meta_glb_r) && isLastSeg(meta_glb_r) && isLastTxn(meta_seglv_r))) begin
+        if (do_update && !isFinalTxn(meta_glb_r, meta_seglv_r)) begin
           if (isLastTxn(meta_seglv_r)) begin
+            // Update global info
             if (isLastSeg(meta_glb_r)) begin
+              // Last Segment, but not the last group.
               if (isCln2D(meta_glb_r.mode)) begin
+                // If is2DCln mode, switch to next group.
                 meta_glb_nxt.baseAddr = meta_glb_r.baseAddr + DLEN/4;
                 meta_glb_nxt.rmnSeg   = NrLanes - 1;
                 meta_glb_nxt.rmnGrp   = meta_glb_r.rmnGrp - 1;
               end
-            end else begin
+            end 
+            else begin
+              // Not the last segment, switch SEG
               meta_glb_nxt.rmnSeg = meta_glb_r.rmnSeg - 1;
             end
+
+            // update seg Level info (switch seg / group)
             if (isLastSeg(meta_glb_r)) begin
+              // Last Segment but not the last group, switch GROUP
               seglv_next_addr = meta_glb_nxt.baseAddr;
-              seglv_glb       = meta_glb_nxt;
               seglv_init_en   = 1'b1;
               meta_seglv_nxt  = seglv_init_common_o;
-            end else begin
-              seglv_next_addr = meta_seglv_r.segBaseAddr + meta_glb_nxt.stride;
-              seglv_glb       = meta_glb_nxt;
+            end 
+            else begin
+              seglv_next_addr = meta_seglv_r.segBaseAddr + meta_glb_r.stride;
               seglv_init_en   = 1'b1;
               meta_seglv_nxt  = seglv_init_common_o;
             end
@@ -213,7 +221,7 @@ module ReqFragmenter import riva_pkg::*; #(
   ) i_seglv_init_common (
     .en_i           (seglv_init_en       ),
     .next_addr_i    (seglv_next_addr     ),
-    .glb_i          (seglv_glb           ),
+    .glb_i          (meta_glb_r          ),
     .seg_r_i        (meta_seglv_r        ),
     .seg_nxt_o      (seglv_init_common_o )
   );

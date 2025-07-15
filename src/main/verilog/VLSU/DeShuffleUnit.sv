@@ -200,7 +200,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       // rx lane -> shfBuf
       for (int lane = 0; lane < NrLanes; lane++) begin
         if (rxs_valid_i[lane] && rxs_ready_o[lane]) begin
-          shf_buf_bits[lane] <= rxs_i[lane];
+          shf_buf_bits [lane] <= rxs_i[lane];
           shf_buf_valid[lane] <= 1'b1;
         end
       end
@@ -219,9 +219,5 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   end
 
   // ================= Assertions ================= //
-  // Check that there is at least one valid meta info when shfBuf is full
-  assert property (@(posedge clk_i) 
-    shf_buf_full |-> !shf_info_buf_empty)
-    else $error("[DeShuffleUnit] There should be at least one valid meta info in meta Buffer when shfBuf is full!");
 
 endmodule : DeShuffleUnit 

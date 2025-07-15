@@ -65,27 +65,28 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
 
     // Lane Interface - Expanded for upstream compatibility
     // Transmit lanes (VLSU to lanes) - expanded
-    output logic       [NrLanes-1:0]              txs_valid_o,
-    input  logic       [NrLanes-1:0]              txs_ready_i,
+    output logic        [NrLanes-1:0]              txs_valid_o,
+    input  logic        [NrLanes-1:0]              txs_ready_i,
     // tx_lane_t fields expanded
-    output vid_t       [NrLanes-1:0]              txs_reqId_o,
-    output vaddr_set_t [NrLanes-1:0]              txs_vaddr_set_o,
+    output vid_t        [NrLanes-1:0]              txs_reqId_o,
+    output vaddr_set_t  [NrLanes-1:0]              txs_vaddr_set_o,
     output vaddr_bank_t [NrLanes-1:0]              txs_vaddr_bank_o,
-    output logic       [DLEN-1   :0][NrLanes-1:0] txs_data_o,
-    output logic       [DLEN/4 -1:0][NrLanes-1:0] txs_nbe_o,
+    output logic        [DLEN-1   :0][NrLanes-1:0] txs_data_o,
+    output logic        [DLEN/4 -1:0][NrLanes-1:0] txs_nbe_o,
     
     // Receive lanes (lanes to VLSU) - expanded
-    input  logic       [NrLanes-1:0]              rxs_valid_i,
-    output logic       [NrLanes-1:0]              rxs_ready_o,
+    input  logic        [NrLanes-1:0]              rxs_valid_i,
+    output logic        [NrLanes-1:0]              rxs_ready_o,
     // rx_lane_t fields expanded
-    input  logic       [DLEN-1   :0][NrLanes-1:0] rxs_data_i,
+    input  logic        [DLEN-1   :0][NrLanes-1:0] rxs_data_i,
 
     // Mask Interface
-    input  logic       [NrLanes-1:0]              mask_valid_i,
-    input  strb_t      [NrLanes-1:0]              mask_bits_i,
-    output logic                                  load_mask_ready_o,
-    output logic                                  store_mask_ready_o
+    input  logic        [NrLanes-1:0]              mask_valid_i,
+    input  strb_t       [NrLanes-1:0]              mask_bits_i,
+    output logic                                   load_mask_ready_o,
+    output logic                                   store_mask_ready_o
 );
+
 
     // TODO: maybe do not need to multiply ELEN here
     typedef logic [$clog2(MaxLEN*ELEN/DLEN)-1    :0] rmn_grp_t; // 0 ~ (MaxLEN*ELEN/DLEN)-1
@@ -177,6 +178,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .NrLanes      (NrLanes      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
+      .MaxLEN       (MaxLEN       ),
       .AxiDataWidth (AxiDataWidth ),
       .axi_aw_t     (axi_aw_t     ),
       .axi_ar_t     (axi_ar_t     ),
@@ -213,13 +215,14 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .NrLanes        (NrLanes        ),
       .VLEN           (VLEN           ),
       .ALEN           (ALEN           ),
+      .MaxLEN         (MaxLEN         ),
       .AxiDataWidth   (AxiDataWidth   ),
       .AxiAddrWidth   (AxiAddrWidth   ),
       .axi_r_t        (axi_r_t        ),
       .txn_ctrl_t     (txn_ctrl_t     ),
       .meta_glb_t     (meta_glb_t     ),
       .tx_lane_t      (tx_lane_t      )
-    ) i_load_unit (
+    ) i_ldu (
       .clk_i                (clk_i                ),
       .rst_ni               (rst_ni               ),
       .axi_r_valid_i        (m_axi_r_valid_i      ),
@@ -244,6 +247,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .NrLanes        (NrLanes        ),
       .VLEN           (VLEN           ),
       .ALEN           (ALEN           ),
+      .MaxLEN         (MaxLEN         ),
       .AxiDataWidth   (AxiDataWidth   ),
       .AxiAddrWidth   (AxiAddrWidth   ),
       .AxiUserWidth   (AxiUserWidth   ),
@@ -251,7 +255,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .txn_ctrl_t     (txn_ctrl_t     ),
       .meta_glb_t     (meta_glb_t     ),
       .rx_lane_t      (rx_lane_t      )
-    ) i_store_unit (
+    ) i_stu (
       .clk_i                (clk_i                ),
       .rst_ni               (rst_ni               ),
       .rxs_valid_i          (rxs_valid_i          ),
@@ -306,11 +310,11 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     generate
       for (lane = 0; lane < NrLanes; lane++) begin : lane_connections
         // Connect txs_internal to expanded txs outputs
-        assign txs_reqId_o   [lane]  = txs_internal[lane].reqId;
-        assign txs_vaddr_set_o[lane]  = txs_internal[lane].vaddr_set;
+        assign txs_reqId_o     [lane]  = txs_internal[lane].reqId;
+        assign txs_vaddr_set_o [lane]  = txs_internal[lane].vaddr_set;
         assign txs_vaddr_bank_o[lane]  = txs_internal[lane].vaddr_bank;
-        assign txs_data_o     [lane]  = txs_internal[lane].data;
-        assign txs_nbe_o      [lane]  = txs_internal[lane].nbe;
+        assign txs_data_o      [lane]  = txs_internal[lane].data;
+        assign txs_nbe_o       [lane]  = txs_internal[lane].nbe;
         
         // Connect expanded rxs inputs to rxs_internal
         assign rxs_internal[lane].data = rxs_data_i[lane];

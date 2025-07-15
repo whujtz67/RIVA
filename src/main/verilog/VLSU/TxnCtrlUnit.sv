@@ -12,15 +12,16 @@
 // (In SystemVerilog, you can use typedef as a parameter, or require the user to import it before instantiating this module)
 
 module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
-  parameter int   unsigned NrLanes      = 0,
-  parameter int   unsigned VLEN         = 0,
-  parameter int   unsigned ALEN         = 0,
   parameter int   unsigned AxiDataWidth = 0,  // AXI data width in bits
   parameter type           txn_ctrl_t   = logic,       // <-- User must typedef txn_ctrl_t before instantiating this module
   parameter type           axi_aw_t     = logic,       // <-- User must typedef axi_aw_t before instantiating this module
   parameter type           axi_ar_t     = logic,       // <-- User must typedef axi_ar_t before instantiating this module
   parameter type           meta_glb_t   = logic,       // <-- User must typedef meta_glb_t before instantiating this module
-  parameter type           meta_seglv_t = logic        // <-- User must typedef meta_seglv_t before instantiating this module
+  parameter type           meta_seglv_t = logic,       // <-- User must typedef meta_seglv_t before instantiating this module
+
+  // Dependant parameters. DO NOT CHANGE!
+  localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
+  localparam int   unsigned  busNSize         = $clog2(busNibbles)
 ) (
   input  logic                  clk_i,
   input  logic                  rst_ni,
@@ -60,6 +61,10 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
     return (g.rmnGrp == 0);
   endfunction
 
+  function automatic logic isHeadTxn(input meta_seglv_t s);
+    return (s.txnCnt == 0);
+  endfunction
+
   function automatic logic isLastTxn(input meta_seglv_t s);
     return (s.txnCnt == s.txnNum);
   endfunction
@@ -78,7 +83,8 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   txn_ctrl_t tcs_nxt [txnCtrlNum];
 
   // Empty/Full Flags
-  logic empty, full;
+  wire empty = (enq_ptr_flag == deq_ptr_flag) && (enq_ptr_value == deq_ptr_value);
+  wire full  = (enq_ptr_flag != deq_ptr_flag) && (enq_ptr_value == deq_ptr_value);
 
   // Pointer update logic
   logic data_ptr_add;
@@ -94,13 +100,37 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
     tcs_nxt = tcs_r;
     // Direct assignment for enqueue
     if (!full && meta_valid_i) begin
-      tcs_nxt[enq_ptr_value].addr       = meta_seglv_i.segBaseAddr;
+      automatic logic [12:0] page_off;
+      automatic logic [12:0] busOffMask = ((1 << 13) - 1) - ((1 << busNSize) - 1);
+      automatic logic [12:0] pageOff_without_busOff;
+      automatic logic [13:0] txn_nibbles_with_pageOff;
+      automatic logic [13:0] txn_nibbles_with_busOff;
+
+      tcs_nxt[enq_ptr_value].reqId      = meta_glb_i.reqId;
+      tcs_nxt[enq_ptr_value].addr       = isHeadTxn(meta_seglv_i) ?
+        meta_seglv_i.segBaseAddr :
+        ((meta_seglv_i.segBaseAddr >> 13) + meta_seglv_i.txnCnt) << 13;
       tcs_nxt[enq_ptr_value].size       = $clog2(AxiDataWidth/8); // AXI size = log2(bytes per transfer)
-      tcs_nxt[enq_ptr_value].rmnBeat    = meta_seglv_i.txnNum;
-      tcs_nxt[enq_ptr_value].lbN        = meta_seglv_i.ltN;
+      
+      page_off = tcs_nxt[enq_ptr_value].addr[12:0];
+      pageOff_without_busOff = page_off & busOffMask;
+      txn_nibbles_with_pageOff = isLastTxn(meta_seglv_i) ?
+        meta_seglv_i.ltN : // PageOff is already included in ltN
+        8192;
+      txn_nibbles_with_busOff = txn_nibbles_with_pageOff - pageOff_without_busOff;
+
+      tcs_nxt[enq_ptr_value].rmnBeat    = (txn_nibbles_with_busOff - 1) >> busNSize;
+      tcs_nxt[enq_ptr_value].lbN        = |(txn_nibbles_with_busOff[busNSize-1:0]) ?
+        txn_nibbles_with_busOff[busNSize-1:0] :
+        busNibbles;
       tcs_nxt[enq_ptr_value].isHead     = 1'b1;
       tcs_nxt[enq_ptr_value].isLoad     = meta_glb_i.isLoad;
       tcs_nxt[enq_ptr_value].isFinalTxn = isFinalTxn(meta_glb_i, meta_seglv_i);
+
+      assert (txn_nibbles_with_pageOff >= pageOff_without_busOff)
+        else $fatal("txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %0d, pageOff_without_busOff = %0d", txn_nibbles_with_pageOff, pageOff_without_busOff);
+      assert (txn_nibbles_with_busOff <= 8192)
+        else $fatal("txn_nibbles_with_busOff should in range(0, 8192). However, got %0d", txn_nibbles_with_busOff);
     end
     // Direct assignment for update
     if (update_i && !(tcs_r[data_ptr_value].rmnBeat == 0)) begin
@@ -113,6 +143,7 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   assign data_ptr_add = (tcs_r[data_ptr_value].rmnBeat == 0) && update_i;
   assign do_enq = meta_valid_i && meta_ready_o;
   assign do_deq = tcs_r[deq_ptr_value].isLoad ? data_ptr_add : (b_valid_i && b_ready_o);
+
 
   // --------------------- Handshake Logic ---------------------------- //
   assign ax_valid         = (txn_ptr_flag == deq_ptr_flag) && (txn_ptr_value == deq_ptr_value) && !empty;
@@ -191,16 +222,20 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
 
   // --------------------- Registers ---------------------------------- //
   always_ff @(posedge clk_i or negedge rst_ni) begin
-      tcs_r <= tcs_nxt;
+    tcs_r <= tcs_nxt;
   end
 
   // --------------------- Assertions ---------------------------------
   always_ff @(posedge clk_i) begin
     if (update_i ) assert(!empty);
     if (b_valid_i) assert(!empty);
-    assert((txn_ptr_flag  == enq_ptr_flag  && txn_ptr_value  <= enq_ptr_value ) || full);
-    assert((data_ptr_flag == enq_ptr_flag  && data_ptr_value <= enq_ptr_value ) || full);
-    assert((deq_ptr_flag  == data_ptr_flag && deq_ptr_value  <= data_ptr_value) || full);
+    // Right pointer should be not after left pointer.
+    assert(((txn_ptr_flag  ^ enq_ptr_flag ) ^ (txn_ptr_value  <= enq_ptr_value )) || (txn_ptr_flag  != enq_ptr_flag  && txn_ptr_value  == enq_ptr_value ))
+      else $fatal("enqPtr should not be after txnPtr");
+    assert(((data_ptr_flag ^ enq_ptr_flag ) ^ (data_ptr_value <= enq_ptr_value )) || (data_ptr_flag != enq_ptr_flag  && data_ptr_value == enq_ptr_value ))
+      else $fatal("enqPtr should not be after dataPtr");
+    assert(((deq_ptr_flag  ^ data_ptr_flag) ^ (deq_ptr_value  <= data_ptr_value)) || (deq_ptr_flag  != data_ptr_flag && deq_ptr_value  == data_ptr_value))
+      else $fatal("dataPtr should not be after deqPtr");
   end
 
 endmodule

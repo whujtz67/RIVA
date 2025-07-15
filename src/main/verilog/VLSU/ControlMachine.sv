@@ -82,10 +82,6 @@ module ControlMachine import vlsu_pkg::*; #(
     );
 
     TxnCtrlUnit #(
-      .NrLanes      (NrLanes      ),
-      .VLEN         (VLEN         ),
-      .ALEN         (ALEN         ),
-      .MaxLEN       (MaxLEN       ),
       .AxiDataWidth (AxiDataWidth ),
       .txn_ctrl_t   (txn_ctrl_t   ),
       .axi_aw_t     (axi_aw_t     ),

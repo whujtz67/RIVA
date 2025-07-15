@@ -93,7 +93,8 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
 
   
 
-  w_buf_t w_buf [wBufDep-1:0];
+  w_buf_t w_buf_r [wBufDep-1:0];
+  w_buf_t w_buf_nxt [wBufDep-1:0];
   logic w_buf_full, w_buf_empty;
   // Circular queue pointers for w_buf
   logic w_enq_ptr_flag, w_deq_ptr_flag;
@@ -210,6 +211,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
     seq_buf_valid_nb    = '0;
     nr_nbs_committed    = '0;
     start               = '0;
+    w_buf_nxt           = w_buf_r;
 
     case (state_r)
       S_IDLE: begin
@@ -269,15 +271,15 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
           for (int unsigned i = 0; i < busNibbles; i++) begin
             if ((i >= start) && (i < upper_nibble)) begin
               automatic int unsigned idx = i - start + seq_nb_ptr_r;
-              w_buf[w_enq_ptr_value].nbs [i] = seq_buf[seq_deq_ptr_value].nb[idx];
-              w_buf[w_enq_ptr_value].nbes[i] = seq_buf[seq_deq_ptr_value].en[idx];
+              w_buf_nxt[w_enq_ptr_value].nbs [i] = seq_buf[seq_deq_ptr_value].nb[idx];
+              w_buf_nxt[w_enq_ptr_value].nbes[i] = seq_buf[seq_deq_ptr_value].en[idx];
             end else begin
-              w_buf[w_enq_ptr_value].nbs [i] = '0; // TODO: Only clear nbes[i] is enough.
-              w_buf[w_enq_ptr_value].nbes[i] = 1'b0;
+              w_buf_nxt[w_enq_ptr_value].nbs [i] = '0; // TODO: Only clear nbes[i] is enough.
+              w_buf_nxt[w_enq_ptr_value].nbes[i] = 1'b0;
             end
           end
-          w_buf[w_enq_ptr_value].last = txn_ctrl_i.rmnBeat == 0;
-          w_buf[w_enq_ptr_value].user = '0;
+          w_buf_nxt[w_enq_ptr_value].last = txn_ctrl_i.rmnBeat == 0;
+          w_buf_nxt[w_enq_ptr_value].user = '0;
         end
       end
       S_GATHER_CMT: begin
@@ -300,13 +302,13 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
 
   // ================= wBuf -> AXI W Channel ================= //
   always_comb begin: wbuf_to_axi_w_logic
-    axi_w_o.data = w_buf[w_deq_ptr_value].nbs;
+    axi_w_o.data = w_buf_r[w_deq_ptr_value].nbs;
     axi_w_o.strb = '0;
     for (int i = 0; i < busNibbles; i++) begin
-      axi_w_o.strb[i] = w_buf[w_deq_ptr_value].nbes[2*i] || w_buf[w_deq_ptr_value].nbes[2*i+1];
+      axi_w_o.strb[i] = w_buf_r[w_deq_ptr_value].nbes[2*i] || w_buf_r[w_deq_ptr_value].nbes[2*i+1];
     end
-    axi_w_o.last  = w_buf[w_deq_ptr_value].last;
-    axi_w_o.user  = w_buf[w_deq_ptr_value].user;
+    axi_w_o.last  = w_buf_r[w_deq_ptr_value].last;
+    axi_w_o.user  = w_buf_r[w_deq_ptr_value].user;
   end: wbuf_to_axi_w_logic
 
   assign axi_w_valid_o = !w_buf_empty;
@@ -327,11 +329,23 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
       state_r      <= S_IDLE;
       bus_nb_cnt_r <= '0;
       seq_nb_ptr_r <= '0;
+      for (int i = 0; i < wBufDep; i++) begin
+        w_buf_r[i] <= '0;
+      end
     end else begin
       state_r      <= state_nxt;
       bus_nb_cnt_r <= bus_nb_cnt_nxt;
       seq_nb_ptr_r <= seq_nb_ptr_nxt;
+      w_buf_r      <= w_buf_nxt;
     end
   end
+
+  // ================= Assertions ================= //
+  assert property (@(posedge clk_i) upper_nibble <= busNibbles)
+    else $fatal("upper_nibble exceeds busNibbles: %0d > %0d", upper_nibble, busNibbles);
+  assert property (@(posedge clk_i) bus_valid_nb <= busNibbles)
+    else $fatal("bus_valid_nb exceeds busNibbles: %0d > %0d", bus_valid_nb, busNibbles);
+  assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
+    else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
 
 endmodule : SequentialStore 

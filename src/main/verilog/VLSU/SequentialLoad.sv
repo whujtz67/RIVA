@@ -64,6 +64,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   
   // Sequential buffer (ping-pong)
   seq_buf_t   seq_buf [1:0];
+  seq_buf_t   seq_buf_nxt [1:0];
   logic       seq_buf_empty, seq_buf_full;
   // Circular queue pointers for seq_buf
   logic       seq_enq_ptr_flag, seq_deq_ptr_flag;
@@ -127,6 +128,9 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   logic [nrNbsCmtBits                            : 0] nr_nbs_committed;
   logic [busNSize-1                              : 0] start;
   logic                                               do_serial_cmt;
+
+  wire [$clog2(NrLaneEntriesNbs)-1:0] lower_bound = seq_nb_ptr_r;
+  wire [$clog2(NrLaneEntriesNbs)  :0] upper_bound = seq_nb_ptr_r + nr_nbs_committed;
   
   // ================= FSM State Transition Logic ================= //
   always_comb begin: fsm_state_transition
@@ -177,6 +181,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
     nr_nbs_committed    = '0;
     start               = '0;
     do_serial_cmt       = 1'b0;
+    seq_buf_nxt         = seq_buf;
     
     case (state_r)
       S_IDLE: begin
@@ -208,7 +213,8 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
             bus_nb_cnt_nxt   = bus_nb_cnt_r + nr_nbs_committed;
             seq_nb_ptr_nxt   = '0;
             seq_buf_enq      = 1'b1;
-          end else begin
+          end 
+          else begin
             // seqBuf still has enough space for the next r beat
             nr_nbs_committed = bus_valid_nb;
             bus_nb_cnt_nxt   = '0;
@@ -230,20 +236,21 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
             end
           end
           
+          // TODO: Maybe there is a better way.
           start = lower_nibble + bus_nb_cnt_r;
           
           // Commit data from R bus to seqBuf
-          for (int i = 0; i < NrLaneEntriesNbs; i++) begin
-            if ((i >= seq_nb_ptr_r) && (i < (seq_nb_ptr_r + nr_nbs_committed))) begin
-              automatic int unsigned idx = i - seq_nb_ptr_r + start;
-              seq_buf[seq_enq_ptr_value].nb[i] = axi_r_i.data[idx*4 +: 4];
-              seq_buf[seq_enq_ptr_value].en[i] = 1'b1;
+          for (int unsigned seqNbIdx = 0; seqNbIdx < 128; seqNbIdx++) begin
+            if ((seqNbIdx >= lower_bound) && (seqNbIdx < upper_bound)) begin
+              automatic int unsigned idx = seqNbIdx - seq_nb_ptr_r + start;
+              seq_buf_nxt[seq_enq_ptr_value].nb[seqNbIdx] = axi_r_i.data[idx*4 +: 4];
+              seq_buf_nxt[seq_enq_ptr_value].en[seqNbIdx] = 1'b1;
             end
           end
         end
 
         if (tx_shfu_valid_o && tx_shfu_ready_i) begin
-          seq_buf[seq_deq_ptr_value] <= '0;
+          seq_buf_nxt[seq_deq_ptr_value] = '0;
         end
       end
       S_GATHER_CMT: begin
@@ -268,11 +275,23 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
       state_r      <= S_IDLE;
       bus_nb_cnt_r <= '0;
       seq_nb_ptr_r <= '0;
+      for (int i = 0; i < 2; i++) begin
+        seq_buf[i] <= '0;
+      end
     end else begin
       state_r      <= state_nxt;
       bus_nb_cnt_r <= bus_nb_cnt_nxt;
       seq_nb_ptr_r <= seq_nb_ptr_nxt;
+      seq_buf     <= seq_buf_nxt;
     end
   end
+
+  // ================= Assertions ================= //
+  assert property (@(posedge clk_i) upper_nibble <= busNibbles)
+    else $fatal("upper_nibble exceeds busNibbles: %0d > %0d", upper_nibble, busNibbles);
+  assert property (@(posedge clk_i) bus_valid_nb <= busNibbles)
+    else $fatal("bus_valid_nb exceeds busNibbles: %0d > %0d", bus_valid_nb, busNibbles);
+  assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
+    else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
 
 endmodule : SequentialLoad 

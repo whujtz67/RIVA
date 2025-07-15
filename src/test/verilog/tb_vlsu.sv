@@ -44,6 +44,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   localparam int unsigned NrLanes      = 4;
   localparam int unsigned VLEN         = 8192;
   localparam int unsigned ALEN         = 16384;
+  localparam int unsigned MaxLEN       = (VLEN > ALEN) ? VLEN : ALEN;
 
   typedef logic [$clog2(VLEN+1)-1:0] vlen_t;
   typedef logic [$clog2(ALEN+1)-1:0] alen_t;
@@ -181,10 +182,10 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   vaddr_set_t                 txs_1_bits_vaddr_set;
   vaddr_set_t                 txs_2_bits_vaddr_set;
   vaddr_set_t                 txs_3_bits_vaddr_set;
-  vaddr_bank_t                 txs_0_bits_vaddr_bank;
-  vaddr_bank_t                 txs_1_bits_vaddr_bank;
-  vaddr_bank_t                 txs_2_bits_vaddr_bank;
-  vaddr_bank_t                 txs_3_bits_vaddr_bank;
+  vaddr_bank_t                txs_0_bits_vaddr_bank;
+  vaddr_bank_t                txs_1_bits_vaddr_bank;
+  vaddr_bank_t                txs_2_bits_vaddr_bank;
+  vaddr_bank_t                txs_3_bits_vaddr_bank;
   wire        [DLEN-1:0]      txs_0_bits_data;
   wire        [DLEN-1:0]      txs_1_bits_data;
   wire        [DLEN-1:0]      txs_2_bits_data;
@@ -301,7 +302,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   initial cycles = 0;
   
   always@(posedge clock) begin
-    if (reset)
+    if (!reset)
       cycles <= 0;
     else
       cycles <= cycles + 1;
@@ -314,6 +315,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
     .NrLanes      (NrLanes      ),
     .VLEN         (VLEN         ),
     .ALEN         (ALEN         ),
+    .MaxLEN       (MaxLEN       ),
     .pe_req_t     (pe_req_t     ),
     .pe_resp_t    (pe_resp_t    ),
     .AxiDataWidth (AxiDataWidth ),
@@ -360,7 +362,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
     // Lane Interface - Transmit lanes
     .txs_valid_o              ({txs_3_valid, txs_2_valid, txs_1_valid, txs_0_valid}),
     .txs_ready_i              ({txs_3_ready, txs_2_ready, txs_1_ready, txs_0_ready}),
-    .txs_reqId_o             ({txs_3_bits_reqId, txs_2_bits_reqId, txs_1_bits_reqId, txs_0_bits_reqId}),
+    .txs_reqId_o              ({txs_3_bits_reqId, txs_2_bits_reqId, txs_1_bits_reqId, txs_0_bits_reqId}),
     .txs_vaddr_set_o          ({txs_3_bits_vaddr_set, txs_2_bits_vaddr_set, txs_1_bits_vaddr_set, txs_0_bits_vaddr_set}),
     .txs_vaddr_bank_o          ({txs_3_bits_vaddr_bank, txs_2_bits_vaddr_bank, txs_1_bits_vaddr_bank, txs_0_bits_vaddr_bank}),
     .txs_data_o               ({txs_3_bits_data, txs_2_bits_data, txs_1_bits_data, txs_0_bits_data}),
