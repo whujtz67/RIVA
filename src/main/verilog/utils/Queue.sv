@@ -99,11 +99,14 @@ module QueueFlow #(
   input  logic        deq_ready_i,
   output T            deq_bits_o
 );
+
+  localparam int unsigned ptrWidth = (DEPTH > 32'd1) ? unsigned'($clog2(DEPTH)) : 32'd1;
+  
   T      ram      [DEPTH];
-  logic [$clog2(DEPTH)-1:0] enq_ptr, deq_ptr;
-  logic                     maybe_full;
-  logic                     ptr_match, empty, full;
-  logic                     do_enq, do_deq;
+  logic [ptrWidth-1:0] enq_ptr, deq_ptr;
+  logic                maybe_full;
+  logic                ptr_match, empty, full;
+  logic                do_enq, do_deq;
 
   assign ptr_match = (enq_ptr == deq_ptr);
   assign empty     = ptr_match && !maybe_full;
@@ -163,8 +166,11 @@ module QueuePipe #(
   input  logic        deq_ready_i,
   output T            deq_bits_o
 );
+
+  localparam int unsigned ptrWidth = (DEPTH > 32'd1) ? unsigned'($clog2(DEPTH)) : 32'd1;
+
   T      ram      [DEPTH];
-  logic [$clog2(DEPTH)-1:0] enq_ptr, deq_ptr;
+  logic [ptrWidth-1:0]      enq_ptr, deq_ptr;
   logic                     maybe_full;
   logic                     ptr_match, empty, full;
   logic                     do_enq, do_deq;

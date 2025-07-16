@@ -30,12 +30,13 @@ package vlsu_pkg;
   parameter int unsigned idBits        = 1;             // AXI ID width
   
   // ================= Buffer and Cache Parameters ================= //
+  // The Buffer/Queue depth should be power of 2 because Queue and CircularQueuePtr do not support non-power-of-2 depth currently!
   parameter int unsigned reqBufDep     = 4;           // Instruction Queue depth
   parameter int unsigned metaBufDepth  = 4;           // Meta buffer depth
   parameter int unsigned txnCtrlNum    = 4;           // Number of transaction controllers
   parameter int unsigned wBufDep       = 2;           // Write buffer depth for SequentialStore
-  parameter int unsigned seqInfoBufDep = 2;           // Sequential info buffer depth
-  parameter int unsigned shfInfoBufDep = 2;           // Shuffle info buffer depth
+  parameter int unsigned seqInfoBufDep = 2;           // Sequential info buffer depth. Should be power of 2!
+  parameter int unsigned shfInfoBufDep = 2;           // Shuffle info buffer depth. Should be power of 2!
 
   // ================= VAddr Parameters ================= //
   parameter int unsigned NrVregs      = 16;
