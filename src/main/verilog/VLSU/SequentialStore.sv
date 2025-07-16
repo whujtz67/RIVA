@@ -135,7 +135,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
 
   QueueFlow #(
     .T     (seq_info_t),
-    .DEPTH (1)
+    .DEPTH (seqInfoBufDep)
   ) u_seq_info_queue (
     .clk_i         (clk_i             ),
     .rst_ni        (rst_ni            ),
@@ -162,6 +162,14 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   function automatic logic isFinalBeat(input txn_ctrl_t txn_ctrl);
     return txn_ctrl.isFinalTxn && (txn_ctrl.rmnBeat == 0);
   endfunction
+
+  // ================= Sequential Info Buffer Enqueue Logic ================= //
+  riva_pkg::elen_t vstart_nb;
+  
+  assign vstart_nb                  = meta_glb_i.vstart << meta_glb_i.sew;
+  assign seq_info_enq_bits.seqNbPtr = vstart_nb[$clog2(NrLaneEntriesNbs)-1:0];
+  assign seq_info_enq_valid         = meta_glb_valid_i;
+  assign meta_glb_ready_o           = seq_info_enq_ready;
 
   // ================= FSM State Transition Logic ================= //
   always_comb begin: fsm_state_transition
@@ -313,15 +321,6 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
 
   assign axi_w_valid_o = !w_buf_empty;
   assign w_buf_deq = axi_w_valid_o && axi_w_ready_i;
-
-  // ================= Meta Control Interface Logic ================= //
-  // ================= seq_info_enq Logic ================= //
-  riva_pkg::elen_t nr_tot_nibbles;
-
-  assign seq_info_enq_valid         = meta_glb_valid_i;
-  assign nr_tot_nibbles             = meta_glb_i.vstart << meta_glb_i.sew;
-  assign seq_info_enq_bits.seqNbPtr = nr_tot_nibbles[$clog2(NrLaneEntriesNbs)-1:0];
-  assign meta_glb_ready_o           = seq_info_enq_ready;
 
   // ================= Sequential Logic ================= //
   always_ff @(posedge clk_i or negedge rst_ni) begin

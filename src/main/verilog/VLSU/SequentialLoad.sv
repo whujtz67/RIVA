@@ -105,7 +105,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
 
   QueueFlow #(
     .T     (seq_info_t),
-    .DEPTH (1)
+    .DEPTH (seqInfoBufDep)
   ) u_seq_info_queue (
     .clk_i         (clk_i             ),
     .rst_ni        (rst_ni            ),
@@ -131,6 +131,14 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
 
   wire [$clog2(NrLaneEntriesNbs)-1:0] lower_bound = seq_nb_ptr_r;
   wire [$clog2(NrLaneEntriesNbs)  :0] upper_bound = seq_nb_ptr_r + nr_nbs_committed;
+
+  // ================= Sequential Info Buffer Enqueue Logic ================= //
+  riva_pkg::elen_t vstart_nb;
+  
+  assign vstart_nb                  = meta_glb_i.vstart << meta_glb_i.sew;
+  assign seq_info_enq_bits.seqNbPtr = vstart_nb[$clog2(NrLaneEntriesNbs)-1:0];
+  assign seq_info_enq_valid         = meta_glb_valid_i;
+  assign meta_glb_ready_o           = seq_info_enq_ready;
   
   // ================= FSM State Transition Logic ================= //
   always_comb begin: fsm_state_transition
@@ -170,8 +178,6 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
     axi_r_ready_o       = 1'b0;
     txn_ctrl_ready_o    = 1'b0;
     seq_buf_enq         = 1'b0;
-    seq_info_enq_bits   = '0;
-    seq_info_enq_valid  = meta_glb_valid_i;
     seq_info_deq_ready  = 1'b0;
     // Default assignments for intermediate variables
     lower_nibble        = '0;
@@ -265,9 +271,6 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   assign tx_shfu_o       = seq_buf[seq_deq_ptr_value];
 
   assign seq_buf_deq = tx_shfu_valid_o && tx_shfu_ready_i;
-  
-  // ================= Meta Control Interface Logic ================= //
-  assign meta_glb_ready_o = seq_info_enq_ready;
   
   // ================= Sequential Logic ================= //
   always_ff @(posedge clk_i or negedge rst_ni) begin
