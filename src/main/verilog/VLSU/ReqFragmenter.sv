@@ -67,7 +67,7 @@ module ReqFragmenter import riva_pkg::*; #(
   state_e state_r, state_nxt;
 
   // Registers for meta info
-  meta_glb_t   meta_glb_r, meta_glb_nxt;
+  meta_glb_t   meta_glb_r, meta_glb_nxt, seglv_init_common_glb_i;
   meta_seglv_t meta_seglv_r, meta_seglv_nxt, seglv_init_common_o;
 
   // Indicates the first cycle of fragmenting state.
@@ -108,6 +108,7 @@ module ReqFragmenter import riva_pkg::*; #(
     meta_valid_o     = 1'b0;
     vlsu_req_ready_o = 1'b0;
 
+    seglv_init_common_glb_i = meta_glb_r;
     seglv_next_addr  = '0;
     seglv_init_en    = 1'b0;
 
@@ -174,6 +175,7 @@ module ReqFragmenter import riva_pkg::*; #(
             if (isLastSeg(meta_glb_r)) begin
               // Last Segment but not the last group, switch GROUP
               seglv_next_addr = meta_glb_nxt.baseAddr;
+              seglv_init_common_glb_i = meta_glb_nxt; // NOTE: Should be next here!
               seglv_init_en   = 1'b1;
               meta_seglv_nxt  = seglv_init_common_o;
             end 
@@ -219,11 +221,11 @@ module ReqFragmenter import riva_pkg::*; #(
     .meta_glb_t     (meta_glb_t  ),
     .meta_seglv_t   (meta_seglv_t)
   ) i_seglv_init_common (
-    .en_i           (seglv_init_en       ),
-    .next_addr_i    (seglv_next_addr     ),
-    .glb_i          (meta_glb_r          ),
-    .seg_r_i        (meta_seglv_r        ),
-    .seg_nxt_o      (seglv_init_common_o )
+    .en_i           (seglv_init_en          ),
+    .next_addr_i    (seglv_next_addr        ),
+    .glb_i          (seglv_init_common_glb_i),
+    .seg_r_i        (meta_seglv_r           ),
+    .seg_nxt_o      (seglv_init_common_o    )
   );
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
