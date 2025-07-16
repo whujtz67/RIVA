@@ -78,7 +78,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     input  logic        [NrLanes-1:0]              rxs_valid_i,
     output logic        [NrLanes-1:0]              rxs_ready_o,
     // rx_lane_t fields expanded
-    input  logic        [DLEN-1   :0][NrLanes-1:0] rxs_data_i,
+    input  logic        [NrLanes-1:0][DLEN-1   :0] rxs_data_i,
 
     // Mask Interface
     input  logic        [NrLanes-1:0]              mask_valid_i,
