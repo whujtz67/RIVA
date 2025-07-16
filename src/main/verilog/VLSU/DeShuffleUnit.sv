@@ -48,15 +48,15 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // ================= Internal Signals ================= //
   // Shuffle buffer to store data from lanes (using registers like Chisel)
   logic     [NrLanes-1:0] shf_buf_valid;
-  rx_lane_t [NrLanes-1:0] shf_buf_bits;
+  rx_lane_t [NrLanes-1:0] shf_buf;
   logic                   shf_buf_full;
 
   // ShfInfo buffer using CircularQueuePtrTemplate
-  shf_info_t              shf_info_buf [shfInfoBufDep-1:0];
-  logic                   shf_info_enq_ptr_flag, shf_info_deq_ptr_flag;
+  shf_info_t                        shf_info_buf [shfInfoBufDep-1:0];
+  logic                             shf_info_enq_ptr_flag, shf_info_deq_ptr_flag;
   logic [$clog2(shfInfoBufDep)-1:0] shf_info_enq_ptr_value, shf_info_deq_ptr_value;
-  logic                   shf_info_buf_empty, shf_info_buf_full;
-  logic                   shf_info_buf_enq, shf_info_buf_deq;
+  logic                             shf_info_buf_empty, shf_info_buf_full;
+  logic                             shf_info_buf_enq, shf_info_buf_deq;
 
   // Current shuffle info
   shf_info_t              shfInfo;
@@ -174,12 +174,12 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         automatic int unsigned shf_idx = ControlMachinePkg::isCln2D(shfInfo.mode)
             ? query_shf_idx_2d_cln(NrLanes, seq_idx, shfInfo.sew)
             : query_shf_idx       (NrLanes, seq_idx, shfInfo.sew);
-        automatic int unsigned lane    = shf_idx / NrLanes;
-        automatic int unsigned off     = shf_idx % NrLanes;
+        automatic int unsigned lane    = shf_idx / (riva_pkg::DLEN/4);
+        automatic int unsigned off     = shf_idx % (riva_pkg::DLEN/4);
         
         // Assign data and nbe
-        tx_seq_store_o.nb[seq_idx*4 +: 4] = shf_buf_bits[lane].data[off*4 +: 4];
-        tx_seq_store_o.en[seq_idx] = shfInfo.vm || mask_bits_i[lane][off];
+        tx_seq_store_o.nb[seq_idx*4 +: 4] = shf_buf[lane].data[off*4 +: 4];
+        tx_seq_store_o.en[seq_idx]        = shfInfo.vm || mask_bits_i[lane][off];
       end
     end
   end: shfbuf_to_seqbuf_logic
@@ -200,7 +200,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       // rx lane -> shfBuf
       for (int lane = 0; lane < NrLanes; lane++) begin
         if (rxs_valid_i[lane] && rxs_ready_o[lane]) begin
-          shf_buf_bits [lane] <= rxs_i[lane];
+          shf_buf      [lane] <= rxs_i[lane];
           shf_buf_valid[lane] <= 1'b1;
         end
       end

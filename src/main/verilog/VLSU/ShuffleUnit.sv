@@ -47,8 +47,8 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
 
   // ================= Internal Signals ================= //
   // Shuffle buffer using registers (like Chisel implementation)
-  logic     [NrLanes-1:0] shf_buf_valid;
-  tx_lane_t [NrLanes-1:0] shf_buf_bits ;
+  logic     [NrLanes-1:0] shf_buf_valid, shf_buf_valid_nxt;
+  tx_lane_t [NrLanes-1:0] shf_buf, shf_buf_nxt;
   wire                    shf_buf_empty = !(|shf_buf_valid);
 
   // ShfInfo buffer using CircularQueuePtrTemplate
@@ -67,9 +67,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // Intermediate signals for meta info calculation
   shf_info_t              shf_info_enq_bits;
 
-  // Intermediate signals for shuffle calculation
-  logic [NrLanes-1:0]     shf_buf_valid_nxt;
-  tx_lane_t [NrLanes-1:0] shf_buf_bits_nxt;
+  
 
   // ================= Circular Queue Pointer Instantiations ================= //
   CircularQueuePtrTemplate #(
@@ -157,7 +155,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   always_comb begin: shuffle_calc
     // Default assignments
     shf_buf_valid_nxt = shf_buf_valid;
-    shf_buf_bits_nxt  = shf_buf_bits;
+    shf_buf_nxt  = shf_buf;
     
     if (do_cmt_seq_to_shf) begin
       // Shuffle data using query_seq_idx function
@@ -170,17 +168,17 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
               : query_seq_idx       (NrLanes, shf_idx, shfInfo.sew);
           
           // Assign data and nbe
-          shf_buf_bits_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx*4 +: 4];
-          shf_buf_bits_nxt[lane].nbe [off]        = rx_seq_load_i.en[seq_idx] && (shfInfo.vm || mask_bits_i[lane][off]);
+          shf_buf_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx*4 +: 4];
+          shf_buf_nxt[lane].nbe [off]        = rx_seq_load_i.en[seq_idx] && (shfInfo.vm || mask_bits_i[lane][off]);
         end
       end
 
       // Make all shuffle buffer valid
       for (int i = 0; i < NrLanes; i++) begin
         shf_buf_valid_nxt[i]            = 1'b1;
-        shf_buf_bits_nxt [i].reqId      = shfInfo.reqId;
-        shf_buf_bits_nxt [i].vaddr_set  = shfInfo.vaddr_set;
-        shf_buf_bits_nxt [i].vaddr_bank = shfInfo.vaddr_bank;
+        shf_buf_nxt [i].reqId      = shfInfo.reqId;
+        shf_buf_nxt [i].vaddr_set  = shfInfo.vaddr_set;
+        shf_buf_nxt [i].vaddr_bank = shfInfo.vaddr_bank;
       end
     end
   end: shuffle_calc
@@ -199,7 +197,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     else if (do_cmt_seq_to_shf) begin
       // Update shuffle buffer
       shf_buf_valid <= shf_buf_valid_nxt;
-      shf_buf_bits  <= shf_buf_bits_nxt;
+      shf_buf  <= shf_buf_nxt;
 
       // Update vaddr
       shf_info_buf[shf_info_deq_ptr_value].vaddr_set <= shfInfo.vaddr_set + 1;
@@ -226,7 +224,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   always_comb begin: shfbuf_to_lane_logic
     for (int lane = 0; lane < NrLanes; lane++) begin
       txs_valid_o[lane] = shf_buf_valid[lane];
-      txs_o[lane] = shf_buf_bits[lane];
+      txs_o      [lane] = shf_buf[lane];
     end
   end: shfbuf_to_lane_logic
 
