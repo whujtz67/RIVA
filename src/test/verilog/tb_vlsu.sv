@@ -88,7 +88,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
 
   // PE Response Type - minimal definition for VLSU
   typedef struct packed {
-    logic [31:0]       dummy;        // Placeholder for future use
+    logic [riva_pkg::NrVInsn-1:0] vinsn_done;       // Placeholder for future use
   } pe_resp_t;
 
 // -----------------------------------------
@@ -220,6 +220,9 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
   strb_t                      mask_3_bits;
   wire                        load_mask_ready_o;
   wire                        store_mask_ready_o;
+
+  pe_resp_t pe_resp_load_o;
+  pe_resp_t pe_resp_store_o;
 
 // -----------------------------------------
 // reg initialize
@@ -377,7 +380,11 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
     .mask_valid_i             ({mask_3_valid, mask_2_valid, mask_1_valid, mask_0_valid}),
     .mask_bits_i              ({mask_3_bits, mask_2_bits, mask_1_bits, mask_0_bits}),
     .load_mask_ready_o        (load_mask_ready_o),
-    .store_mask_ready_o       (store_mask_ready_o)
+    .store_mask_ready_o       (store_mask_ready_o),
+
+    // pe resp load and store
+    .pe_resp_load_o           (pe_resp_load_o),
+    .pe_resp_store_o          (pe_resp_store_o)
   );
 
 

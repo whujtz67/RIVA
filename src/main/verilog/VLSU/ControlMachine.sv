@@ -4,7 +4,7 @@
 // Top-level control machine: connects ReqFragmenter and TxnCtrlUnit
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 module ControlMachine import vlsu_pkg::*; #(
     parameter  int   unsigned  NrLanes      = 0,
@@ -17,7 +17,8 @@ module ControlMachine import vlsu_pkg::*; #(
     parameter  type            vlsu_req_t   = logic,
     parameter  type            meta_glb_t   = logic,
     parameter  type            meta_seglv_t = logic,
-    parameter  type            txn_ctrl_t   = logic
+    parameter  type            txn_ctrl_t   = logic,
+    parameter  type            pe_resp_t    = logic
 ) (
     // requester side
     input  logic          clk_i,
@@ -49,7 +50,10 @@ module ControlMachine import vlsu_pkg::*; #(
     output axi_ar_t       ar_o,
 
     input  logic          b_valid_i,
-    output logic          b_ready_o
+    output logic          b_ready_o,
+
+    // pe resp store
+    output pe_resp_t      pe_resp_store_o
 );
     // --------------------- Internal Connection Signals --------------------- //
     logic meta_valid, meta_ready;
@@ -87,7 +91,8 @@ module ControlMachine import vlsu_pkg::*; #(
       .axi_aw_t     (axi_aw_t     ),
       .axi_ar_t     (axi_ar_t     ),
       .meta_glb_t   (meta_glb_t   ),
-      .meta_seglv_t (meta_seglv_t )
+      .meta_seglv_t (meta_seglv_t ),
+      .pe_resp_t    (pe_resp_t    )
     ) i_tc (
       .clk_i            (clk_i           ),
       .rst_ni           (rst_ni          ),
@@ -105,7 +110,8 @@ module ControlMachine import vlsu_pkg::*; #(
       .ar_ready_i       (ar_ready_i      ),
       .ar_o             (ar_o            ),
       .b_valid_i        (b_valid_i       ),
-      .b_ready_o        (b_ready_o       )
+      .b_ready_o        (b_ready_o       ),
+      .pe_resp_store_o  (pe_resp_store_o )
     );
 
     // --------------------- Meta Buffer Full Signal --------------------- //

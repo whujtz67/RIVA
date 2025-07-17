@@ -4,7 +4,7 @@
 // All logic is directly expanded, no non-synthesizable task.
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 import ControlMachinePkg::*;
 

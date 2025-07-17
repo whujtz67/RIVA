@@ -101,7 +101,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   assign mask_ready_o = do_cmt_shf_to_seq && !shfInfo.vm;
 
   // -------------------------------------------
-  // Meta Info Calculation Logic
+  // Shuffle Info initialization and enqueue Logic
   // -------------------------------------------
   always_comb begin: meta_info_calc
     // Default assignments
@@ -185,7 +185,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   end: shfbuf_to_seqbuf_logic
 
   // -------------------------------------------
-  // ShfInfo Buffer Logic + Shuffle Buffer Logic
+  // ShfInfo Buffer Logic + Shuffle Buffer UpdateLogic
   // -------------------------------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin

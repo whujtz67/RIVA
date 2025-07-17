@@ -3,7 +3,7 @@
 // Sequential Store Data Controller
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   parameter  int   unsigned  NrLanes          = 0,

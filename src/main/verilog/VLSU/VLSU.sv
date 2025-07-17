@@ -3,8 +3,6 @@
 // Vector Load Store Unit - Top Level Module
 // ============================================================================
 
-`timescale 1ns/1ps
-
 module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     parameter  int   unsigned  NrLanes      = 0,
     parameter  int   unsigned  VLEN         = 0,
@@ -85,7 +83,11 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     input  logic        [NrLanes-1:0]              mask_valid_i,
     input  strb_t       [NrLanes-1:0]              mask_bits_i,
     output logic                                   load_mask_ready_o,
-    output logic                                   store_mask_ready_o
+    output logic                                   store_mask_ready_o,
+
+    // pe resp load and store
+    output pe_resp_t pe_resp_load_o,
+    output pe_resp_t pe_resp_store_o
 );
 
 
@@ -186,7 +188,8 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .vlsu_req_t   (vlsu_req_t   ),
       .meta_glb_t   (meta_glb_t   ),
       .meta_seglv_t (meta_seglv_t ),
-      .txn_ctrl_t   (txn_ctrl_t   )
+      .txn_ctrl_t   (txn_ctrl_t   ),
+      .pe_resp_t    (pe_resp_t    )
     ) i_cm (
       .clk_i             (clk_i            ),
       .rst_ni            (rst_ni           ),
@@ -208,7 +211,8 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .ar_ready_i        (ar_ready         ),
       .ar_o              (ar_flit          ),
       .b_valid_i         (b_valid          ),
-      .b_ready_o         (b_ready          )
+      .b_ready_o         (b_ready          ),
+      .pe_resp_store_o   (pe_resp_store_o  )
     );
     
     // ================= Load Unit Instance ================= //
@@ -222,7 +226,8 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .axi_r_t        (axi_r_t        ),
       .txn_ctrl_t     (txn_ctrl_t     ),
       .meta_glb_t     (meta_glb_t     ),
-      .tx_lane_t      (tx_lane_t      )
+      .tx_lane_t      (tx_lane_t      ),
+      .pe_resp_t      (pe_resp_t      )
     ) i_ldu (
       .clk_i                (clk_i                ),
       .rst_ni               (rst_ni               ),
@@ -240,7 +245,8 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
       .txs_o                (txs_internal         ),
       .mask_valid_i         (mask_valid_i         ),
       .mask_bits_i          (mask_bits_i          ),
-      .mask_ready_o         (load_mask_ready_o    )
+      .mask_ready_o         (load_mask_ready_o    ),
+      .pe_resp_load_o       (pe_resp_load_o       )
     );
     
     // ================= Store Unit Instance ================= //

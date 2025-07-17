@@ -7,7 +7,7 @@
 // - Shuffle modules: receive full metaInfo for metaBuf
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 module MetaInfoBroadcast import vlsu_pkg::*; #(
   // Type parameters from VLSU typedef

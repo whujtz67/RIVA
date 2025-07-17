@@ -4,12 +4,7 @@
 // Non-concurrent Transaction Control Unit
 // ============================================================================
 
-`timescale 1ns/1ps
 
-
-
-// Add a typedef for TxnCtrlInfo_t as a type parameter, to be passed in from outside
-// (In SystemVerilog, you can use typedef as a parameter, or require the user to import it before instantiating this module)
 
 module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   parameter int   unsigned AxiDataWidth = 0,  // AXI data width in bits
@@ -18,7 +13,8 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   parameter type           axi_ar_t     = logic,       // <-- User must typedef axi_ar_t before instantiating this module
   parameter type           meta_glb_t   = logic,       // <-- User must typedef meta_glb_t before instantiating this module
   parameter type           meta_seglv_t = logic,       // <-- User must typedef meta_seglv_t before instantiating this module
-
+  parameter type           pe_resp_t    = logic,       // <-- User must typedef pe_resp_t before instantiating this module
+  
   // Dependant parameters. DO NOT CHANGE!
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles)
@@ -49,7 +45,10 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   output axi_ar_t               ar_o,
 
   input  logic                  b_valid_i,
-  output logic                  b_ready_o
+  output logic                  b_ready_o,
+
+  // pe resp store
+  output pe_resp_t              pe_resp_store_o
 );
 
   // ------------------- Helper Functions ------------------- //
@@ -215,6 +214,13 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
     .ptr_flag_o   (data_ptr_flag ),
     .ptr_value_o  (data_ptr_value)
   );
+
+  always_comb begin: pe_resp_store_logic
+    pe_resp_store_o = '0;
+    if (b_valid_i && b_ready_o && tcs_r[deq_ptr_value].isLoad) begin
+      pe_resp_store_o.vinsn_done[tcs_r[deq_ptr_value].reqId] = 1'b1;
+    end
+  end: pe_resp_store_logic
 
   // --------------------- Registers ---------------------------------- //
   always_ff @(posedge clk_i or negedge rst_ni) begin

@@ -6,7 +6,7 @@
 // data control pipeline for vector load operations
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrLanes          = 0,
@@ -21,7 +21,8 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  type            axi_r_t          = logic,
   parameter  type            txn_ctrl_t       = logic,
   parameter  type            meta_glb_t       = logic,
-  parameter  type            tx_lane_t        = logic,
+  parameter  type            tx_lane_t        = logic,  
+  parameter  type            pe_resp_t        = logic,
 
 
   // Dependant parameters. DO NOT CHANGE!
@@ -56,7 +57,10 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   // Mask from mask unit
   input  logic      [NrLanes-1:0]    mask_valid_i,
   input  strb_t     [NrLanes-1:0]    mask_bits_i,
-  output logic                       mask_ready_o
+  output logic                       mask_ready_o,
+
+  // pe resp load
+  output pe_resp_t pe_resp_load_o
 );
 
   `include "vlsu/vlsu_dc_typedef.svh"
@@ -127,7 +131,8 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
     .meta_glb_t     (meta_glb_t     ),
     .seq_buf_t      (seq_buf_t      ),
     .tx_lane_t      (tx_lane_t      ),
-    .shf_info_t     (shf_info_t     )
+    .shf_info_t     (shf_info_t     ),
+    .pe_resp_t      (pe_resp_t      )
   ) i_shuffle_unit (
     .clk_i                    (clk_i                    ),
     .rst_ni                   (rst_ni                   ),
@@ -142,7 +147,8 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
     .meta_info_i              (meta_bc_shf_glb          ),
     .mask_valid_i             (mask_valid_i             ),
     .mask_bits_i              (mask_bits_i              ),
-    .mask_ready_o             (mask_ready_o             )
+    .mask_ready_o             (mask_ready_o             ),
+    .pe_resp_load_o           (pe_resp_load_o           )
   );
 
   // ================= Assertions ================= //

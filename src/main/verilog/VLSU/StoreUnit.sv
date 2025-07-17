@@ -6,7 +6,7 @@
 // data control pipeline for vector store operations
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrLanes          = 0,

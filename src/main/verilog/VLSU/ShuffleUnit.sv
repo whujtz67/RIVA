@@ -15,7 +15,8 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  type           seq_buf_t     = logic,
   parameter  type           tx_lane_t     = logic,
   parameter  type           shf_info_t    = logic,
-
+  parameter  type           pe_resp_t     = logic,
+  
   // Dependant parameters. DO NOT CHANGE!
   localparam int  unsigned  laneIdBits       = $clog2(NrLanes),
   localparam int  unsigned  nbIdxBits        = $clog2((riva_pkg::DLEN/4) * NrLanes),
@@ -42,7 +43,10 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // Mask from mask unit
   input  logic      [NrLanes-1:0]    mask_valid_i,
   input  strb_t     [NrLanes-1:0]    mask_bits_i,
-  output logic                       mask_ready_o
+  output logic                       mask_ready_o,
+
+  // pe resp load
+  output pe_resp_t              pe_resp_load_o
 );
 
   // ================= Internal Signals ================= //
@@ -100,7 +104,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   assign shfInfo = shf_info_buf[shf_info_deq_ptr_value];
 
   // -------------------------------------------
-  // Meta Info Calculation Logic
+  // Shuffle Info initialization and enqueue Logic
   // -------------------------------------------
   always_comb begin: meta_info_calc
     // Default assignments
@@ -150,7 +154,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   assign do_cmt_seq_to_shf   = rx_seq_load_valid_i && rx_seq_load_ready_o;
 
   // -------------------------------------------
-  // Shuffle Calculation Logic
+  // Shuffle Logic
   // -------------------------------------------
   always_comb begin: shuffle_calc
     // Default assignments
@@ -175,7 +179,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
 
       // Make all shuffle buffer valid
       for (int i = 0; i < NrLanes; i++) begin
-        shf_buf_valid_nxt[i]            = 1'b1;
+        shf_buf_valid_nxt[i]       = 1'b1;
         shf_buf_nxt [i].reqId      = shfInfo.reqId;
         shf_buf_nxt [i].vaddr_set  = shfInfo.vaddr_set;
         shf_buf_nxt [i].vaddr_bank = shfInfo.vaddr_bank;
@@ -183,7 +187,9 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     end
   end: shuffle_calc
 
-  // Shuffle and commit data and nbe in seqBuf to shfBuf
+  // -------------------------------------------
+  // Shuffle Info Buffer and Shuffle Buffer Update Logic
+  // -------------------------------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       for (int i = 0; i < NrLanes; i++) begin
@@ -230,6 +236,16 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       txs_o      [lane] = shf_buf[lane];
     end
   end: shfbuf_to_lane_logic
+
+  // -------------------------------------------
+  // pe resp load
+  // -------------------------------------------
+  always_comb begin: pe_resp_load_logic
+    pe_resp_load_o = '0;
+    if (shf_info_buf_deq) begin
+      pe_resp_load_o.vinsn_done[shfInfo.reqId] = 1'b1;
+    end
+  end: pe_resp_load_logic
 
   // ================= Assertions ================= //
   // Check that there is at least one valid shfInfo info when seqBuf is not empty

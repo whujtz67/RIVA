@@ -4,7 +4,7 @@
 // Inspired by Chisel3 Queue implementation
 // ============================================================================
 
-`timescale 1ns/1ps
+
 
 module Queue #(
   parameter type T = logic,
