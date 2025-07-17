@@ -30,7 +30,8 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
     localparam type            strb_t       = logic [DLEN/4-1:0],
     localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
-	  localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0]
+	  localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0],
+    localparam type            maxlen_t     = logic [$clog2(MaxLEN+1)-1:0]
 ) (
     // Clock and Reset
     input  logic          clk_i,
@@ -94,7 +95,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     
     typedef logic [$clog2(MaxLEN*ELEN/(8*4096))-1:0] txn_num_t; // 0 ~ (MaxLEN*ELEN/8*4096)-1
 
-    typedef logic [$clog2(8*4096/AxiDataWidth)-1   :0] rmn_beat_t; // 0 ~ (4096/AxiDataWidth)-1 
+    typedef logic [$clog2(8*4096/AxiDataWidth)-1 :0] rmn_beat_t; // 0 ~ (4096/AxiDataWidth)-1 
     typedef logic [$clog2(AxiDataWidth/4)        :0] lbn_t; // 1 ~ AxiDataWidth/4
 
     // Include type definitions

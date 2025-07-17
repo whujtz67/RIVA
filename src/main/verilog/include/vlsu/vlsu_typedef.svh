@@ -32,8 +32,8 @@
     riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)
     logic [4:0]         vd;           // Vector destination register index
     elen_t              stride;       // Stride value for strided access mode
-    vlen_t              len;          // Total number of elements to process
-    vlen_t              vstart;       // Starting element index (for partial vector operations)
+    maxlen_t            len;          // Total number of elements to process
+    elen_t              vstart;       // Starting element index (for partial vector operations)
     logic               isLoad;       // 1: load operation, 0: store operation
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
   } vlsu_req_t;
@@ -49,12 +49,12 @@
     elen_t              baseAddr;     // Base address for the vector operation
     logic [4:0]         vd;           // Vector destination register index
     riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)
-    vlen_t              nrElem;       // Number of elements to process (len - vstart)
+    maxlen_t            nrEffElems;          // Number of elements to process (len - vstart)
     elen_t              stride;       // Stride value for strided access mode
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
-    vlen_t              vstart;       // Starting element index for partial vector operations
+    elen_t              vstart;       // Starting element index for partial vector operations
     rmn_grp_t           rmnGrp;       // Remaining groups (for 2D column-major mode)
-    vlen_t              rmnSeg;       // Remaining segments within current group
+    maxlen_t            rmnSeg;       // Remaining segments within current group
     logic               isLoad;       // 1: load operation, 0: store operation
     cmt_cnt_t           cmtCnt;       // Commit counter (used to determine when to dequeue meta buffer)
   } meta_glb_t;

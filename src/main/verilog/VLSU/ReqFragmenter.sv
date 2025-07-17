@@ -83,6 +83,8 @@ module ReqFragmenter import riva_pkg::*; #(
   riva_pkg::elen_t           seglv_next_addr;
   logic                      seglv_init_en;
 
+  riva_pkg::elen_t nr_eff_elems;
+
   // FSM state transition
   always_comb begin
     // Default: hold current state
@@ -112,30 +114,32 @@ module ReqFragmenter import riva_pkg::*; #(
     seglv_next_addr  = '0;
     seglv_init_en    = 1'b0;
 
+    nr_eff_elems = vlsu_req_i.len - vlsu_req_i.vstart;
+
     case (state_r)
       // Initialize global info from new request
       S_IDLE: begin
         if (vlsu_req_valid_i) begin
-          meta_glb_nxt.reqId    = vlsu_req_i.reqId;
-          meta_glb_nxt.mode     = vlsu_pkg::mode_oh_t'(1 << vlsu_req_i.mop);
-          meta_glb_nxt.baseAddr = vlsu_req_i.baseAddr << 1;
-          meta_glb_nxt.vd       = vlsu_req_i.vd;
-          meta_glb_nxt.sew      = vlsu_req_i.sew;
-          meta_glb_nxt.nrElem   = vlsu_req_i.len - vlsu_req_i.vstart;
-          meta_glb_nxt.vm       = vlsu_req_i.vm;
-          meta_glb_nxt.stride   = vlsu_req_i.stride;
-          meta_glb_nxt.vstart   = vlsu_req_i.vstart;
-          meta_glb_nxt.rmnGrp   = isCln2D(meta_glb_nxt.mode) ? ((vlsu_req_i.len << vlsu_req_i.sew) - 1) >> $clog2(DLEN/4) : 0;
-          meta_glb_nxt.rmnSeg   = isIncr(meta_glb_nxt.mode)  ? 0                                        :
-                                  isStrd(meta_glb_nxt.mode)  ? (vlsu_req_i.len - vlsu_req_i.vstart) - 1 :
-                                  isRow2D(meta_glb_nxt.mode) ? vlsu_req_i.len - 1                       :
-                                  isCln2D(meta_glb_nxt.mode) ? (NrLanes - 1)                            : 
-                                                               0                                        ;
+          meta_glb_nxt.reqId      = vlsu_req_i.reqId;
+          meta_glb_nxt.mode       = vlsu_pkg::mode_oh_t'(1 << vlsu_req_i.mop);
+          meta_glb_nxt.baseAddr   = vlsu_req_i.baseAddr << 1;
+          meta_glb_nxt.vd         = vlsu_req_i.vd;
+          meta_glb_nxt.sew        = vlsu_req_i.sew;
+          meta_glb_nxt.nrEffElems = nr_eff_elems;
+          meta_glb_nxt.vm         = vlsu_req_i.vm;
+          meta_glb_nxt.stride     = vlsu_req_i.stride;
+          meta_glb_nxt.vstart     = vlsu_req_i.vstart;
+          meta_glb_nxt.rmnGrp     = isCln2D(meta_glb_nxt.mode) ? ((vlsu_req_i.len << vlsu_req_i.sew) - 1) >> $clog2(DLEN/4) : 0;
+          meta_glb_nxt.rmnSeg     = isIncr(meta_glb_nxt.mode)  ? 0                                        :
+                                    isStrd(meta_glb_nxt.mode)  ? nr_eff_elems - 1   :
+                                    isRow2D(meta_glb_nxt.mode) ? vlsu_req_i.len - 1 :
+                                    isCln2D(meta_glb_nxt.mode) ? (NrLanes - 1)      : 
+                                                               0                  ;
           meta_glb_nxt.isLoad   = vlsu_req_i.isLoad;
           meta_glb_nxt.cmtCnt   = (
               (is2D(meta_glb_nxt.mode) ?
                 (vlsu_req_i.len << vlsu_req_i.sew << $clog2(NrLanes)) :
-                ((vlsu_req_i.len - vlsu_req_i.vstart) << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & ((1 << $clog2(NrLanes * DLEN / 4)) - 1))
+                (nr_eff_elems << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & ((1 << $clog2(NrLanes * DLEN / 4)) - 1))
               ) - 1
           ) >> $clog2(NrLanes * DLEN / 4);
         end
@@ -300,14 +304,14 @@ module SegLvInitCommon import riva_pkg::*; #(
     is_cln2d  = isCln2D(glb_i.mode);
 
     // Calculate number of nibbles in the segment for row-major modes - always calculated
-    nr_seg_elems_row_major = is_incr  ? glb_i.nrElem :
+    nr_seg_elems_row_major = is_incr  ? glb_i.nrEffElems :
                              is_strd  ? 1            :
                              is_row2d ? NrLanes      : 
                                         0            ;
     nr_seg_nbs_row_major = nr_seg_elems_row_major << glb_i.sew;
 
     // Calculate number of nibbles in the segment for column-major (cln2D) mode - always calculated
-    nr_all_grp_nbs       = (glb_i.nrElem << glb_i.sew);
+    nr_all_grp_nbs       = (glb_i.nrEffElems << glb_i.sew);
     nr_last_grp_nbs      = nr_all_grp_nbs[$clog2(DLEN/4)-1: 0];
     nr_seg_nbs_cln_major = isLastGrp(glb_i) ?
                               (
