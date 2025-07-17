@@ -190,28 +190,31 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         shf_buf_valid[i] <= 1'b0;
       end
     end
-    else if (shf_info_buf_enq) begin
-      // Enqueue meta info
-      shf_info_buf[shf_info_enq_ptr_value] <= shf_info_enq_bits;
-    end
-    else if (do_cmt_seq_to_shf) begin
-      // Update shuffle buffer
-      shf_buf_valid <= shf_buf_valid_nxt;
-      shf_buf  <= shf_buf_nxt;
-
-      // Update vaddr
-      shf_info_buf[shf_info_deq_ptr_value].vaddr_set <= shfInfo.vaddr_set + 1;
-
-      // Update commit counter
-      if (!(shfInfo.cmtCnt == 0)) begin
-        shf_info_buf[shf_info_deq_ptr_value].cmtCnt <= shfInfo.cmtCnt - 1;
+    else begin
+      if (shf_info_buf_enq) begin
+        // Enqueue meta info
+        shf_info_buf[shf_info_enq_ptr_value] <= shf_info_enq_bits;
       end
-    end
 
-    // Clear shuffle buffer when transaction is accepted
-    for (int unsigned lane = 0; lane < NrLanes; lane++) begin
-      if (txs_valid_o[lane] && txs_ready_i[lane]) begin
-        shf_buf_valid[lane] <= 1'b0;
+      if (do_cmt_seq_to_shf) begin
+        // Update shuffle buffer
+        shf_buf_valid <= shf_buf_valid_nxt;
+        shf_buf  <= shf_buf_nxt;
+
+        // Update vaddr
+        shf_info_buf[shf_info_deq_ptr_value].vaddr_set <= shfInfo.vaddr_set + 1;
+
+        // Update commit counter
+        if (!(shfInfo.cmtCnt == 0)) begin
+          shf_info_buf[shf_info_deq_ptr_value].cmtCnt <= shfInfo.cmtCnt - 1;
+        end
+      end
+
+      // Clear shuffle buffer when transaction is accepted
+      for (int unsigned lane = 0; lane < NrLanes; lane++) begin
+        if (txs_valid_o[lane] && txs_ready_i[lane]) begin
+          shf_buf_valid[lane] <= 1'b0;
+        end
       end
     end
   end

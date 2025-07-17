@@ -92,7 +92,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   );
   
   // Bus nibble counter
-  logic [busNSize-2:0] bus_nb_cnt_r, bus_nb_cnt_nxt;
+  logic [busNSize-1:0] bus_nb_cnt_r, bus_nb_cnt_nxt;
   
   // Sequential buffer nibble pointer
   logic [$clog2(NrLaneEntriesNbs)-1:0] seq_nb_ptr_r, seq_nb_ptr_nxt;
@@ -125,7 +125,7 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
 
   // Use localparam for min(busNSize, $clog2(NrLaneEntriesNbs)) to ensure integral type
   localparam int unsigned nrNbsCmtBits = (busNSize < $clog2(NrLaneEntriesNbs)) ? busNSize + 1 : $clog2(NrLaneEntriesNbs) + 1;
-  logic [nrNbsCmtBits                            : 0] nr_nbs_committed;
+  logic [nrNbsCmtBits-1                          : 0] nr_nbs_committed;
   logic [busNSize-1                              : 0] start;
   logic                                               do_serial_cmt;
 
@@ -254,16 +254,17 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
             end
           end
         end
-
-        if (tx_shfu_valid_o && tx_shfu_ready_i) begin
-          seq_buf_nxt[seq_deq_ptr_value] = '0;
-        end
       end
       S_GATHER_CMT: begin
         // Not supported yet
         $fatal("Gather mode not supported!");
       end
     endcase
+
+    // Clear seqBuf when ShuffleUnit is ready to dequeue
+    if (tx_shfu_valid_o && tx_shfu_ready_i) begin
+      seq_buf_nxt[seq_deq_ptr_value] = '0;
+    end
   end: axi_r_to_seqbuf_logic
   
   // ================= seqBuf -> ShuffleUnit Logic ================= //

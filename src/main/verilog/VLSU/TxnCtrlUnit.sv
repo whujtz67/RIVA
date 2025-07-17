@@ -73,7 +73,7 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
     return isLastGrp(glb) && isLastSeg(glb) && isLastTxn(seg);
   endfunction
 
-  // --------------------- Internal Signals --------------------- //
+  // --------------------- Pointer Signals --------------------- //
   // Pointers
   logic                          enq_ptr_flag , deq_ptr_flag , txn_ptr_flag , data_ptr_flag ;
   logic [$clog2(txnCtrlNum)-1:0] enq_ptr_value, deq_ptr_value, txn_ptr_value, data_ptr_value;
@@ -94,30 +94,31 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
   // Handshake logic
   logic ax_valid;
 
+  // --------------------- Internal Signals --------------------- //
+  wire [riva_pkg::ELEN-1:0] txn_addr_nxt = isHeadTxn(meta_seglv_i) ?
+        meta_seglv_i.segBaseAddr :
+        ((meta_seglv_i.segBaseAddr >> 13) + meta_seglv_i.txnCnt) << 13;
+
+  wire [12:0] page_off   = txn_addr_nxt[12:0];
+  wire [12:0] busOffMask = ((1 << 13) - 1) - ((1 << busNSize) - 1);
+
+  wire [12:0] pageOff_without_busOff = page_off & busOffMask;
+
+  wire [13:0] txn_nibbles_with_pageOff = isLastTxn(meta_seglv_i) ?
+        meta_seglv_i.ltN : // PageOff is already included in ltN
+        8192;
+  wire [13:0] txn_nibbles_with_busOff = txn_nibbles_with_pageOff - pageOff_without_busOff;
+
   // --------------------- Main Logic --------------------------------- //
   // Default: hold values
   always_comb begin: txn_ctrl_update_logic
     tcs_nxt = tcs_r;
     // Direct assignment for enqueue
     if (!full && meta_valid_i) begin
-      automatic logic [12:0] page_off;
-      automatic logic [12:0] busOffMask = ((1 << 13) - 1) - ((1 << busNSize) - 1);
-      automatic logic [12:0] pageOff_without_busOff;
-      automatic logic [13:0] txn_nibbles_with_pageOff;
-      automatic logic [13:0] txn_nibbles_with_busOff;
 
       tcs_nxt[enq_ptr_value].reqId      = meta_glb_i.reqId;
-      tcs_nxt[enq_ptr_value].addr       = isHeadTxn(meta_seglv_i) ?
-        meta_seglv_i.segBaseAddr :
-        ((meta_seglv_i.segBaseAddr >> 13) + meta_seglv_i.txnCnt) << 13;
+      tcs_nxt[enq_ptr_value].addr       = txn_addr_nxt;
       tcs_nxt[enq_ptr_value].size       = $clog2(AxiDataWidth/8); // AXI size = log2(bytes per transfer)
-      
-      page_off = tcs_nxt[enq_ptr_value].addr[12:0];
-      pageOff_without_busOff = page_off & busOffMask;
-      txn_nibbles_with_pageOff = isLastTxn(meta_seglv_i) ?
-        meta_seglv_i.ltN : // PageOff is already included in ltN
-        8192;
-      txn_nibbles_with_busOff = txn_nibbles_with_pageOff - pageOff_without_busOff;
 
       tcs_nxt[enq_ptr_value].rmnBeat    = (txn_nibbles_with_busOff - 1) >> busNSize;
       tcs_nxt[enq_ptr_value].lbN        = |(txn_nibbles_with_busOff[busNSize-1:0]) ?
@@ -126,11 +127,6 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
       tcs_nxt[enq_ptr_value].isHead     = 1'b1;
       tcs_nxt[enq_ptr_value].isLoad     = meta_glb_i.isLoad;
       tcs_nxt[enq_ptr_value].isFinalTxn = isFinalTxn(meta_glb_i, meta_seglv_i);
-
-      assert (txn_nibbles_with_pageOff >= pageOff_without_busOff)
-        else $fatal("txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %0d, pageOff_without_busOff = %0d", txn_nibbles_with_pageOff, pageOff_without_busOff);
-      assert (txn_nibbles_with_busOff <= 8192)
-        else $fatal("txn_nibbles_with_busOff should in range(0, 8192). However, got %0d", txn_nibbles_with_busOff);
     end
     // Direct assignment for update
     if (update_i && !(tcs_r[data_ptr_value].rmnBeat == 0)) begin
@@ -236,6 +232,11 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
       else $fatal("enqPtr should not be after dataPtr");
     assert(((deq_ptr_flag  ^ data_ptr_flag) ^ (deq_ptr_value  <= data_ptr_value)) || (deq_ptr_flag  != data_ptr_flag && deq_ptr_value  == data_ptr_value))
       else $fatal("dataPtr should not be after deqPtr");
+      
+    assert (txn_nibbles_with_pageOff >= pageOff_without_busOff)
+        else $fatal("txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %0d, pageOff_without_busOff = %0d", txn_nibbles_with_pageOff, pageOff_without_busOff);
+      assert (txn_nibbles_with_busOff <= 8192)
+        else $fatal("txn_nibbles_with_busOff should in range(0, 8192). However, got %0d", txn_nibbles_with_busOff);
   end
 
 endmodule

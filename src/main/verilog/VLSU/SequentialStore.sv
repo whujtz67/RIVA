@@ -148,15 +148,17 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   );
 
   // Intermediate variables for S_SERIAL_CMT state
-  logic [busNSize-1              : 0] lower_nibble;
-  logic [busNSize                : 0] upper_nibble;
-  logic [busNSize                : 0] bus_valid_nb;
-  logic [$clog2(NrLaneEntriesNbs): 0] seq_buf_valid_nb;
+  wire [busNSize-1              : 0] lower_nibble     = txn_ctrl_i.isHead       ? txn_ctrl_i.addr[busNSize-1:0] : '0;
+  wire [busNSize                : 0] upper_nibble     = txn_ctrl_i.rmnBeat == 0 ? txn_ctrl_i.lbN                : busNibbles;
+  wire [busNSize                : 0] bus_valid_nb     = upper_nibble - lower_nibble - bus_nb_cnt_r;
+  wire [$clog2(NrLaneEntriesNbs): 0] seq_buf_valid_nb = NrLaneEntriesNbs - seq_nb_ptr_r;
+
+  wire [busNSize-1              : 0] start = lower_nibble + bus_nb_cnt_r;
 
   // Use localparam for min(busNSize, $clog2(NrLaneEntriesNbs)) to ensure integral type
   localparam int unsigned nrNbsCmtBits = (busNSize < $clog2(NrLaneEntriesNbs)) ? busNSize + 1 : $clog2(NrLaneEntriesNbs) + 1;
-  logic [nrNbsCmtBits            : 0] nr_nbs_committed;
-  logic [busNSize-1              : 0] start;
+  logic [nrNbsCmtBits-1          : 0] nr_nbs_committed;
+  
 
   // ================= Helper Functions ================= //
   function automatic logic isFinalBeat(input txn_ctrl_t txn_ctrl);
@@ -204,6 +206,8 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   assign w_buf_full    = (w_enq_ptr_value   == w_deq_ptr_value  ) && (w_enq_ptr_flag   != w_deq_ptr_flag  );
 
   // ================= seqBuf -> wBuf Logic ================= //
+  wire do_cmt_seq_to_wbuf = !seq_buf_empty && !w_buf_full && txn_ctrl_valid_i;
+
   always_comb begin: seqbuf_to_wbuf_logic
     // Default assignments
     bus_nb_cnt_nxt      = bus_nb_cnt_r;
@@ -213,12 +217,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
     w_buf_enq           = 1'b0;
     seq_info_deq_ready  = 1'b0;
     // Default assignments for intermediate variables
-    lower_nibble        = '0;
-    upper_nibble        = '0;
-    bus_valid_nb        = '0;
-    seq_buf_valid_nb    = '0;
     nr_nbs_committed    = '0;
-    start               = '0;
     w_buf_nxt           = w_buf_r;
 
     case (state_r)
@@ -231,18 +230,11 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
         end
       end
       S_SERIAL_CMT: begin
-        // Calculate lower and upper nibble boundaries
-        lower_nibble = txn_ctrl_i.isHead       ? txn_ctrl_i.addr[busNSize-1:0] : '0;
-        upper_nibble = txn_ctrl_i.rmnBeat == 0 ? txn_ctrl_i.lbN                : busNibbles;
-
         // Commit when:
         // 1. There are valid data in seqBuf;
         // 2. Target wBuf is not full;
         // 3. TxnInfo is valid
-        if (!seq_buf_empty && !w_buf_full && txn_ctrl_valid_i) begin
-          bus_valid_nb     = upper_nibble - lower_nibble - bus_nb_cnt_r;
-          seq_buf_valid_nb = NrLaneEntriesNbs - seq_nb_ptr_r;
-
+        if (do_cmt_seq_to_wbuf) begin
           if (bus_valid_nb > seq_buf_valid_nb) begin
             // The amount of valid data on the bus is greater than the amount of free space available in seqBuf
             nr_nbs_committed = seq_buf_valid_nb;
@@ -273,28 +265,30 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
             end
           end
 
-          start = lower_nibble + bus_nb_cnt_r;
-
           // Commit data from seqBuf to wBuf
           for (int unsigned i = 0; i < busNibbles; i++) begin
-            if ((i >= start) && (i < upper_nibble)) begin
+            if ((i >= start) && (i < (start + nr_nbs_committed))) begin
               automatic int unsigned idx = i - start + seq_nb_ptr_r;
               w_buf_nxt[w_enq_ptr_value].nbs [i*4 +: 4] = seq_buf[seq_deq_ptr_value].nb[idx*4 +: 4];
               w_buf_nxt[w_enq_ptr_value].nbes[i]        = seq_buf[seq_deq_ptr_value].en[idx];
-            end else begin
-              w_buf_nxt[w_enq_ptr_value].nbs [i*4 +: 4] = '0; // TODO: Only clear nbes[i] is enough.
-              w_buf_nxt[w_enq_ptr_value].nbes[i]        = 1'b0;
             end
           end
           w_buf_nxt[w_enq_ptr_value].last = txn_ctrl_i.rmnBeat == 0;
           w_buf_nxt[w_enq_ptr_value].user = '0;
         end
+
+        
       end
       S_GATHER_CMT: begin
         // Not supported yet
         $fatal("Gather mode not supported!");
       end
     endcase
+
+    if (axi_w_valid_o && axi_w_ready_i) begin
+      w_buf_nxt[w_deq_ptr_value] = '0;
+    end
+    w_buf_deq = axi_w_valid_o && axi_w_ready_i;
   end: seqbuf_to_wbuf_logic
 
   // ================= seqBuf Input from DeShuffleUnit ================= //
@@ -320,7 +314,6 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   end: wbuf_to_axi_w_logic
 
   assign axi_w_valid_o = !w_buf_empty;
-  assign w_buf_deq = axi_w_valid_o && axi_w_ready_i;
 
   // ================= Sequential Logic ================= //
   always_ff @(posedge clk_i or negedge rst_ni) begin

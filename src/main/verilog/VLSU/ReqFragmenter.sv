@@ -135,7 +135,7 @@ module ReqFragmenter import riva_pkg::*; #(
           meta_glb_nxt.cmtCnt   = (
               (is2D(meta_glb_nxt.mode) ?
                 (vlsu_req_i.len << vlsu_req_i.sew << $clog2(NrLanes)) :
-                ((vlsu_req_i.len - vlsu_req_i.vstart) << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & (1 << $clog2(NrLanes * DLEN / 4) - 1))
+                ((vlsu_req_i.len - vlsu_req_i.vstart) << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & ((1 << $clog2(NrLanes * DLEN / 4)) - 1))
               ) - 1
           ) >> $clog2(NrLanes * DLEN / 4);
         end
@@ -329,7 +329,7 @@ module SegLvInitCommon import riva_pkg::*; #(
       seg_nxt_o.txnCnt      = 0;
       seg_nxt_o.ltN         = (seg_nibbles_with_pageOff[12:0] != 0) ?
         seg_nibbles_with_pageOff[12:0] : 
-        DLEN/4;
+        8192;
     end else begin
       seg_nxt_o = seg_r_i;
     end

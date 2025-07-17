@@ -94,7 +94,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     
     typedef logic [$clog2(MaxLEN*ELEN/(8*4096))-1:0] txn_num_t; // 0 ~ (MaxLEN*ELEN/8*4096)-1
 
-    typedef logic [$clog2(4096/AxiDataWidth)-1   :0] rmn_beat_t; // 0 ~ (4096/AxiDataWidth)-1 
+    typedef logic [$clog2(8*4096/AxiDataWidth)-1   :0] rmn_beat_t; // 0 ~ (4096/AxiDataWidth)-1 
     typedef logic [$clog2(AxiDataWidth/4)        :0] lbn_t; // 1 ~ AxiDataWidth/4
 
     // Include type definitions
