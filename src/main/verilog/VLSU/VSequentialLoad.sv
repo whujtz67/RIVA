@@ -1,11 +1,11 @@
 // ============================================================================
-// SequentialLoad.sv
-// Sequential Load Data Controller
+// VSequentialLoad.sv
+// Vector Sequential Load Unit - Handles vector sequential load operations
 // ============================================================================
 
 
 
-module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
+module VSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  AxiDataWidth     = 0,
   parameter  int   unsigned  AxiAddrWidth     = 0,
@@ -298,4 +298,4 @@ module SequentialLoad import vlsu_pkg::*; import axi_pkg::*; #(
   assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
     else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
 
-endmodule : SequentialLoad 
+endmodule : VSequentialLoad 

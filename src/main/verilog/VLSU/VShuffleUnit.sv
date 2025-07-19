@@ -1,12 +1,9 @@
 // ============================================================================
-// ShuffleUnit.sv
-// SystemVerilog implementation of Shuffle Unit for VLSU
-// 
-// This module handles the shuffle operation from sequential buffer to shuffle buffer
-// using the query_seq_idx function from vlsu_shuffle_pkg.sv
+// VShuffleUnit.sv
+// Vector Shuffle Unit - Handles vector shuffle operations
 // ============================================================================
 
-module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
+module VShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  int  unsigned  NrExits       = 0,
   parameter  int  unsigned  VLEN          = 0,
   parameter  int  unsigned  ALEN          = 0,
@@ -167,7 +164,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         for (int off = 0; off < riva_pkg::DLEN/4; off++) begin
           automatic int unsigned shf_idx = lane * (riva_pkg::DLEN/4) + off;
           // Get sequential index for this lane/offset combination
-          automatic int unsigned seq_idx = ControlMachinePkg::isCln2D(shfInfo.mode)
+          automatic int unsigned seq_idx = VControlMachinePkg::isCln2D(shfInfo.mode)
               ? query_seq_idx_2d_cln(NrExits, shf_idx, shfInfo.sew)
               : query_seq_idx       (NrExits, shf_idx, shfInfo.sew);
           
@@ -258,4 +255,4 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     txs_valid_o[0] |-> txs_o[0].vaddr_set < NrVRFSets)
     else $error("[ShuffleUnit] vaddr_set should < NrVRFSets = %d. However, got %d", NrVRFSets, txs_o[0].vaddr_set);
 
-endmodule : ShuffleUnit 
+endmodule : VShuffleUnit 

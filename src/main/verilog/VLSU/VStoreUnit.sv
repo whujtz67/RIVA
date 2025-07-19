@@ -1,14 +1,11 @@
 // ============================================================================
-// StoreUnit.sv
-// Store Unit Top-Level Module
-// 
-// This module connects DeShuffleUnit and SequentialStore to form a complete
-// data control pipeline for vector store operations
+// VStoreUnit.sv
+// Vector Store Unit - Handles vector store operations
 // ============================================================================
 
 
 
-module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module VStoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  ALEN             = 0,
@@ -76,7 +73,7 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   meta_glb_t  meta_bc_shf;
 
   // ================= MetaInfoBroadcast Instantiation ================= //
-  MetaInfoBroadcast #(
+  VMetaInfoBroadcast #(
     .meta_glb_t  (meta_glb_t  )
   ) i_meta_broadcast (
     .clk_i                (clk_i                  ),
@@ -93,7 +90,7 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   );
 
   // ================= DeShuffleUnit Instantiation ================= //
-  DeShuffleUnit #(
+  VDeShuffleUnit #(
     .NrExits      (NrExits      ),
     .VLEN         (VLEN         ),
     .ALEN         (ALEN         ),
@@ -120,7 +117,7 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   );
 
   // ================= SequentialStore Instantiation ================= //
-  SequentialStore #(
+  VSequentialStore #(
     .NrExits        (NrExits        ),
     .AxiDataWidth   (AxiDataWidth   ),
     .AxiAddrWidth   (AxiAddrWidth   ),
@@ -150,4 +147,4 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   // ================= Assertions ================= //
   // TODO: Add assertions for data integrity and timing requirements
 
-endmodule : StoreUnit 
+endmodule : VStoreUnit 

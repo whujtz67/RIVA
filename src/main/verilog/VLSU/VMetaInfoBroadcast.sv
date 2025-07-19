@@ -1,6 +1,6 @@
 // ============================================================================
-// MetaInfoBroadcast.sv
-// MetaInfo Broadcast Module
+// VMetaInfoBroadcast.sv
+// Vector Meta Info Broadcast Module
 // 
 // This module broadcasts metaInfo to both sequential and shuffle modules:
 // - Sequential modules: receive seqNbPtr for seqInfoBuf
@@ -9,7 +9,7 @@
 
 
 
-module MetaInfoBroadcast import vlsu_pkg::*; #(
+module VMetaInfoBroadcast import riva_pkg::*; import vlsu_pkg::*; #(
   // Type parameters from VLSU typedef
   // TODO: Define these types in vlsu_typedef.svh or create local definitions
   parameter  type            meta_glb_t      = logic
@@ -45,4 +45,4 @@ module MetaInfoBroadcast import vlsu_pkg::*; #(
   // Input ready when both outputs are ready
   assign meta_info_ready_o = seq_ready_i && shf_ready_i;
 
-endmodule : MetaInfoBroadcast 
+endmodule : VMetaInfoBroadcast 

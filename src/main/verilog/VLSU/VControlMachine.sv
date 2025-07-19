@@ -1,12 +1,12 @@
 // ============================================================================
-// ControlMachine.sv
+// VControlMachine.sv
 // SystemVerilog translation of Chisel ControlMachineNC
 // Top-level control machine: connects ReqFragmenter and TxnCtrlUnit
 // ============================================================================
 
 
 
-module ControlMachine import vlsu_pkg::*; #(
+module VControlMachine import vlsu_pkg::*; #(
     parameter  int   unsigned  NrExits      = 0,
     parameter  int   unsigned  VLEN         = 0,
     parameter  int   unsigned  ALEN         = 0,
@@ -62,7 +62,7 @@ module ControlMachine import vlsu_pkg::*; #(
     logic meta_buf_enq_valid, meta_buf_full;
 
     // --------------------- Submodule Instantiation --------------------- //
-    ReqFragmenter #(
+    VReqFragmenter #(
       .NrExits      (NrExits      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
@@ -85,7 +85,7 @@ module ControlMachine import vlsu_pkg::*; #(
       .meta_buf_enq_valid_o (meta_buf_enq_valid  )
     );
 
-    TxnCtrlUnit #(
+    VTxnCtrlUnit #(
       .AxiDataWidth (AxiDataWidth ),
       .txn_ctrl_t   (txn_ctrl_t   ),
       .axi_aw_t     (axi_aw_t     ),
@@ -120,4 +120,4 @@ module ControlMachine import vlsu_pkg::*; #(
     assign meta_glb_o         = meta_glb;
     assign meta_seglv_o       = meta_seglv;
 
-endmodule 
+endmodule : VControlMachine 

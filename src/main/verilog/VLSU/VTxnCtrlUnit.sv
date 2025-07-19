@@ -1,12 +1,11 @@
 // ============================================================================
-// TxnCtrlUnitNC.sv
-// SystemVerilog translation of Chisel TxnControlUnitNC
-// Non-concurrent Transaction Control Unit
+// VTxnCtrlUnit.sv
+// Vector Transaction Control Unit - Handles vector transaction control
 // ============================================================================
 
 
 
-module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
+module VTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter int   unsigned AxiDataWidth = 0,  // AXI data width in bits
   parameter type           txn_ctrl_t   = logic,       // <-- User must typedef txn_ctrl_t before instantiating this module
   parameter type           axi_aw_t     = logic,       // <-- User must typedef axi_aw_t before instantiating this module
@@ -245,4 +244,4 @@ module TxnCtrlUnit import vlsu_pkg::*; import ControlMachinePkg::*; #(
         else $fatal("txn_nibbles_with_busOff should in range(0, 8192). However, got %0d", txn_nibbles_with_busOff);
   end
 
-endmodule
+endmodule : VTxnCtrlUnit

@@ -177,7 +177,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     
 
     // ================= Control Machine Instance ================= //
-    ControlMachine #(
+    VControlMachine #(
       .NrExits      (NrExits      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
@@ -216,7 +216,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     );
     
     // ================= Load Unit Instance ================= //
-    LoadUnit #(
+    VLoadUnit #(
       .NrExits        (NrExits        ),
       .VLEN           (VLEN           ),
       .ALEN           (ALEN           ),
@@ -250,7 +250,7 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     );
     
     // ================= Store Unit Instance ================= //
-    StoreUnit #(
+    VStoreUnit #(
       .NrExits        (NrExits        ),
       .VLEN           (VLEN           ),
       .ALEN           (ALEN           ),

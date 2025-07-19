@@ -1,14 +1,13 @@
 // ============================================================================
-// ReqFragmenter.sv
-// SystemVerilog translation of Chisel ReqFragmenter
-// All logic is directly expanded, no non-synthesizable task.
+// VReqFragmenter.sv
+// Vector Request Fragmenter - Fragments vector requests into smaller transactions
 // ============================================================================
 
 
 
-import ControlMachinePkg::*;
+import VControlMachinePkg::*;
 
-module ReqFragmenter import riva_pkg::*; #(
+module VReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
   parameter int   unsigned  NrExits      = 0,
   parameter int   unsigned  VLEN         = 0,
   parameter int   unsigned  ALEN         = 0,
@@ -245,7 +244,7 @@ module ReqFragmenter import riva_pkg::*; #(
       start_fragmenting_r <= start_fragmenting_nxt;
     end
   end
-endmodule
+endmodule : VReqFragmenter
 
 // -----------------------------------------------------------------------------
 // SegLvInitCommon: Module version of seglv_init_common

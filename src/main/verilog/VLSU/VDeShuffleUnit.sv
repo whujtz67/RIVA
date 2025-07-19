@@ -1,12 +1,9 @@
 // ============================================================================
-// DeShuffleUnit.sv
-// SystemVerilog implementation of DeShuffle Unit for VLSU
-// 
-// This module handles the deshuffle operation from shuffle buffer to sequential buffer
-// using the query_shf_idx function from vlsu_shuffle_pkg.sv
+// VDeShuffleUnit.sv
+// Vector DeShuffle Unit - Handles vector deshuffle operations
 // ============================================================================
 
-module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
+module VDeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  int  unsigned  NrExits       = 0,
   parameter  int  unsigned  VLEN          = 0,
   parameter  int  unsigned  ALEN          = 0,
@@ -171,7 +168,7 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       // Deshuffle data using query_shf_idx function
       for (int seq_idx = 0; seq_idx < NrExits*riva_pkg::DLEN/4; seq_idx++) begin
         // Get shuffle index for this sequential index (purely software calculation)
-        automatic int unsigned shf_idx = ControlMachinePkg::isCln2D(shfInfo.mode)
+        automatic int unsigned shf_idx = VControlMachinePkg::isCln2D(shfInfo.mode)
             ? query_shf_idx_2d_cln(NrExits, seq_idx, shfInfo.sew)
             : query_shf_idx       (NrExits, seq_idx, shfInfo.sew);
         automatic int unsigned lane    = shf_idx / (riva_pkg::DLEN/4);
@@ -220,4 +217,4 @@ module DeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
 
   // ================= Assertions ================= //
 
-endmodule : DeShuffleUnit 
+endmodule : VDeShuffleUnit 

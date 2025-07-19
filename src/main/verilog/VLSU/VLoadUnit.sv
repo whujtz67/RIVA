@@ -1,14 +1,11 @@
 // ============================================================================
-// LoadUnit.sv
-// Load Unit Top-Level Module
-// 
-// This module connects SequentialLoad and ShuffleUnit to form a complete
-// data control pipeline for vector load operations
+// VLoadUnit.sv
+// Vector Load Unit - Handles vector load operations
 // ============================================================================
 
 
 
-module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module VLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  ALEN             = 0,
@@ -80,7 +77,7 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   meta_glb_t  meta_bc_shf_glb;
 
   // ================= MetaInfoBroadcast Instantiation ================= //
-  MetaInfoBroadcast #(
+  VMetaInfoBroadcast #(
     .meta_glb_t  (meta_glb_t  )
   ) i_meta_broadcast (
     .clk_i                (clk_i                ),
@@ -97,7 +94,7 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   );
 
   // ================= SequentialLoad Instantiation ================= //
-  SequentialLoad #(
+  VSequentialLoad #(
     .NrExits      (NrExits      ),
     .AxiDataWidth (AxiDataWidth ),
     .AxiAddrWidth (AxiAddrWidth ),
@@ -124,7 +121,7 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   );
 
   // ================= ShuffleUnit Instantiation ================= //
-  ShuffleUnit #(
+  VShuffleUnit #(
     .NrExits        (NrExits        ),
     .VLEN           (VLEN           ),
     .ALEN           (ALEN           ),
@@ -154,4 +151,4 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   // ================= Assertions ================= //
   // TODO: Add assertions for data integrity and timing requirements
 
-endmodule : LoadUnit 
+endmodule : VLoadUnit 

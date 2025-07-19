@@ -1,12 +1,12 @@
 // ============================================================================
-// ControlMachinePkg.sv
-// SystemVerilog package for ControlMachine/ReqFragmenter
+// VControlMachinePkg.sv
+// Vector Control Machine Package - Contains vector control machine constants
 // ============================================================================
 
 `ifndef CONTROL_MACHINE_PKG_SV
 `define CONTROL_MACHINE_PKG_SV
 
-package ControlMachinePkg;
+package VControlMachinePkg;
 
   // Mode decode helpers
   function automatic logic isIncr(input logic [3:0] mode); // TODO: should be mode_oh_t
@@ -29,6 +29,6 @@ package ControlMachinePkg;
     return mode[3] || mode[2];
   endfunction
 
-endpackage : ControlMachinePkg
+endpackage : VControlMachinePkg
 
 `endif // CONTROL_MACHINE_PKG_SV
