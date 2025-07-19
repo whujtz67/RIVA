@@ -2,7 +2,7 @@ package vlsu_shuffle_pkg;
 
   // Input sequential index, output shuffle index
   // Used in Deshuffle Unit to convert sequential index to shuffle index
-  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_shf_idx(input int NrLanes, input int seqNbIdx, input riscv_mv_pkg::vew_e ew);
+  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_shf_idx(input int NrExits, input int seqNbIdx, input riscv_mv_pkg::vew_e ew);
     // Lookup tables for each lane configuration
     automatic logic [5-1:0] lut_1lane [0:31][0:3] = '{
       '{5'd000, 5'd000, 5'd000, 5'd000}, '{5'd008, 5'd001, 5'd001, 5'd001}, '{5'd016, 5'd008, 5'd002, 5'd002}, '{5'd024, 5'd009, 5'd003, 5'd003}, '{5'd004, 5'd016, 5'd008, 5'd004}, '{5'd012, 5'd017, 5'd009, 5'd005}, '{5'd020, 5'd024, 5'd010, 5'd006}, '{5'd028, 5'd025, 5'd011, 5'd007},
@@ -141,7 +141,7 @@ package vlsu_shuffle_pkg;
       '{9'd287, 9'd414, 9'd476, 9'd504}, '{9'd319, 9'd415, 9'd477, 9'd505}, '{9'd351, 9'd446, 9'd478, 9'd506}, '{9'd383, 9'd447, 9'd479, 9'd507}, '{9'd415, 9'd478, 9'd508, 9'd508}, '{9'd447, 9'd479, 9'd509, 9'd509}, '{9'd479, 9'd510, 9'd510, 9'd510}, '{9'd511, 9'd511, 9'd511, 9'd511}
     };
 
-	unique case (NrLanes)
+	unique case (NrExits)
       1 : return lut_1lane [seqNbIdx][ew];
       2 : return lut_2lane [seqNbIdx][ew];
       4 : return lut_4lane [seqNbIdx][ew];
@@ -151,7 +151,7 @@ package vlsu_shuffle_pkg;
 	  endcase
   endfunction
 
-  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_shf_idx_2d_cln(input int NrLanes, input int seqNbIdx, input riscv_mv_pkg::vew_e ew);
+  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_shf_idx_2d_cln(input int NrExits, input int seqNbIdx, input riscv_mv_pkg::vew_e ew);
     automatic logic [5-1:0] lut_1lane [0:31][0:3] = '{
       '{5'd000, 5'd000, 5'd000, 5'd000}, '{5'd008, 5'd001, 5'd001, 5'd001}, '{5'd016, 5'd008, 5'd002, 5'd002}, '{5'd024, 5'd009, 5'd003, 5'd003}, '{5'd004, 5'd016, 5'd008, 5'd004}, '{5'd012, 5'd017, 5'd009, 5'd005}, '{5'd020, 5'd024, 5'd010, 5'd006}, '{5'd028, 5'd025, 5'd011, 5'd007},
       '{5'd002, 5'd004, 5'd016, 5'd008}, '{5'd010, 5'd005, 5'd017, 5'd009}, '{5'd018, 5'd012, 5'd018, 5'd010}, '{5'd026, 5'd013, 5'd019, 5'd011}, '{5'd006, 5'd020, 5'd024, 5'd012}, '{5'd014, 5'd021, 5'd025, 5'd013}, '{5'd022, 5'd028, 5'd026, 5'd014}, '{5'd030, 5'd029, 5'd027, 5'd015},
@@ -291,7 +291,7 @@ package vlsu_shuffle_pkg;
       '{9'd483, 9'd486, 9'd500, 9'd504}, '{9'd491, 9'd487, 9'd501, 9'd505}, '{9'd499, 9'd494, 9'd502, 9'd506}, '{9'd507, 9'd495, 9'd503, 9'd507}, '{9'd487, 9'd502, 9'd508, 9'd508}, '{9'd495, 9'd503, 9'd509, 9'd509}, '{9'd503, 9'd510, 9'd510, 9'd510}, '{9'd511, 9'd511, 9'd511, 9'd511}
     };
 
-    unique case (NrLanes)
+    unique case (NrExits)
       1 : return lut_1lane [seqNbIdx][ew];
       2 : return lut_2lane [seqNbIdx][ew];
       4 : return lut_4lane [seqNbIdx][ew];
@@ -301,7 +301,7 @@ package vlsu_shuffle_pkg;
 	  endcase
   endfunction
 
-  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx(input int NrLanes, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
+  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx(input int NrExits, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
     automatic logic [5-1:0] lut_1lane [0:31][0:3] = '{
       '{5'd000, 5'd000, 5'd000, 5'd000}, '{5'd016, 5'd001, 5'd001, 5'd001}, '{5'd008, 5'd016, 5'd002, 5'd002}, '{5'd024, 5'd017, 5'd003, 5'd003}, '{5'd004, 5'd008, 5'd016, 5'd004}, '{5'd020, 5'd009, 5'd017, 5'd005}, '{5'd012, 5'd024, 5'd018, 5'd006}, '{5'd028, 5'd025, 5'd019, 5'd007},
       '{5'd001, 5'd002, 5'd004, 5'd008}, '{5'd017, 5'd003, 5'd005, 5'd009}, '{5'd009, 5'd018, 5'd006, 5'd010}, '{5'd025, 5'd019, 5'd007, 5'd011}, '{5'd005, 5'd010, 5'd020, 5'd012}, '{5'd021, 5'd011, 5'd021, 5'd013}, '{5'd013, 5'd026, 5'd022, 5'd014}, '{5'd029, 5'd027, 5'd023, 5'd015},
@@ -437,7 +437,7 @@ package vlsu_shuffle_pkg;
       '{9'd063, 9'd126, 9'd252, 9'd504}, '{9'd319, 9'd127, 9'd253, 9'd505}, '{9'd191, 9'd382, 9'd254, 9'd506}, '{9'd447, 9'd383, 9'd255, 9'd507}, '{9'd127, 9'd254, 9'd508, 9'd508}, '{9'd383, 9'd255, 9'd509, 9'd509}, '{9'd255, 9'd510, 9'd510, 9'd510}, '{9'd511, 9'd511, 9'd511, 9'd511}
     };
 
-    unique case (NrLanes)
+    unique case (NrExits)
       1 : return lut_1lane [shfNbIdx][ew];
       2 : return lut_2lane [shfNbIdx][ew];
       4 : return lut_4lane [shfNbIdx][ew];
@@ -447,7 +447,7 @@ package vlsu_shuffle_pkg;
 	  endcase
   endfunction
 
-  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx_2d_cln(input int NrLanes, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
+  function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx_2d_cln(input int NrExits, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
     automatic logic [5-1:0] lut_1lane [0:31][0:3] = '{
       '{5'd000, 5'd000, 5'd000, 5'd000}, '{5'd016, 5'd001, 5'd001, 5'd001}, '{5'd008, 5'd016, 5'd002, 5'd002}, '{5'd024, 5'd017, 5'd003, 5'd003}, '{5'd004, 5'd008, 5'd016, 5'd004}, '{5'd020, 5'd009, 5'd017, 5'd005}, '{5'd012, 5'd024, 5'd018, 5'd006}, '{5'd028, 5'd025, 5'd019, 5'd007},
       '{5'd001, 5'd002, 5'd004, 5'd008}, '{5'd017, 5'd003, 5'd005, 5'd009}, '{5'd009, 5'd018, 5'd006, 5'd010}, '{5'd025, 5'd019, 5'd007, 5'd011}, '{5'd005, 5'd010, 5'd020, 5'd012}, '{5'd021, 5'd011, 5'd021, 5'd013}, '{5'd013, 5'd026, 5'd022, 5'd014}, '{5'd029, 5'd027, 5'd023, 5'd015},
@@ -583,7 +583,7 @@ package vlsu_shuffle_pkg;
       '{9'd483, 9'd486, 9'd492, 9'd504}, '{9'd499, 9'd487, 9'd493, 9'd505}, '{9'd491, 9'd502, 9'd494, 9'd506}, '{9'd507, 9'd503, 9'd495, 9'd507}, '{9'd487, 9'd494, 9'd508, 9'd508}, '{9'd503, 9'd495, 9'd509, 9'd509}, '{9'd495, 9'd510, 9'd510, 9'd510}, '{9'd511, 9'd511, 9'd511, 9'd511}
     };
 
-    unique case (NrLanes)
+    unique case (NrExits)
       1 : return lut_1lane [shfNbIdx][ew];
       2 : return lut_2lane [shfNbIdx][ew];
       4 : return lut_4lane [shfNbIdx][ew];
@@ -595,24 +595,24 @@ package vlsu_shuffle_pkg;
 
   // // Input shuffle index, output sequential index  
   // // Used in Shuffle Unit to convert shuffle index to sequential index
-  // function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx(input int NrLanes, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
-  //   unique case (NrLanes)
+  // function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx(input int NrExits, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
+  //   unique case (NrExits)
   //     1: begin
   //       automatic logic [5-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 32; seqIdx++)
-  //           idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
+  //           idx[query_shf_idx(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     2: begin
   //       automatic logic [6-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 64; seqIdx++)
-  //         idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     4: begin
   //       automatic logic [7-1:0] idx [0:3];
   //       for (int unsigned seqIdx = 0; seqIdx < 128; seqIdx++) begin
-  //         automatic int unsigned shf_idx = query_shf_idx(NrLanes, seqIdx, ew);
+  //         automatic int unsigned shf_idx = query_shf_idx(NrExits, seqIdx, ew);
   //         idx[shf_idx] = seqIdx;
   //         $display("idx[%0d] = %0d", shf_idx, seqIdx);
   //       end
@@ -625,13 +625,13 @@ package vlsu_shuffle_pkg;
   //     8: begin
   //       automatic logic [8-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 256; seqIdx++)
-  //         idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     16: begin
   //       automatic logic [9-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 512; seqIdx++)
-  //         idx[query_shf_idx(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     default: return 0;
@@ -640,24 +640,24 @@ package vlsu_shuffle_pkg;
 
   // // Input shuffle index, output sequential index for 2D column-major mode
   // // Used in Shuffle Unit to convert shuffle index to sequential index
-  // function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx_2d_cln(input int NrLanes, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
-  //   unique case (NrLanes)
+  // function automatic logic [{$clog2(riva_pkg::DLEN*riva_pkg::MaxNrLanes/4)}-1:0] query_seq_idx_2d_cln(input int NrExits, input int shfNbIdx, input riscv_mv_pkg::vew_e ew);
+  //   unique case (NrExits)
   //     1: begin
   //       automatic logic [5-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 32; seqIdx++)
-  //           idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
+  //           idx[query_shf_idx_2d_cln(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     2: begin
   //       automatic logic [6-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 64; seqIdx++)
-  //         idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx_2d_cln(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     4: begin
   //       automatic logic [7-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 128; seqIdx++)
-  //         idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx_2d_cln(NrExits, seqIdx, ew)] = seqIdx;
   //       for (int i = 0; i < 4; i++) begin
   //          $display("idx[%0d] = %0d", i, idx[i]);
   //       end
@@ -666,13 +666,13 @@ package vlsu_shuffle_pkg;
   //     8: begin
   //       automatic logic [8-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 256; seqIdx++)
-  //         idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx_2d_cln(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     16: begin
   //       automatic logic [9-1:0] idx [0:3];
   //       for (int seqIdx = 0; seqIdx < 512; seqIdx++)
-  //         idx[query_shf_idx_2d_cln(NrLanes, seqIdx, ew)] = seqIdx;
+  //         idx[query_shf_idx_2d_cln(NrExits, seqIdx, ew)] = seqIdx;
   //       return idx[shfNbIdx];
   //     end
   //     default: return 0;

@@ -38,9 +38,9 @@
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
   } vlsu_req_t;
     
-    // ================= Typedef Structures ================= //
+  // ================= Typedef Structures ================= //
     
-    // Global metadata structure
+  // Global metadata structure
   // Contains global information decoded from the VLSU request
   // Most fields remain unchanged throughout the request processing
   typedef struct packed {
@@ -49,7 +49,7 @@
     elen_t              baseAddr;     // Base address for the vector operation
     logic [4:0]         vd;           // Vector destination register index
     riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)
-    maxlen_t            nrEffElems;          // Number of elements to process (len - vstart)
+    maxlen_t            nrEffElems;   // Number of elements to process (len - vstart)
     elen_t              stride;       // Stride value for strided access mode
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
     elen_t              vstart;       // Starting element index for partial vector operations
@@ -91,7 +91,7 @@
   typedef struct packed {
     vid_t              reqId;             // Request ID for tracking and debugging
     vaddr_set_t        vaddr_set;         // VRF set address
-    vaddr_bank_t       vaddr_bank;         // VRF bank address
+    vaddr_bank_t       vaddr_bank;        // VRF bank address
     logic [DLEN-1:0]   data;              // Data bits (DLEN = 128 bits)
     logic [DLEN/4-1:0] nbe;               // Nibble byte enable (half byte enable)
   } tx_lane_t;
@@ -105,6 +105,6 @@
   // LaneSide structure (based on Chisel LaneSide)
   // Contains arrays of TxLane and RxLane for all lanes
   typedef struct packed {
-    tx_lane_t [NrLanes-1:0] txs;          // Transmit lanes (VLSU to lanes)
-    rx_lane_t [NrLanes-1:0] rxs;          // Receive lanes (lanes to VLSU)
+    tx_lane_t [NrExits-1:0] txs;          // Transmit lanes (VLSU to lanes)
+    rx_lane_t [NrExits-1:0] rxs;          // Receive lanes (lanes to VLSU)
   } lane_side_t;

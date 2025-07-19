@@ -7,7 +7,7 @@
 // ============================================================================
 
 module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
-  parameter  int  unsigned  NrLanes       = 0,
+  parameter  int  unsigned  NrExits       = 0,
   parameter  int  unsigned  VLEN          = 0,
   parameter  int  unsigned  ALEN          = 0,
   parameter  int  unsigned  MaxLEN        = 0,
@@ -18,8 +18,8 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  type           pe_resp_t     = logic,
   
   // Dependant parameters. DO NOT CHANGE!
-  localparam int  unsigned  laneIdBits       = $clog2(NrLanes),
-  localparam int  unsigned  nbIdxBits        = $clog2((riva_pkg::DLEN/4) * NrLanes),
+  localparam int  unsigned  laneIdBits       = $clog2(NrExits),
+  localparam int  unsigned  nbIdxBits        = $clog2((riva_pkg::DLEN/4) * NrExits),
   localparam type           strb_t           = logic [riva_pkg::DLEN/4-1:0]
 ) (
   input  logic                       clk_i,
@@ -31,9 +31,9 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   input  seq_buf_t                   rx_seq_load_i,
   
   // Output to Lane Entries
-  output logic      [NrLanes-1:0]    txs_valid_o,
-  input  logic      [NrLanes-1:0]    txs_ready_i,
-  output tx_lane_t  [NrLanes-1:0]    txs_o,
+  output logic      [NrExits-1:0]    txs_valid_o,
+  input  logic      [NrExits-1:0]    txs_ready_i,
+  output tx_lane_t  [NrExits-1:0]    txs_o,
   
   // Meta Control Interface
   input  logic                       meta_info_valid_i,
@@ -41,8 +41,8 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   input  meta_glb_t                  meta_info_i,
   
   // Mask from mask unit
-  input  logic      [NrLanes-1:0]    mask_valid_i,
-  input  strb_t     [NrLanes-1:0]    mask_bits_i,
+  input  logic      [NrExits-1:0]    mask_valid_i,
+  input  strb_t     [NrExits-1:0]    mask_bits_i,
   output logic                       mask_ready_o,
 
   // pe resp load
@@ -51,8 +51,8 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
 
   // ================= Internal Signals ================= //
   // Shuffle buffer using registers (like Chisel implementation)
-  logic     [NrLanes-1:0] shf_buf_valid, shf_buf_valid_nxt;
-  tx_lane_t [NrLanes-1:0] shf_buf, shf_buf_nxt;
+  logic     [NrExits-1:0] shf_buf_valid, shf_buf_valid_nxt;
+  tx_lane_t [NrExits-1:0] shf_buf, shf_buf_nxt;
   wire                    shf_buf_empty = !(|shf_buf_valid);
 
   // ShfInfo buffer using CircularQueuePtrTemplate
@@ -115,7 +115,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       // Hardware signals
       automatic vaddr_t               vaddr_calc;
       automatic vaddr_set_t           vd_base_set;
-      automatic riva_pkg::elen_t      start_elem_in_vd = meta_info_i.vstart >> $clog2(NrLanes);
+      automatic riva_pkg::elen_t      start_elem_in_vd = meta_info_i.vstart >> $clog2(NrExits);
       
       // Calculate vd_base_set based on vd register type
       vd_base_set = meta_info_i.vd[vlsu_pkg::vdMsb]
@@ -163,13 +163,13 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     
     if (do_cmt_seq_to_shf) begin
       // Shuffle data using query_seq_idx function
-      for (int lane = 0; lane < NrLanes; lane++) begin
+      for (int lane = 0; lane < NrExits; lane++) begin
         for (int off = 0; off < riva_pkg::DLEN/4; off++) begin
           automatic int unsigned shf_idx = lane * (riva_pkg::DLEN/4) + off;
           // Get sequential index for this lane/offset combination
           automatic int unsigned seq_idx = ControlMachinePkg::isCln2D(shfInfo.mode)
-              ? query_seq_idx_2d_cln(NrLanes, shf_idx, shfInfo.sew)
-              : query_seq_idx       (NrLanes, shf_idx, shfInfo.sew);
+              ? query_seq_idx_2d_cln(NrExits, shf_idx, shfInfo.sew)
+              : query_seq_idx       (NrExits, shf_idx, shfInfo.sew);
           
           // Assign data and nbe
           shf_buf_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx*4 +: 4];
@@ -178,7 +178,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       end
 
       // Make all shuffle buffer valid
-      for (int i = 0; i < NrLanes; i++) begin
+      for (int i = 0; i < NrExits; i++) begin
         shf_buf_valid_nxt[i]       = 1'b1;
         shf_buf_nxt [i].reqId      = shfInfo.reqId;
         shf_buf_nxt [i].vaddr_set  = shfInfo.vaddr_set;
@@ -192,7 +192,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // -------------------------------------------
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      for (int i = 0; i < NrLanes; i++) begin
+      for (int i = 0; i < NrExits; i++) begin
         shf_buf_valid[i] <= 1'b0;
       end
     end
@@ -217,7 +217,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       end
 
       // Clear shuffle buffer when transaction is accepted
-      for (int unsigned lane = 0; lane < NrLanes; lane++) begin
+      for (int unsigned lane = 0; lane < NrExits; lane++) begin
         if (txs_valid_o[lane] && txs_ready_i[lane]) begin
           shf_buf_valid[lane] <= 1'b0;
         end
@@ -231,7 +231,7 @@ module ShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   // shfBuf -> lane
   // -------------------------------------------
   always_comb begin: shfbuf_to_lane_logic
-    for (int lane = 0; lane < NrLanes; lane++) begin
+    for (int lane = 0; lane < NrExits; lane++) begin
       txs_valid_o[lane] = shf_buf_valid[lane];
       txs_o      [lane] = shf_buf[lane];
     end

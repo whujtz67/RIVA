@@ -19,7 +19,7 @@ package vlsu_pkg;
   } mode_oh_t;
 
   // TODO: Temporary parameters
-  localparam int unsigned NrLanes = 4;
+  localparam int unsigned NrExits = 4;
   localparam int unsigned VLEN = 8192;
   localparam int unsigned ALEN = 16384;
 
@@ -41,8 +41,8 @@ package vlsu_pkg;
   // ================= VAddr Parameters ================= //
   parameter int unsigned NrVregs      = 16;
   parameter int unsigned NrAregs      = 16;
-  parameter int unsigned NrSetPerVreg = VLEN / NrLanes / DLEN / NrVRFBanksPerLane;
-  parameter int unsigned NrSetPerAreg = ALEN / NrLanes / DLEN / NrVRFBanksPerLane;
+  parameter int unsigned NrSetPerVreg = VLEN / NrExits / DLEN / NrVRFBanksPerLane;
+  parameter int unsigned NrSetPerAreg = ALEN / NrExits / DLEN / NrVRFBanksPerLane;
   parameter int unsigned NrVRFSets    = NrVregs * NrSetPerVreg + NrAregs * NrSetPerAreg;
   parameter int unsigned AregBaseSet  = NrVregs * NrSetPerVreg;
 

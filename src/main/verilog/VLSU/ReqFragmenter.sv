@@ -9,7 +9,7 @@
 import ControlMachinePkg::*;
 
 module ReqFragmenter import riva_pkg::*; #(
-  parameter int   unsigned  NrLanes      = 0,
+  parameter int   unsigned  NrExits      = 0,
   parameter int   unsigned  VLEN         = 0,
   parameter int   unsigned  ALEN         = 0,
   parameter int   unsigned  MaxLEN       = 0,
@@ -133,15 +133,15 @@ module ReqFragmenter import riva_pkg::*; #(
           meta_glb_nxt.rmnSeg     = isIncr(meta_glb_nxt.mode)  ? 0                                        :
                                     isStrd(meta_glb_nxt.mode)  ? nr_eff_elems - 1   :
                                     isRow2D(meta_glb_nxt.mode) ? vlsu_req_i.len - 1 :
-                                    isCln2D(meta_glb_nxt.mode) ? (NrLanes - 1)      : 
+                                    isCln2D(meta_glb_nxt.mode) ? (NrExits - 1)      : 
                                                                0                  ;
           meta_glb_nxt.isLoad   = vlsu_req_i.isLoad;
           meta_glb_nxt.cmtCnt   = (
               (is2D(meta_glb_nxt.mode) ?
-                (vlsu_req_i.len << vlsu_req_i.sew << $clog2(NrLanes)) :
-                (nr_eff_elems << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & ((1 << $clog2(NrLanes * DLEN / 4)) - 1))
+                (vlsu_req_i.len << vlsu_req_i.sew << $clog2(NrExits)) :
+                (nr_eff_elems << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & ((1 << $clog2(NrExits * DLEN / 4)) - 1))
               ) - 1
-          ) >> $clog2(NrLanes * DLEN / 4);
+          ) >> $clog2(NrExits * DLEN / 4);
         end
         // Ready to accept new request in IDLE
         vlsu_req_ready_o = 1'b1;
@@ -166,7 +166,7 @@ module ReqFragmenter import riva_pkg::*; #(
               if (isCln2D(meta_glb_r.mode)) begin
                 // If is2DCln mode, switch to next group.
                 meta_glb_nxt.baseAddr = meta_glb_r.baseAddr + DLEN/4;
-                meta_glb_nxt.rmnSeg   = NrLanes - 1;
+                meta_glb_nxt.rmnSeg   = NrExits - 1;
                 meta_glb_nxt.rmnGrp   = meta_glb_r.rmnGrp - 1;
               end
             end 
@@ -218,7 +218,7 @@ module ReqFragmenter import riva_pkg::*; #(
 
   // seglv_init_common module instantiation
   SegLvInitCommon #(
-    .NrLanes        (NrLanes     ),
+    .NrExits        (NrExits     ),
     .VLEN           (VLEN        ),
     .ALEN           (ALEN        ),
     .MaxLEN         (MaxLEN      ),
@@ -258,7 +258,7 @@ endmodule
 // hardware implementation is generated and shared.
 // -----------------------------------------------------------------------------
 module SegLvInitCommon import riva_pkg::*; #(
-  parameter  int   unsigned  NrLanes        = 0,
+  parameter  int   unsigned  NrExits        = 0,
   parameter  int   unsigned  VLEN           = 0,
   parameter  int   unsigned  ALEN           = 0,
   parameter  int   unsigned  MaxLEN         = 0,
@@ -306,7 +306,7 @@ module SegLvInitCommon import riva_pkg::*; #(
     // Calculate number of nibbles in the segment for row-major modes - always calculated
     nr_seg_elems_row_major = is_incr  ? glb_i.nrEffElems :
                              is_strd  ? 1            :
-                             is_row2d ? NrLanes      : 
+                             is_row2d ? NrExits      : 
                                         0            ;
     nr_seg_nbs_row_major = nr_seg_elems_row_major << glb_i.sew;
 

@@ -41,7 +41,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
 // Parameters for VLSU (following existing code patterns)
 // -----------------------------------------
   // Core parameters (from VLSU.sv)
-  localparam int unsigned NrLanes      = 4;
+  localparam int unsigned NrExits      = 4;
   localparam int unsigned VLEN         = 8192;
   localparam int unsigned ALEN         = 16384;
   localparam int unsigned MaxLEN       = (VLEN > ALEN) ? VLEN : ALEN;
@@ -315,7 +315,7 @@ module tb_top import vlsu_pkg::*; import riva_pkg::*; (
 // VLSU module instantiate
 // -----------------------------------------
   VLSU #(
-    .NrLanes      (NrLanes      ),
+    .NrExits      (NrExits      ),
     .VLEN         (VLEN         ),
     .ALEN         (ALEN         ),
     .MaxLEN       (MaxLEN       ),

@@ -6,7 +6,7 @@
 
 
 module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
-  parameter  int   unsigned  NrLanes          = 0,
+  parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  AxiDataWidth     = 0,
   parameter  int   unsigned  AxiAddrWidth     = 0,
   parameter  int   unsigned  AxiUserWidth     = 1, // TODO: pass from top level
@@ -18,7 +18,7 @@ module SequentialStore import vlsu_pkg::*; import axi_pkg::*; #(
   parameter  type            seq_buf_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrLanes,
+  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrExits,
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles)
 ) (

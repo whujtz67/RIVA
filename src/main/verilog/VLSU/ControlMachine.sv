@@ -7,7 +7,7 @@
 
 
 module ControlMachine import vlsu_pkg::*; #(
-    parameter  int   unsigned  NrLanes      = 0,
+    parameter  int   unsigned  NrExits      = 0,
     parameter  int   unsigned  VLEN         = 0,
     parameter  int   unsigned  ALEN         = 0,
     parameter  int   unsigned  MaxLEN       = 0,
@@ -63,7 +63,7 @@ module ControlMachine import vlsu_pkg::*; #(
 
     // --------------------- Submodule Instantiation --------------------- //
     ReqFragmenter #(
-      .NrLanes      (NrLanes      ),
+      .NrExits      (NrExits      ),
       .VLEN         (VLEN         ),
       .ALEN         (ALEN         ),
       .MaxLEN       (MaxLEN       ),

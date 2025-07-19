@@ -9,7 +9,7 @@
 
 
 module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
-  parameter  int   unsigned  NrLanes          = 0,
+  parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  ALEN             = 0,
   parameter  int   unsigned  MaxLEN           = 0,
@@ -26,7 +26,7 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrLanes,
+  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrExits,
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles),
   localparam type            strb_t           = logic [riva_pkg::DLEN/4-1:0]
@@ -50,13 +50,13 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   input  meta_glb_t                  meta_glb_i,
   
   // Output to Lane Entries
-  output logic      [NrLanes-1:0]    txs_valid_o,
-  input  logic      [NrLanes-1:0]    txs_ready_i,
-  output tx_lane_t  [NrLanes-1:0]    txs_o,
+  output logic      [NrExits-1:0]    txs_valid_o,
+  input  logic      [NrExits-1:0]    txs_ready_i,
+  output tx_lane_t  [NrExits-1:0]    txs_o,
   
   // Mask from mask unit
-  input  logic      [NrLanes-1:0]    mask_valid_i,
-  input  strb_t     [NrLanes-1:0]    mask_bits_i,
+  input  logic      [NrExits-1:0]    mask_valid_i,
+  input  strb_t     [NrExits-1:0]    mask_bits_i,
   output logic                       mask_ready_o,
 
   // pe resp load
@@ -64,6 +64,8 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
 );
 
   `include "vlsu/vlsu_dc_typedef.svh"
+
+  `VLSU_SHF_INFO_T_SVH
 
   // ================= Internal Signals ================= //
   // Connection between SequentialLoad and ShuffleUnit
@@ -98,7 +100,7 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   // ================= SequentialLoad Instantiation ================= //
   SequentialLoad #(
-    .NrLanes      (NrLanes      ),
+    .NrExits      (NrExits      ),
     .AxiDataWidth (AxiDataWidth ),
     .AxiAddrWidth (AxiAddrWidth ),
     .axi_r_t      (axi_r_t      ),
@@ -125,7 +127,7 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   // ================= ShuffleUnit Instantiation ================= //
   ShuffleUnit #(
-    .NrLanes        (NrLanes        ),
+    .NrExits        (NrExits        ),
     .VLEN           (VLEN           ),
     .ALEN           (ALEN           ),
     .meta_glb_t     (meta_glb_t     ),

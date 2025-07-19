@@ -19,6 +19,6 @@ object TestVLSU extends App {
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--split-verilog"),
     FirtoolOption("-o=./build/rtl"),
-    ChiselGeneratorAnnotation(() => new VLSU()(config))
+    ChiselGeneratorAnnotation(() => new VLSU_NC()(config))
   ))
 }

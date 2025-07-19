@@ -9,7 +9,7 @@
 
 
 module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
-  parameter  int   unsigned  NrLanes          = 0,
+  parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  ALEN             = 0,
   parameter  int   unsigned  MaxLEN           = 0,
@@ -25,7 +25,7 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  type            rx_lane_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrLanes,
+  localparam int   unsigned  NrLaneEntriesNbs = (riva_pkg::DLEN / 4) * NrExits,
   localparam int   unsigned  busNibbles       = AxiDataWidth / 4,
   localparam int   unsigned  busNSize         = $clog2(busNibbles),
   localparam type            strb_t           = logic [riva_pkg::DLEN/4-1:0]
@@ -34,9 +34,9 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   input  logic                       rst_ni,
 
   // Input from Lane Exits
-  input  logic      [NrLanes-1:0]    rxs_valid_i,
-  output logic      [NrLanes-1:0]    rxs_ready_o,
-  input  rx_lane_t  [NrLanes-1:0]    rxs_i,
+  input  logic      [NrExits-1:0]    rxs_valid_i,
+  output logic      [NrExits-1:0]    rxs_ready_o,
+  input  rx_lane_t  [NrExits-1:0]    rxs_i,
 
   // AXI W Channel Output
   output logic                       axi_w_valid_o,
@@ -54,12 +54,14 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   input  meta_glb_t                  meta_glb_i,
 
   // Mask from mask unit
-  input  logic      [NrLanes-1:0]    mask_valid_i,
-  input  strb_t     [NrLanes-1:0]    mask_bits_i,
+  input  logic      [NrExits-1:0]    mask_valid_i,
+  input  strb_t     [NrExits-1:0]    mask_bits_i,
   output logic                       mask_ready_o 
 );
 
   `include "vlsu/vlsu_dc_typedef.svh"
+
+  `VLSU_SHF_INFO_T_SVH
 
   // ================= Internal Signals ================= //
   // Connection between DeShuffleUnit and SequentialStore
@@ -94,7 +96,7 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   // ================= DeShuffleUnit Instantiation ================= //
   DeShuffleUnit #(
-    .NrLanes      (NrLanes      ),
+    .NrExits      (NrExits      ),
     .VLEN         (VLEN         ),
     .ALEN         (ALEN         ),
     .MaxLEN       (MaxLEN       ),
@@ -121,7 +123,7 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   // ================= SequentialStore Instantiation ================= //
   SequentialStore #(
-    .NrLanes        (NrLanes        ),
+    .NrExits        (NrExits        ),
     .AxiDataWidth   (AxiDataWidth   ),
     .AxiAddrWidth   (AxiAddrWidth   ),
     .AxiUserWidth   (AxiUserWidth   ),
