@@ -142,7 +142,7 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
       iq_enq_bits.mop      = pe_req_i.mop;
       iq_enq_bits.baseAddr = pe_req_i.baseAddr;
       iq_enq_bits.sew      = pe_req_i.sew;
-      iq_enq_bits.md       = pe_req_i.md;
+      iq_enq_bits.md       = pe_req_i.vd;
       iq_enq_bits.stride   = pe_req_i.stride;
       // len equals mlen when requesting matrix operations
       iq_enq_bits.vl       = pe_req_i.vl;
