@@ -25,7 +25,6 @@ module VLSU import riva_pkg::*; import vlsu_pkg::*; #(
     parameter  type            axi_req_t    = logic,
     parameter  type            axi_resp_t   = logic,
     // Dependant parameters. DO NOT CHANGE!
-    localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
     localparam type            strb_t       = logic [DLEN/4-1:0],
     localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
 	  localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0],

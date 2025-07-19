@@ -6,8 +6,7 @@
 module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
     parameter  int   unsigned  NrExits      = 0,
     parameter  int   unsigned  VLEN         = 0,
-    parameter  int   unsigned  ALEN         = 0,
-    parameter  int   unsigned  MaxLEN       = 0,
+    parameter  int   unsigned  MLEN         = 0,
     parameter  type            pe_req_t     = logic,
     parameter  type            pe_resp_t    = logic,
     
@@ -25,11 +24,9 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
     parameter  type            axi_req_t    = logic,
     parameter  type            axi_resp_t   = logic,
     // Dependant parameters. DO NOT CHANGE!
-    localparam int   unsigned  clog2MaxNbs  = $clog2(MaxLEN * ELEN / 4),
     localparam type            strb_t       = logic [DLEN/4-1:0],
     localparam type            vlen_t       = logic [$clog2(VLEN+1)-1:0],
-	  localparam type            alen_t       = logic [$clog2(ALEN+1)-1:0],
-    localparam type            maxlen_t     = logic [$clog2(MaxLEN+1)-1:0]
+    localparam type            mlen_t       = logic [$clog2(MLEN+1)-1:0]
 ) (
     // Clock and Reset
     input  logic          clk_i,
@@ -68,8 +65,8 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
     input  logic        [NrExits-1:0]              txs_ready_i,
     // tx_lane_t fields expanded
     output vid_t        [NrExits-1:0]              txs_reqId_o,
-    output vaddr_set_t  [NrExits-1:0]              txs_vaddr_set_o,
-    output vaddr_bank_t [NrExits-1:0]              txs_vaddr_bank_o,
+    output maddr_set_t  [NrExits-1:0]              txs_maddr_set_o,
+    output maddr_bank_t [NrExits-1:0]              txs_maddr_bank_o,
     output logic        [NrExits-1:0][DLEN-1   :0] txs_data_o,
     output logic        [NrExits-1:0][DLEN/4 -1:0] txs_nbe_o,
     
@@ -92,76 +89,75 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
 
 
     // TODO: maybe do not need to multiply ELEN here
-    typedef logic [$clog2(MaxLEN*ELEN/DLEN)-1    :0] rmn_grp_t; // 0 ~ (MaxLEN*ELEN/DLEN)-1
-    typedef logic [$clog2(MaxLEN*ELEN/DLEN)-1    :0] cmt_cnt_t; // 0 ~ (MaxLEN*ELEN*NrExits/DLEN*NrExits)-1
+    typedef logic [$clog2(MLEN*ELEN/DLEN)     -1 :0] cmt_cnt_t; // 0 ~ (MLEN*ELEN*NrExits/DLEN*NrExits)-1
     
-    typedef logic [$clog2(MaxLEN*ELEN/(8*4096))-1:0] txn_num_t; // 0 ~ (MaxLEN*ELEN/8*4096)-1
+    typedef logic [$clog2(MLEN*ELEN/(8*4096)) -1 :0] txn_num_t; // 0 ~ (MLEN*ELEN/8*4096)-1
 
     typedef logic [$clog2(8*4096/AxiDataWidth)-1 :0] rmn_beat_t; // 0 ~ (4096/AxiDataWidth)-1 
     typedef logic [$clog2(AxiDataWidth/4)        :0] lbn_t; // 1 ~ AxiDataWidth/4
 
     // Include type definitions
-    `include "vlsu/vlsu_typedef.svh"
+    `include "mlsu/mlsu_typedef.svh"
 
     // ================= Internal Signals ================= //
     // IQ (Instruction Queue) signals
-    logic        iq_enq_valid, iq_enq_ready;
-    vlsu_req_t   iq_enq_bits;
-    logic        iq_deq_valid, iq_deq_ready;
-    vlsu_req_t   iq_deq_bits;
+    logic             iq_enq_valid, iq_enq_ready;
+    mlsu_init_req_t   iq_enq_bits;
+    logic             iq_deq_valid, iq_deq_ready;
+    mlsu_init_req_t   iq_deq_bits;
 
-    logic        meta_ctrl_valid, meta_ctrl_ready;
-    meta_glb_t   meta_glb;
-    meta_seglv_t meta_seglv;
-
-    logic        txn_ctrl_valid, txn_ctrl_ready;
-    txn_ctrl_t   txn_ctrl;
-
-    logic        aw_valid, aw_ready;
-    axi_aw_t     aw_flit;
-
-    logic        ar_valid, ar_ready;
-    axi_ar_t     ar_flit;
-
-    logic        b_valid, b_ready;
-    axi_b_t      b_flit;
-
-    logic        update_cm;
+    logic             meta_ctrl_valid, meta_ctrl_ready;
+    meta_glb_t        meta_glb;
+    meta_seglv_t      meta_seglv;
+     
+    logic             txn_ctrl_valid, txn_ctrl_ready;
+    txn_ctrl_t        txn_ctrl;
+     
+    logic             aw_valid, aw_ready;
+    axi_aw_t          aw_flit;
+     
+    logic             ar_valid, ar_ready;
+    axi_ar_t          ar_flit;
+     
+    logic             b_valid, b_ready;
+    axi_b_t           b_flit;
+     
+    logic             update_cm;
     
     // Load/Store Unit control signals
-    logic        load_meta_ctrl_valid , load_meta_ctrl_ready;
-    logic        store_meta_ctrl_valid, store_meta_ctrl_ready;
-    logic        load_txn_ctrl_valid  , load_txn_ctrl_ready;
-    logic        store_txn_ctrl_valid , store_txn_ctrl_ready;
+    logic             load_meta_ctrl_valid , load_meta_ctrl_ready;
+    logic             store_meta_ctrl_valid, store_meta_ctrl_ready;
+    logic             load_txn_ctrl_valid  , load_txn_ctrl_ready;
+    logic             store_txn_ctrl_valid , store_txn_ctrl_ready;
     
     // Internal lane signals for submodule connections
     tx_lane_t    [NrExits-1:0] txs_internal;
     rx_lane_t    [NrExits-1:0] rxs_internal;
 
     // ================= pe_req to vlsu_req Conversion ================= //
-    // Convert pe_req_t to vlsu_req_t (equivalent to init function in Chisel)
+    // Convert pe_req_t to mlsu_init_req_t (equivalent to init function in Chisel)
     always_comb begin: pe_req_to_vlsu_req
-      // Map pe_req fields to vlsu_req fields
+      // Map pe_req fields to mlsu_init_req fields
       iq_enq_bits.reqId    = pe_req_i.reqId;
       iq_enq_bits.mop      = pe_req_i.mop;
       iq_enq_bits.baseAddr = pe_req_i.baseAddr;
       iq_enq_bits.sew      = pe_req_i.sew;
-      iq_enq_bits.vd       = pe_req_i.vd;
+      iq_enq_bits.md       = pe_req_i.md;
       iq_enq_bits.stride   = pe_req_i.stride;
-      // len equals alen when requesting AM and vlen when requesting VM
-      iq_enq_bits.len      = pe_req_i.vd[4] ? pe_req_i.al : pe_req_i.vl;
-      iq_enq_bits.vstart   = pe_req_i.vstart;
+      // len equals mlen when requesting matrix operations
+      iq_enq_bits.vl       = pe_req_i.vl;
+      iq_enq_bits.tile     = pe_req_i.tile;
       iq_enq_bits.isLoad   = pe_req_i.isLoad;
       iq_enq_bits.vm       = pe_req_i.vm;
     end: pe_req_to_vlsu_req
 
     // Connect pe_req interface to IQ
-    assign iq_enq_valid = pe_req_valid_i;
+    assign iq_enq_valid   = pe_req_valid_i;
     assign pe_req_ready_o = iq_enq_ready;
 
     // ================= IQ (Instruction Queue) Instance ================= //
     QueueFlow #(
-      .T      (vlsu_req_t),
+      .T      (mlsu_init_req_t),
       .DEPTH  (reqBufDep)
     ) i_iq (
       .clk_i        (clk_i        ),
@@ -178,24 +174,24 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
 
     // ================= Control Machine Instance ================= //
     MControlMachine #(
-      .NrExits      (NrExits      ),
-      .VLEN         (VLEN         ),
-      .ALEN         (ALEN         ),
-      .MaxLEN       (MaxLEN       ),
-      .AxiDataWidth (AxiDataWidth ),
-      .axi_aw_t     (axi_aw_t     ),
-      .axi_ar_t     (axi_ar_t     ),
-      .vlsu_req_t   (vlsu_req_t   ),
-      .meta_glb_t   (meta_glb_t   ),
-      .meta_seglv_t (meta_seglv_t ),
-      .txn_ctrl_t   (txn_ctrl_t   ),
-      .pe_resp_t    (pe_resp_t    )
+      .NrExits           (NrExits           ),
+      .VLEN              (VLEN              ),
+      .MLEN              (MLEN              ),
+      .AxiDataWidth      (AxiDataWidth      ),
+      .axi_aw_t          (axi_aw_t          ),
+      .axi_ar_t          (axi_ar_t          ),
+      .mlsu_init_req_t   (mlsu_init_req_t   ),
+      .mlsu_predec_req_t (mlsu_predec_req_t ),
+      .meta_glb_t        (meta_glb_t        ),
+      .meta_seglv_t      (meta_seglv_t      ),
+      .txn_ctrl_t        (txn_ctrl_t        ),
+      .pe_resp_t         (pe_resp_t         )
     ) i_cm (
       .clk_i             (clk_i            ),
       .rst_ni            (rst_ni           ),
-      .vlsu_req_valid_i  (iq_deq_valid     ),
-      .vlsu_req_ready_o  (iq_deq_ready     ),
-      .vlsu_req_i        (iq_deq_bits      ),
+      .mlsu_req_valid_i  (iq_deq_valid     ),
+      .mlsu_req_ready_o  (iq_deq_ready     ),
+      .mlsu_req_i        (iq_deq_bits      ),
       .core_st_pending_i (core_st_pending_i),
       .meta_ctrl_valid_o (meta_ctrl_valid  ),
       .meta_ctrl_ready_i (meta_ctrl_ready  ),
@@ -219,8 +215,7 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
     MLoadUnit #(
       .NrExits        (NrExits        ),
       .VLEN           (VLEN           ),
-      .ALEN           (ALEN           ),
-      .MaxLEN         (MaxLEN         ),
+      .MLEN           (MLEN           ),
       .AxiDataWidth   (AxiDataWidth   ),
       .AxiAddrWidth   (AxiAddrWidth   ),
       .axi_r_t        (axi_r_t        ),
@@ -253,8 +248,7 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
     MStoreUnit #(
       .NrExits        (NrExits        ),
       .VLEN           (VLEN           ),
-      .ALEN           (ALEN           ),
-      .MaxLEN         (MaxLEN         ),
+      .MLEN           (MLEN           ),
       .AxiDataWidth   (AxiDataWidth   ),
       .AxiAddrWidth   (AxiAddrWidth   ),
       .AxiUserWidth   (AxiUserWidth   ),
@@ -318,8 +312,8 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
       for (lane = 0; lane < NrExits; lane++) begin : lane_connections
         // Connect txs_internal to expanded txs outputs
         assign txs_reqId_o     [lane]  = txs_internal[lane].reqId;
-        assign txs_vaddr_set_o [lane]  = txs_internal[lane].vaddr_set;
-        assign txs_vaddr_bank_o[lane]  = txs_internal[lane].vaddr_bank;
+        assign txs_maddr_set_o [lane]  = txs_internal[lane].maddr_set;
+        assign txs_maddr_bank_o[lane]  = txs_internal[lane].maddr_bank;
         assign txs_data_o      [lane]  = txs_internal[lane].data;
         assign txs_nbe_o       [lane]  = txs_internal[lane].nbe;
         

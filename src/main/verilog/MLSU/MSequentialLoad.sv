@@ -13,7 +13,7 @@ module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  type            axi_r_t          = logic,
   parameter  type            txn_ctrl_t       = logic,
   parameter  type            meta_glb_t       = logic,
-  parameter  type            seq_info_t       = logic,
+
   parameter  type            seq_buf_t        = logic,
 
   // Dependant parameters. DO NOT CHANGE!
@@ -34,10 +34,7 @@ module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
   output logic          txn_ctrl_ready_o,
   input  txn_ctrl_t     txn_ctrl_i,
   
-  // Meta Control Interface
-  input  logic          meta_glb_valid_i,
-  output logic          meta_glb_ready_o,
-  input  meta_glb_t     meta_glb_i,
+
   
   // Output to ShuffleUnit
   output logic          tx_shfu_valid_o,
@@ -97,25 +94,7 @@ module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
   // Sequential buffer nibble pointer
   logic [$clog2(NrLaneEntriesNbs)-1:0] seq_nb_ptr_r, seq_nb_ptr_nxt;
   
-  // seq_info queue (use Queue module instead of reg)
-  logic      seq_info_enq_valid, seq_info_enq_ready;
-  seq_info_t seq_info_enq_bits;
-  logic      seq_info_deq_valid, seq_info_deq_ready;
-  seq_info_t seq_info_deq_bits;
 
-  QueueFlow #(
-    .T     (seq_info_t),
-    .DEPTH (seqInfoBufDep)
-  ) u_seq_info_queue (
-    .clk_i         (clk_i             ),
-    .rst_ni        (rst_ni            ),
-    .enq_valid_i   (seq_info_enq_valid),
-    .enq_ready_o   (seq_info_enq_ready),
-    .enq_bits_i    (seq_info_enq_bits ),
-    .deq_valid_o   (seq_info_deq_valid),
-    .deq_ready_i   (seq_info_deq_ready),
-    .deq_bits_o    (seq_info_deq_bits )
-  );
   
   // Intermediate variables for S_SERIAL_CMT state
   logic [busNSize-1                              : 0] lower_nibble;
@@ -132,13 +111,7 @@ module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
   wire [$clog2(NrLaneEntriesNbs)-1:0] lower_bound = seq_nb_ptr_r;
   wire [$clog2(NrLaneEntriesNbs)  :0] upper_bound = seq_nb_ptr_r + nr_nbs_committed;
 
-  // ================= Sequential Info Buffer Enqueue Logic ================= //
-  riva_pkg::elen_t vstart_nb;
-  
-  assign vstart_nb                  = meta_glb_i.vstart << meta_glb_i.sew;
-  assign seq_info_enq_bits.seqNbPtr = vstart_nb[$clog2(NrLaneEntriesNbs)-1:0];
-  assign seq_info_enq_valid         = meta_glb_valid_i;
-  assign meta_glb_ready_o           = seq_info_enq_ready;
+
   
   // ================= FSM State Transition Logic ================= //
   always_comb begin: fsm_state_transition
@@ -178,7 +151,7 @@ module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
     axi_r_ready_o       = 1'b0;
     txn_ctrl_ready_o    = 1'b0;
     seq_buf_enq         = 1'b0;
-    seq_info_deq_ready  = 1'b0;
+
     // Default assignments for intermediate variables
     lower_nibble        = '0;
     upper_nibble        = '0;
@@ -194,8 +167,7 @@ module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
         // Initialize pointers and vaddr
         if (txn_ctrl_valid_i) begin
           bus_nb_cnt_nxt      = '0;
-          seq_nb_ptr_nxt      = seq_info_deq_bits.seqNbPtr;
-          seq_info_deq_ready  = 1'b1;
+          seq_nb_ptr_nxt      = '0;
         end
       end
       S_SERIAL_CMT: begin

@@ -8,8 +8,7 @@
 module MLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
-  parameter  int   unsigned  ALEN             = 0,
-  parameter  int   unsigned  MaxLEN           = 0,
+  parameter  int   unsigned  MLEN             = 0,
   parameter  int   unsigned  AxiDataWidth     = 0,
   parameter  int   unsigned  AxiAddrWidth     = 0,
   
@@ -68,40 +67,15 @@ module MLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   logic       tx_shfu_ready;
   seq_buf_t   tx_shfu_data;
 
-  // MetaInfoBroadcast internal signals
-  logic       meta_bc_seq_valid;
-  logic       meta_bc_seq_ready;
-  meta_glb_t  meta_bc_seq_glb;
-  logic       meta_bc_shf_valid;
-  logic       meta_bc_shf_ready;
-  meta_glb_t  meta_bc_shf_glb;
-
-  // ================= MetaInfoBroadcast Instantiation ================= //
-  MetaInfoBroadcast #(
-    .meta_glb_t  (meta_glb_t  )
-  ) i_meta_broadcast (
-    .clk_i                (clk_i                ),
-    .rst_ni               (rst_ni               ),
-    .meta_info_valid_i    (meta_glb_valid_i     ),
-    .meta_info_ready_o    (meta_glb_ready_o     ),
-    .meta_info_i          (meta_glb_i           ),
-    .seq_valid_o          (meta_bc_seq_valid    ),
-    .seq_ready_i          (meta_bc_seq_ready    ),
-    .seq_o                (meta_bc_seq_glb      ),
-    .shf_valid_o          (meta_bc_shf_valid    ),
-    .shf_ready_i          (meta_bc_shf_ready    ),
-    .shf_o                (meta_bc_shf_glb      )
-  );
-
   // ================= SequentialLoad Instantiation ================= //
-      MSequentialLoad #(
+  MSequentialLoad #(
     .NrExits      (NrExits      ),
     .AxiDataWidth (AxiDataWidth ),
     .AxiAddrWidth (AxiAddrWidth ),
     .axi_r_t      (axi_r_t      ),
     .txn_ctrl_t   (txn_ctrl_t   ),
     .meta_glb_t   (meta_glb_t   ),
-    .seq_info_t   (seq_info_t   ),
+
     .seq_buf_t    (seq_buf_t    )
   ) i_sequential_load (
     .clk_i              (clk_i              ),
@@ -112,19 +86,16 @@ module MLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
     .txn_ctrl_valid_i   (txn_ctrl_valid_i   ),
     .txn_ctrl_ready_o   (txn_ctrl_ready_o   ),
     .txn_ctrl_i         (txn_ctrl_i         ),
-    .meta_glb_valid_i   (meta_bc_seq_valid  ),
-    .meta_glb_ready_o   (meta_bc_seq_ready  ),
-    .meta_glb_i         (meta_bc_seq_glb    ),
     .tx_shfu_valid_o    (tx_shfu_valid      ),
     .tx_shfu_ready_i    (tx_shfu_ready      ),
     .tx_shfu_o          (tx_shfu_data       )
   );
 
   // ================= ShuffleUnit Instantiation ================= //
-      MShuffleUnit #(
+  MShuffleUnit #(
     .NrExits        (NrExits        ),
     .VLEN           (VLEN           ),
-    .ALEN           (ALEN           ),
+    .MLEN           (MLEN           ),
     .meta_glb_t     (meta_glb_t     ),
     .seq_buf_t      (seq_buf_t      ),
     .tx_lane_t      (tx_lane_t      ),
@@ -139,16 +110,13 @@ module MLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
     .txs_valid_o              (txs_valid_o              ),
     .txs_ready_i              (txs_ready_i              ),
     .txs_o                    (txs_o                    ),
-    .meta_info_valid_i        (meta_bc_shf_valid        ),
-    .meta_info_ready_o        (meta_bc_shf_ready        ),
-    .meta_info_i              (meta_bc_shf_glb          ),
+    .meta_info_valid_i        (meta_glb_valid_i         ),
+    .meta_info_ready_o        (meta_glb_ready_o         ),
+    .meta_info_i              (meta_glb_i               ),
     .mask_valid_i             (mask_valid_i             ),
     .mask_bits_i              (mask_bits_i              ),
     .mask_ready_o             (mask_ready_o             ),
     .pe_resp_load_o           (pe_resp_load_o           )
   );
-
-  // ================= Assertions ================= //
-  // TODO: Add assertions for data integrity and timing requirements
 
 endmodule : MLoadUnit 

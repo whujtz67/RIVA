@@ -69,8 +69,6 @@
     mlen_t                nrEffElems;   // Number of elements to process (len - vstart). TODO: Maybe should be maxlen?
     elen_t                stride;       // Stride value for strided access mode
     logic                 vm;           // Matrix mask enable (1: masked, 0: unmasked)
-    elen_t                vstart;       // Starting element index for partial matrix operations
-    rmn_grp_t             rmnGrp;       // Remaining groups (for 2D column-major mode)
     mlen_t                rmnSeg;       // Remaining segments within current group. TODO: Maybe should be maxlen?
     logic                 isLoad;       // 1: load operation, 0: store operation
     cmt_cnt_t             cmtCnt;       // Commit counter (used to determine when to dequeue meta buffer)

@@ -116,7 +116,7 @@ module VDeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         ? (AregBaseSet + (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerAreg))
         : (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerVreg);
       
-      // Calculate virtual address
+      // Calculate vector address
       vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
       
       // Assign meta info to intermediate signal
@@ -127,8 +127,8 @@ module VDeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       shf_info_enq_bits.vstart     = meta_info_i.vstart;
       shf_info_enq_bits.vm         = meta_info_i.vm;
       shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
-      shf_info_enq_bits.vaddr_set  = vaddr_calc[VAddrBits-1:VAddrBankBits];
-      shf_info_enq_bits.vaddr_bank = vaddr_calc[VAddrBankBits-1:0];
+      shf_info_enq_bits.vaddr_set  = vaddr_calc[VAddrBits-1:VAddrBankBits]; // TODO: Useless, remove it.
+      shf_info_enq_bits.vaddr_bank = vaddr_calc[VAddrBankBits-1:0];         // TODO: Useless, remove it.
       
       // Set enqueue signal
       shf_info_buf_enq = 1'b1;

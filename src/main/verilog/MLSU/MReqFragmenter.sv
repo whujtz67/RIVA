@@ -5,24 +5,22 @@
 
 
 
-import ControlMachinePkg::*;
 
-module MReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
-  parameter int   unsigned  NrExits      = 0,
-  parameter int   unsigned  VLEN         = 0,
-  parameter int   unsigned  ALEN         = 0,
-  parameter int   unsigned  MaxLEN       = 0,
-  parameter type            vlsu_req_t   = logic,
-  parameter type            meta_glb_t   = logic,
-  parameter type            meta_seglv_t = logic
+module MReqFragmenter import riva_pkg::*; import mlsu_pkg::*; import MControlMachinePkg::*; #(
+  parameter int   unsigned  NrExits           = 0,
+  parameter int   unsigned  VLEN              = 0,
+  parameter int   unsigned  MLEN              = 0,
+  parameter type            mlsu_predec_req_t = logic,
+  parameter type            meta_glb_t        = logic,
+  parameter type            meta_seglv_t      = logic
 ) (
   input  logic                  clk_i,
   input  logic                  rst_ni,
 
-  // VLSU request input
-  input  logic                  vlsu_req_valid_i,
-  output logic                  vlsu_req_ready_o,
-  input  vlsu_req_t             vlsu_req_i,
+  // MLSU pre-decoded request input
+  input  logic                  mlsu_req_valid_i,
+  output logic                  mlsu_req_ready_o,
+  input  mlsu_predec_req_t      mlsu_req_i,
 
   // Core store pending
   input  logic                  core_st_pending_i,
@@ -82,7 +80,7 @@ module MReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
   riva_pkg::elen_t           seglv_next_addr;
   logic                      seglv_init_en;
 
-  riva_pkg::elen_t nr_eff_elems;
+  riva_pkg::elen_t mlsu_req_i.vl;
 
   // FSM state transition
   always_comb begin
@@ -90,7 +88,7 @@ module MReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
     state_nxt = state_r;
     case (state_r)
       S_IDLE:         // Wait for new request
-        state_nxt = vlsu_req_valid_i ? S_SEG_LV_INIT : S_IDLE;
+        state_nxt = mlsu_req_valid_i ? S_SEG_LV_INIT : S_IDLE;
       S_SEG_LV_INIT:  // Initialize segment-level info, then go to fragmenting or stall
         state_nxt = (core_st_pending_i || meta_buf_full_i) ? S_STALL : S_FRAGMENTING;
       S_FRAGMENTING:  // Issue transactions, return to idle when done
@@ -107,51 +105,34 @@ module MReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
     meta_glb_nxt     = meta_glb_r;
     meta_seglv_nxt   = meta_seglv_r;
     meta_valid_o     = 1'b0;
-    vlsu_req_ready_o = 1'b0;
+    mlsu_req_ready_o = 1'b0;
 
     seglv_init_common_glb_i = meta_glb_r;
     seglv_next_addr  = '0;
     seglv_init_en    = 1'b0;
 
-    nr_eff_elems = vlsu_req_i.len - vlsu_req_i.vstart;
-
     case (state_r)
       // Initialize global info from new request
       S_IDLE: begin
-        if (vlsu_req_valid_i) begin
-          meta_glb_nxt.reqId      = vlsu_req_i.reqId;
-          meta_glb_nxt.mode       = vlsu_pkg::mode_oh_t'(1 << vlsu_req_i.mop);
-          meta_glb_nxt.baseAddr   = vlsu_req_i.baseAddr << 1;
-          meta_glb_nxt.vd         = vlsu_req_i.vd;
-          meta_glb_nxt.sew        = vlsu_req_i.sew;
-          meta_glb_nxt.nrEffElems = nr_eff_elems;
-          meta_glb_nxt.vm         = vlsu_req_i.vm;
-          meta_glb_nxt.stride     = vlsu_req_i.stride;
-          meta_glb_nxt.vstart     = vlsu_req_i.vstart;
-          meta_glb_nxt.rmnGrp     = isCln2D(meta_glb_nxt.mode) ? ((vlsu_req_i.len << vlsu_req_i.sew) - 1) >> $clog2(DLEN/4) : 0;
-          meta_glb_nxt.rmnSeg     = isIncr(meta_glb_nxt.mode)  ? 0                                        :
-                                    isStrd(meta_glb_nxt.mode)  ? nr_eff_elems - 1   :
-                                    isRow2D(meta_glb_nxt.mode) ? vlsu_req_i.len - 1 :
-                                    isCln2D(meta_glb_nxt.mode) ? (NrExits - 1)      : 
-                                                               0                  ;
-          meta_glb_nxt.isLoad   = vlsu_req_i.isLoad;
-          meta_glb_nxt.cmtCnt   = (
-              (is2D(meta_glb_nxt.mode) ?
-                (vlsu_req_i.len << vlsu_req_i.sew << $clog2(NrExits)) :
-                (nr_eff_elems << vlsu_req_i.sew) + ((vlsu_req_i.vstart << vlsu_req_i.sew) & ((1 << $clog2(NrExits * DLEN / 4)) - 1))
-              ) - 1
-          ) >> $clog2(NrExits * DLEN / 4);
+        if (mlsu_req_valid_i) begin
+          meta_glb_nxt.reqId      = mlsu_req_i.reqId;
+          meta_glb_nxt.mode       = mlsu_req_i.mode;     // Has been pre-decoded in MReqPreDecoder
+          meta_glb_nxt.baseAddr   = mlsu_req_i.baseAddr; // Has been shifted by 1 in MReqPreDecoder
+          meta_glb_nxt.md         = mlsu_req_i.md;
+          meta_glb_nxt.sew        = mlsu_req_i.sew;
+          meta_glb_nxt.nrEffElems = mlsu_req_i.vl;
+          meta_glb_nxt.vm         = mlsu_req_i.vm;
+          meta_glb_nxt.stride     = mlsu_req_i.stride;
+          meta_glb_nxt.rmnSeg     = isRowMajor(mlsu_req_i.mode) ? mlsu_req_i.vl - 1 : 0;
+          meta_glb_nxt.isLoad     = mlsu_req_i.isLoad;
+          meta_glb_nxt.cmtCnt     = ((mlsu_req_i.vl << mlsu_req_i.sew) - 1) >> $clog2(NrExits * DLEN / 4);
         end
         // Ready to accept new request in IDLE
-        vlsu_req_ready_o = 1'b1;
+        mlsu_req_ready_o = 1'b1;
       end
       // Initialize segment level info for new segment
       S_SEG_LV_INIT: begin
-        seglv_next_addr = isIncr(meta_glb_r.mode) ?
-          meta_glb_r.baseAddr + (meta_glb_r.vstart << meta_glb_r.sew) :
-          isStrd(meta_glb_r.mode) ?
-            meta_glb_r.baseAddr + meta_glb_r.vstart * meta_glb_r.stride :
-            meta_glb_r.baseAddr;
+        seglv_next_addr = meta_glb_r.baseAddr;
         seglv_init_en   = 1'b1;
         meta_seglv_nxt  = seglv_init_common_o;
       end
@@ -159,35 +140,19 @@ module MReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
       S_FRAGMENTING: begin
         if (do_update && !isFinalTxn(meta_glb_r, meta_seglv_r)) begin
           if (isLastTxn(meta_seglv_r)) begin
-            // Update global info
-            if (isLastSeg(meta_glb_r)) begin
-              // Last Segment, but not the last group.
-              if (isCln2D(meta_glb_r.mode)) begin
-                // If is2DCln mode, switch to next group.
-                meta_glb_nxt.baseAddr = meta_glb_r.baseAddr + DLEN/4;
-                meta_glb_nxt.rmnSeg   = NrExits - 1;
-                meta_glb_nxt.rmnGrp   = meta_glb_r.rmnGrp - 1;
-              end
-            end 
-            else begin
-              // Not the last segment, switch SEG
+            // Current transaction is the last transaction of the segment, but not the last segment: switch SEG.
+            if (!isLastSeg(meta_glb_r)) begin
+              // Update global info
               meta_glb_nxt.rmnSeg = meta_glb_r.rmnSeg - 1;
-            end
 
-            // update seg Level info (switch seg / group)
-            if (isLastSeg(meta_glb_r)) begin
-              // Last Segment but not the last group, switch GROUP
-              seglv_next_addr = meta_glb_nxt.baseAddr;
-              seglv_init_common_glb_i = meta_glb_nxt; // NOTE: Should be next here!
-              seglv_init_en   = 1'b1;
-              meta_seglv_nxt  = seglv_init_common_o;
-            end 
-            else begin
+              // Update segment level info
               seglv_next_addr = meta_seglv_r.segBaseAddr + meta_glb_r.stride;
               seglv_init_en   = 1'b1;
               meta_seglv_nxt  = seglv_init_common_o;
             end
-          end else begin
+          end 
+          else begin
+            // Current transaction is not the last transaction of the segment: update transaction count.
             meta_seglv_nxt.txnCnt = meta_seglv_r.txnCnt + 1;
           end
         end
@@ -212,15 +177,14 @@ module MReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
   assign meta_buf_enq_valid_o = start_fragmenting_r;
 
   // Output assignments
-  assign meta_glb_o = meta_glb_r;
+  assign meta_glb_o   = meta_glb_r;
   assign meta_seglv_o = meta_seglv_r;
 
   // seglv_init_common module instantiation
   SegLvInitCommon #(
     .NrExits        (NrExits     ),
     .VLEN           (VLEN        ),
-    .ALEN           (ALEN        ),
-    .MaxLEN         (MaxLEN      ),
+    .MLEN           (MLEN        ),
     .meta_glb_t     (meta_glb_t  ),
     .meta_seglv_t   (meta_seglv_t)
   ) i_seglv_init_common (
@@ -259,13 +223,12 @@ endmodule : MReqFragmenter
 module SegLvInitCommon import riva_pkg::*; #(
   parameter  int   unsigned  NrExits        = 0,
   parameter  int   unsigned  VLEN           = 0,
-  parameter  int   unsigned  ALEN           = 0,
-  parameter  int   unsigned  MaxLEN         = 0,
+  parameter  int   unsigned  MLEN           = 0,
   parameter  type            meta_glb_t     = logic,       // <-- User must typedef meta_glb_t before instantiating this module
   parameter  type            meta_seglv_t   = logic,       // <-- User must typedef meta_seglv_t before instantiating this module
 
   // Dependant parameters. DO NOT CHANGE!
-  localparam int   unsigned  clog2MaxNbs    = $clog2(MaxLEN * ELEN / 4)
+  localparam int   unsigned  clog2MaxNbs    = $clog2(MLEN * ELEN / 4)
 ) (
   input  logic                        en_i,
   input  riva_pkg::elen_t             next_addr_i,
@@ -276,19 +239,13 @@ module SegLvInitCommon import riva_pkg::*; #(
 );
 
   // Mode decode
-  logic is_incr;
-  logic is_strd;
-  logic is_row2d;
-  logic is_cln2d;
+  wire isRowMajor  = isRowMajor (glb_i.mode);
+  wire isColMajor  = isColMajor (glb_i.mode);
+  wire isTranspose = isTranspose(glb_i.mode);
+  wire isReshape   = isReshape  (glb_i.mode);
 
   // Calculate number of nibbles in the segment for row-major modes
-  logic [clog2MaxNbs   : 0] nr_seg_elems_row_major;
-  logic [clog2MaxNbs   : 0] nr_seg_nbs_row_major;
-
-  // Calculate number of nibbles in the segment for column-major (cln2D) mode
-  logic [clog2MaxNbs   : 0] nr_all_grp_nbs;
-  logic [$clog2(DLEN/4): 0] nr_last_grp_nbs;
-  logic [clog2MaxNbs   : 0] nr_seg_nbs_cln_major;
+  logic [clog2MaxNbs   : 0] nr_seg_elems;
 
   // Select row-major or column-major segment nibbles
   logic [clog2MaxNbs   : 0] nr_seg_nbs;
@@ -296,32 +253,11 @@ module SegLvInitCommon import riva_pkg::*; #(
   logic [clog2MaxNbs   : 0] seg_nibbles_with_pageOff;
 
   always_comb begin
-    // Mode decode - always calculated
-    is_incr   = isIncr (glb_i.mode);
-    is_strd   = isStrd (glb_i.mode);
-    is_row2d  = isRow2D(glb_i.mode);
-    is_cln2d  = isCln2D(glb_i.mode);
-
     // Calculate number of nibbles in the segment for row-major modes - always calculated
-    nr_seg_elems_row_major = is_incr  ? glb_i.nrEffElems :
-                             is_strd  ? 1            :
-                             is_row2d ? NrExits      : 
-                                        0            ;
-    nr_seg_nbs_row_major = nr_seg_elems_row_major << glb_i.sew;
-
-    // Calculate number of nibbles in the segment for column-major (cln2D) mode - always calculated
-    nr_all_grp_nbs       = (glb_i.nrEffElems << glb_i.sew);
-    nr_last_grp_nbs      = nr_all_grp_nbs[$clog2(DLEN/4)-1: 0];
-    nr_seg_nbs_cln_major = isLastGrp(glb_i) ?
-                              (
-                                nr_last_grp_nbs == 0 ? 
-                                  (DLEN/4) : 
-                                  nr_last_grp_nbs
-                              ) : 
-                              (DLEN/4);
+    nr_seg_elems             = isRowMajor ? 1 : glb_i.nrEffElems;
 
     // Select row-major or column-major segment nibbles - always calculated
-    nr_seg_nbs               = is_cln2d ? nr_seg_nbs_cln_major : nr_seg_nbs_row_major;
+    nr_seg_nbs               = nr_seg_elems_row_major << glb_i.sew;
     page_off                 = next_addr_i[12:0];
     seg_nibbles_with_pageOff = page_off + nr_seg_nbs;
 

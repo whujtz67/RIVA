@@ -148,7 +148,4 @@ module VLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
     .pe_resp_load_o           (pe_resp_load_o           )
   );
 
-  // ================= Assertions ================= //
-  // TODO: Add assertions for data integrity and timing requirements
-
 endmodule : VLoadUnit 

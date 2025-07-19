@@ -144,7 +144,4 @@ module VStoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
     .meta_glb_i           (meta_bc_seq          )
   );
 
-  // ================= Assertions ================= //
-  // TODO: Add assertions for data integrity and timing requirements
-
 endmodule : VStoreUnit 

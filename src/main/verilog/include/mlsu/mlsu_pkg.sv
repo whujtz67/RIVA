@@ -27,8 +27,7 @@ package mlsu_pkg;
 
   // TODO: Temporary parameters
   localparam int unsigned NrExits = 4;
-  localparam int unsigned VLEN = 8192;
-  localparam int unsigned ALEN = 16384;
+  localparam int unsigned MLEN    = 8192;
 
 
   // ================= Data Width Parameters ================= //
@@ -45,24 +44,19 @@ package mlsu_pkg;
   parameter int unsigned seqInfoBufDep = 2;           // Sequential info buffer depth. Should be power of 2!
   parameter int unsigned shfInfoBufDep = 2;           // Shuffle info buffer depth. Should be power of 2!
 
-  // ================= VAddr Parameters ================= //
-  parameter int unsigned NrVregs      = 16;
-  parameter int unsigned NrAregs      = 16;
-  parameter int unsigned NrSetPerVreg = VLEN / NrExits / DLEN / NrVRFBanksPerLane;
-  parameter int unsigned NrSetPerAreg = ALEN / NrExits / DLEN / NrVRFBanksPerLane;
-  parameter int unsigned NrVRFSets    = NrVregs * NrSetPerVreg + NrAregs * NrSetPerAreg;
-  parameter int unsigned AregBaseSet  = NrVregs * NrSetPerVreg;
+  // ================= MAddr Parameters ================= //
+  // TODO: Maddr logics might be different.
+  parameter int unsigned NrMregs      = 16;
+  parameter int unsigned NrSetPerMreg = MLEN / NrExits / DLEN / NrVRFBanksPerLane;
+  parameter int unsigned NrVRFSets    = NrMregs * NrSetPerMreg;
 
-  // vdMsb: used for part-select of vd field (e.g. vd[vdMsb-1:0])
-  parameter int unsigned vdMsb = $clog2(NrVregs);
+  parameter int unsigned MAddrSetBits  = $clog2(NrVRFSets);
+  parameter int unsigned MAddrBankBits = $clog2(NrVRFBanksPerLane);
+  parameter int unsigned MAddrBits     = MAddrSetBits + MAddrBankBits;
 
-  parameter int unsigned VAddrSetBits  = $clog2(NrVRFSets);
-  parameter int unsigned VAddrBankBits = $clog2(NrVRFBanksPerLane);
-  parameter int unsigned VAddrBits     = VAddrSetBits + VAddrBankBits;
-
-  typedef logic [VAddrSetBits -1:0] vaddr_set_t;
-  typedef logic [VAddrBankBits-1:0] vaddr_bank_t;
-  typedef logic [VAddrBits    -1:0] vaddr_t;
+  typedef logic [MAddrSetBits -1:0] maddr_set_t;
+  typedef logic [MAddrBankBits-1:0] maddr_bank_t;
+  typedef logic [MAddrBits    -1:0] maddr_t;
   
   // ================= Derived Parameters ================= //
   parameter int unsigned busBytes      = busBits / 8;

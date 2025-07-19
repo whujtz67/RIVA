@@ -30,23 +30,15 @@
     logic [NrLaneEntriesNbs    -1:0] en;    // nibble enables
   } seq_buf_t;
 
-  // SeqInfoBundle equivalent (from SequentialPkg.scala)
-  // Contains sequential nibble pointer for seqInfoBuf
-  typedef struct packed {
-    logic [$clog2(NrLaneEntriesNbs)-1:0] seqNbPtr;  // sequential nibble pointer
-  } seq_info_t;
-
-
   // ShfInfoBufBundle equivalent (from ShufflePkg.scala)
   // Contains essential meta info related to DataController saved in MetaBuf
   typedef struct packed {                                                                  
     vid_t                                reqId;      /* Request ID */                      
     logic [3:0]                          mode;       /* Matrix operation mode (one-hot) */ 
     riscv_mv_pkg::vew_e                  sew;        /* Element width encoding */          
-    logic [4:0]                          vd;         /* Matrix destination register */     
-    elen_t                               vstart;     /* Starting element index */          
+    logic [4:0]                          md;         /* Matrix destination register */    
     logic                                vm;         /* Matrix mask enable */              
-    logic [$clog2(MaxLEN*ELEN/DLEN)-1:0] cmtCnt;     /* Commit counter */                  
-    vaddr_set_t                          vaddr_set;  /* Virtual address set */             
-    vaddr_bank_t                         vaddr_bank; /* Virtual address bank */            
+    logic [$clog2(MLEN*ELEN/DLEN)-1:0]   cmtCnt;     /* Commit counter */                  
+    maddr_set_t                          maddr_set;  /* Matrix address set */             
+    maddr_bank_t                         maddr_bank; /* Matrix address bank */            
   } shf_info_t;

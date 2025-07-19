@@ -1,81 +1,98 @@
 // ============================================================================
 // MControlMachine.sv
 // SystemVerilog translation of Chisel ControlMachineNC
-// Top-level control machine: connects ReqFragmenter and TxnCtrlUnit
+// Top-level control machine: connects MReqPreDecoder, MReqFragmenter and MTxnCtrlUnit
 // ============================================================================
 
-
-
-module MControlMachine import vlsu_pkg::*; #(
-    parameter  int   unsigned  NrExits      = 0,
-    parameter  int   unsigned  VLEN         = 0,
-    parameter  int   unsigned  ALEN         = 0,
-    parameter  int   unsigned  MaxLEN       = 0,
-    parameter  int   unsigned  AxiDataWidth = 0,  // AXI data width in bits
-    parameter  type            axi_aw_t     = logic,
-    parameter  type            axi_ar_t     = logic,
-    parameter  type            vlsu_req_t   = logic,
-    parameter  type            meta_glb_t   = logic,
-    parameter  type            meta_seglv_t = logic,
-    parameter  type            txn_ctrl_t   = logic,
-    parameter  type            pe_resp_t    = logic
+module MControlMachine import mlsu_pkg::*; #(
+    parameter  int   unsigned  NrExits           = 0,
+    parameter  int   unsigned  VLEN              = 0,
+    parameter  int   unsigned  MLEN              = 0,
+    parameter  int   unsigned  AxiDataWidth      = 0,  // AXI data width in bits
+    parameter  type            axi_aw_t          = logic,
+    parameter  type            axi_ar_t          = logic,
+    parameter  type            mlsu_init_req_t   = logic,
+    parameter  type            mlsu_predec_req_t = logic,
+    parameter  type            meta_glb_t        = logic,
+    parameter  type            meta_seglv_t      = logic,
+    parameter  type            txn_ctrl_t        = logic,
+    parameter  type            pe_resp_t         = logic
 ) (
     // requester side
-    input  logic          clk_i,
-    input  logic          rst_ni,
+    input  logic            clk_i,
+    input  logic            rst_ni,
 
-    input  logic          vlsu_req_valid_i,
-    output logic          vlsu_req_ready_o,
-    input  vlsu_req_t     vlsu_req_i,
+    input  logic            mlsu_req_valid_i,
+    output logic            mlsu_req_ready_o,
+    input  mlsu_init_req_t  mlsu_req_i,
 
-    input  logic          core_st_pending_i,
+    input  logic            core_st_pending_i,
 
     // data controller side
-    output logic          meta_ctrl_valid_o,
-    input  logic          meta_ctrl_ready_i,
-    output meta_glb_t     meta_glb_o,
-    output meta_seglv_t   meta_seglv_o,
+    output logic            meta_ctrl_valid_o,
+    input  logic            meta_ctrl_ready_i,
+    output meta_glb_t       meta_glb_o,
+    output meta_seglv_t     meta_seglv_o,
 
-    output logic          txn_ctrl_valid_o,
-    output txn_ctrl_t     txn_ctrl_o,
+    output logic            txn_ctrl_valid_o,
+    output txn_ctrl_t       txn_ctrl_o,
 
-    input  logic          update_i,
+    input  logic            update_i,
 
-    output logic          aw_valid_o,
-    input  logic          aw_ready_i,
-    output axi_aw_t       aw_o,
+    output logic            aw_valid_o,
+    input  logic            aw_ready_i,
+    output axi_aw_t         aw_o,
 
-    output logic          ar_valid_o,
-    input  logic          ar_ready_i,
-    output axi_ar_t       ar_o,
+    output logic            ar_valid_o,
+    input  logic            ar_ready_i,
+    output axi_ar_t         ar_o,
 
-    input  logic          b_valid_i,
-    output logic          b_ready_o,
+    input  logic            b_valid_i,
+    output logic            b_ready_o,
 
     // pe resp store
-    output pe_resp_t      pe_resp_store_o
+    output pe_resp_t        pe_resp_store_o
 );
     // --------------------- Internal Connection Signals --------------------- //
-    logic meta_valid, meta_ready;
+    // MReqPreDecoder output signals
+    logic                predec_req_valid, predec_req_ready;
+    mlsu_predec_req_t    predec_req;
+    
+    // MReqFragmenter signals
+    logic        meta_valid, meta_ready;
     meta_glb_t   meta_glb;
     meta_seglv_t meta_seglv;
-    logic meta_buf_enq_valid, meta_buf_full;
+    logic        meta_buf_enq_valid, meta_buf_full;
 
-    // --------------------- Submodule Instantiation --------------------- //
+    // --------------------- MReqPreDecoder Instance --------------------- //
+    MReqPreDecoder #(
+      .mlsu_init_req_t     (mlsu_init_req_t     ),
+      .mlsu_predec_req_t   (mlsu_predec_req_t   )
+    ) i_predec (
+      .clk_i               (clk_i               ),
+      .rst_ni              (rst_ni              ),
+      .req_valid_i         (mlsu_req_valid_i    ),
+      .req_ready_o         (mlsu_req_ready_o    ),
+      .req_i               (mlsu_req_i          ),
+      .preDec_req_valid_o  (predec_req_valid    ),
+      .preDec_req_ready_i  (predec_req_ready    ),
+      .preDec_req_o        (predec_req          )
+    );
+
+    // --------------------- MReqFragmenter Instance --------------------- //
     MReqFragmenter #(
-      .NrExits      (NrExits      ),
-      .VLEN         (VLEN         ),
-      .ALEN         (ALEN         ),
-      .MaxLEN       (MaxLEN       ),
-      .vlsu_req_t   (vlsu_req_t   ),
-      .meta_glb_t   (meta_glb_t   ),
-      .meta_seglv_t (meta_seglv_t )
+      .NrExits             (NrExits          ),
+      .VLEN                (VLEN             ),
+      .MLEN                (MLEN             ),
+      .mlsu_predec_req_t   (mlsu_predec_req_t),
+      .meta_glb_t          (meta_glb_t       ),
+      .meta_seglv_t        (meta_seglv_t     )
     ) i_rf (
       .clk_i                (clk_i               ),
       .rst_ni               (rst_ni              ),
-      .vlsu_req_valid_i     (vlsu_req_valid_i    ),
-      .vlsu_req_ready_o     (vlsu_req_ready_o    ),
-      .vlsu_req_i           (vlsu_req_i          ),
+      .mlsu_req_valid_i     (predec_req_valid    ),
+      .mlsu_req_ready_o     (predec_req_ready    ),
+      .mlsu_req_i           (predec_req          ),
       .core_st_pending_i    (core_st_pending_i   ),
       .meta_valid_o         (meta_valid          ),
       .meta_ready_i         (meta_ready          ),
@@ -85,6 +102,7 @@ module MControlMachine import vlsu_pkg::*; #(
       .meta_buf_enq_valid_o (meta_buf_enq_valid  )
     );
 
+    // --------------------- MTxnCtrlUnit Instance --------------------- //
     MTxnCtrlUnit #(
       .AxiDataWidth (AxiDataWidth ),
       .txn_ctrl_t   (txn_ctrl_t   ),

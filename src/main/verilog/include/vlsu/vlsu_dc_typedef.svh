@@ -47,6 +47,6 @@
     elen_t                               vstart;     /* Starting element index */          
     logic                                vm;         /* Vector mask enable */              
     logic [$clog2(MaxLEN*ELEN/DLEN)-1:0] cmtCnt;     /* Commit counter */                  
-    vaddr_set_t                          vaddr_set;  /* Virtual address set */             
-    vaddr_bank_t                         vaddr_bank; /* Virtual address bank */            
+    vaddr_set_t                          vaddr_set;  /* Vector address set */             
+    vaddr_bank_t                         vaddr_bank; /* Vector address bank */            
   } shf_info_t;

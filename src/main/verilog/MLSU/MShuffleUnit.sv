@@ -6,8 +6,7 @@
 module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
   parameter  int  unsigned  NrExits       = 0,
   parameter  int  unsigned  VLEN          = 0,
-  parameter  int  unsigned  ALEN          = 0,
-  parameter  int  unsigned  MaxLEN        = 0,
+  parameter  int  unsigned  MLEN          = 0,
   parameter  type           meta_glb_t    = logic,
   parameter  type           seq_buf_t     = logic,
   parameter  type           tx_lane_t     = logic,
@@ -110,17 +109,10 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
     
     if (meta_info_valid_i && meta_info_ready_o) begin
       // Hardware signals
-      automatic vaddr_t               vaddr_calc;
-      automatic vaddr_set_t           vd_base_set;
-      automatic riva_pkg::elen_t      start_elem_in_vd = meta_info_i.vstart >> $clog2(NrExits);
+      automatic maddr_t            maddr_calc;
       
-      // Calculate vd_base_set based on vd register type
-      vd_base_set = meta_info_i.vd[vlsu_pkg::vdMsb]
-        ? (AregBaseSet + (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerAreg))
-        : (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerVreg);
-      
-      // Calculate virtual address
-      vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
+      // Calculate matrix address
+      maddr_calc     = meta_info_i.md * NrSetPerMreg;
       
       // Assign meta info to intermediate signal
       shf_info_enq_bits.reqId      = meta_info_i.reqId;
@@ -130,8 +122,8 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
       shf_info_enq_bits.vstart     = meta_info_i.vstart;
       shf_info_enq_bits.vm         = meta_info_i.vm;
       shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
-      shf_info_enq_bits.vaddr_set  = vaddr_calc[VAddrBits-1:VAddrBankBits];
-      shf_info_enq_bits.vaddr_bank = vaddr_calc[VAddrBankBits-1:0];
+      shf_info_enq_bits.maddr_set  = maddr_calc[MAddrBits-1:MAddrBankBits];
+      shf_info_enq_bits.maddr_bank = maddr_calc[MAddrBankBits-1:0];
       
       // Set enqueue signal
       shf_info_buf_enq = 1'b1;
@@ -164,9 +156,7 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
         for (int off = 0; off < riva_pkg::DLEN/4; off++) begin
           automatic int unsigned shf_idx = lane * (riva_pkg::DLEN/4) + off;
           // Get sequential index for this lane/offset combination
-          automatic int unsigned seq_idx = ControlMachinePkg::isCln2D(shfInfo.mode)
-              ? query_seq_idx_2d_cln(NrExits, shf_idx, shfInfo.sew)
-              : query_seq_idx       (NrExits, shf_idx, shfInfo.sew);
+          automatic int unsigned seq_idx = query_seq_idx_2d_cln(NrExits, shf_idx, shfInfo.sew); // NOTE: always use query_seq_idx_2d_cln.
           
           // Assign data and nbe
           shf_buf_nxt[lane].data[off*4 +: 4] = rx_seq_load_i.nb[seq_idx*4 +: 4];
@@ -178,8 +168,8 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
       for (int i = 0; i < NrExits; i++) begin
         shf_buf_valid_nxt[i]       = 1'b1;
         shf_buf_nxt [i].reqId      = shfInfo.reqId;
-        shf_buf_nxt [i].vaddr_set  = shfInfo.vaddr_set;
-        shf_buf_nxt [i].vaddr_bank = shfInfo.vaddr_bank;
+        shf_buf_nxt [i].maddr_set  = shfInfo.maddr_set;
+        shf_buf_nxt [i].maddr_bank = shfInfo.maddr_bank;
       end
     end
   end: shuffle_calc
@@ -204,8 +194,8 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
         shf_buf_valid <= shf_buf_valid_nxt;
         shf_buf  <= shf_buf_nxt;
 
-        // Update vaddr
-        shf_info_buf[shf_info_deq_ptr_value].vaddr_set <= shfInfo.vaddr_set + 1;
+        // Update maddr
+        shf_info_buf[shf_info_deq_ptr_value].maddr_set <= shfInfo.maddr_set + 1;
 
         // Update commit counter
         if (!(shfInfo.cmtCnt == 0)) begin

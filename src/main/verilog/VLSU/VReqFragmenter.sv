@@ -3,11 +3,7 @@
 // Vector Request Fragmenter - Fragments vector requests into smaller transactions
 // ============================================================================
 
-
-
-import VControlMachinePkg::*;
-
-module VReqFragmenter import riva_pkg::*; import vlsu_pkg::*; #(
+module VReqFragmenter import riva_pkg::*; import vlsu_pkg::*; import VControlMachinePkg::*; #(
   parameter int   unsigned  NrExits      = 0,
   parameter int   unsigned  VLEN         = 0,
   parameter int   unsigned  ALEN         = 0,

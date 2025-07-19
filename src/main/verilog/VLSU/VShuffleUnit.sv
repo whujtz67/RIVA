@@ -119,7 +119,7 @@ module VShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
         ? (AregBaseSet + (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerAreg))
         : (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerVreg);
       
-      // Calculate virtual address
+      // Calculate vector address
       vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
       
       // Assign meta info to intermediate signal
