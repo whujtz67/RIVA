@@ -38,7 +38,9 @@
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
   } vlsu_req_t;
     
-  // ================= Typedef Structures ================= //
+  // ------------------------------------------------------------------------
+  // Control Machine Type Definitions
+  // ------------------------------------------------------------------------
     
   // Global metadata structure
   // Contains global information decoded from the VLSU request
@@ -59,7 +61,7 @@
     cmt_cnt_t           cmtCnt;       // Commit counter (used to determine when to dequeue meta buffer)
   } meta_glb_t;
     
-    // Segment-level metadata structure
+  // Segment-level metadata structure
   // Contains segment-level information for the current memory segment
   // This information is updated as transactions are issued within the segment
   typedef struct packed {
@@ -69,7 +71,7 @@
     logic [13:0]       ltN;               // Number of nibbles in the last transaction (1 ~ 4096 * 2)
   } meta_seglv_t;
     
-    // Transaction control info structure (based on TxnCtrlInfo)
+  // Transaction control info structure (based on TxnCtrlInfo)
   // Contains transaction-level control information for AXI bus transactions
   // This structure is derived from MetaCtrlInfo.segLevel information
   typedef struct packed {

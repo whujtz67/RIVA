@@ -65,8 +65,6 @@ module LoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   `include "vlsu/vlsu_dc_typedef.svh"
 
-  `VLSU_SHF_INFO_T_SVH
-
   // ================= Internal Signals ================= //
   // Connection between SequentialLoad and ShuffleUnit
   logic       tx_shfu_valid;

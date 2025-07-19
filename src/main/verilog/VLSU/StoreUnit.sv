@@ -61,8 +61,6 @@ module StoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   `include "vlsu/vlsu_dc_typedef.svh"
 
-  `VLSU_SHF_INFO_T_SVH
-
   // ================= Internal Signals ================= //
   // Connection between DeShuffleUnit and SequentialStore
   logic       tx_seq_store_valid;
