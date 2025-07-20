@@ -13,5 +13,7 @@ filelist.f
 
 out
 
+*.f
+
 ucli.key
 

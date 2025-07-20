@@ -41,16 +41,12 @@ module MReqFragmenter import riva_pkg::*; import mlsu_pkg::*; import MControlMac
     return (g.rmnSeg == 0);
   endfunction
 
-  function automatic logic isLastGrp(input meta_glb_t g);
-    return (g.rmnGrp == 0);
-  endfunction
-
   function automatic logic isLastTxn(input meta_seglv_t s);
     return (s.txnCnt == s.txnNum);
   endfunction
 
   function automatic logic isFinalTxn(input meta_glb_t glb, input meta_seglv_t seg);
-    return isLastGrp(glb) && isLastSeg(glb) && isLastTxn(seg);
+    return isLastSeg(glb) && isLastTxn(seg);
   endfunction
 
   // FSM States
@@ -79,8 +75,6 @@ module MReqFragmenter import riva_pkg::*; import mlsu_pkg::*; import MControlMac
   // seglv_init_common module input signals
   riva_pkg::elen_t           seglv_next_addr;
   logic                      seglv_init_en;
-
-  riva_pkg::elen_t mlsu_req_i.vl;
 
   // FSM state transition
   always_comb begin
@@ -123,7 +117,7 @@ module MReqFragmenter import riva_pkg::*; import mlsu_pkg::*; import MControlMac
           meta_glb_nxt.nrEffElems = mlsu_req_i.vl;
           meta_glb_nxt.vm         = mlsu_req_i.vm;
           meta_glb_nxt.stride     = mlsu_req_i.stride;
-          meta_glb_nxt.rmnSeg     = isRowMajor(mlsu_req_i.mode) ? mlsu_req_i.vl - 1 : 0;
+          meta_glb_nxt.rmnSeg     = isRowMajor(mlsu_req_i.mode) ? 0 : mlsu_req_i.vl - 1;
           meta_glb_nxt.isLoad     = mlsu_req_i.isLoad;
           meta_glb_nxt.cmtCnt     = ((mlsu_req_i.vl << mlsu_req_i.sew) - 1) >> $clog2(NrExits * DLEN / 4);
         end
@@ -220,7 +214,7 @@ endmodule : MReqFragmenter
 // single module instance and multiplexing its inputs, we ensure only one
 // hardware implementation is generated and shared.
 // -----------------------------------------------------------------------------
-module SegLvInitCommon import riva_pkg::*; #(
+module SegLvInitCommon import riva_pkg::*; import MControlMachinePkg::*; #(
   parameter  int   unsigned  NrExits        = 0,
   parameter  int   unsigned  VLEN           = 0,
   parameter  int   unsigned  MLEN           = 0,
@@ -238,12 +232,6 @@ module SegLvInitCommon import riva_pkg::*; #(
   output meta_seglv_t                 seg_nxt_o
 );
 
-  // Mode decode
-  wire isRowMajor  = isRowMajor (glb_i.mode);
-  wire isColMajor  = isColMajor (glb_i.mode);
-  wire isTranspose = isTranspose(glb_i.mode);
-  wire isReshape   = isReshape  (glb_i.mode);
-
   // Calculate number of nibbles in the segment for row-major modes
   logic [clog2MaxNbs   : 0] nr_seg_elems;
 
@@ -254,10 +242,10 @@ module SegLvInitCommon import riva_pkg::*; #(
 
   always_comb begin
     // Calculate number of nibbles in the segment for row-major modes - always calculated
-    nr_seg_elems             = isRowMajor ? 1 : glb_i.nrEffElems;
+    nr_seg_elems             = isRowMajor(glb_i.mode) ? glb_i.nrEffElems : 1;
 
     // Select row-major or column-major segment nibbles - always calculated
-    nr_seg_nbs               = nr_seg_elems_row_major << glb_i.sew;
+    nr_seg_nbs               = nr_seg_elems << glb_i.sew;
     page_off                 = next_addr_i[12:0];
     seg_nibbles_with_pageOff = page_off + nr_seg_nbs;
 

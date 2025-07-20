@@ -3,7 +3,7 @@
 // Matrix DeShuffle Unit - Handles matrix deshuffle operations
 // ============================================================================
 
-module MDeShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module MDeShuffleUnit import mlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  int  unsigned  NrExits       = 0,
   parameter  int  unsigned  VLEN          = 0,
   parameter  int  unsigned  MLEN          = 0,

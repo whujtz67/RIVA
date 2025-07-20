@@ -5,7 +5,7 @@
 
 
 
-module MSequentialStore import riva_pkg::*; import vlsu_pkg::*; #(
+module MSequentialStore import riva_pkg::*; import mlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  AxiDataWidth     = 0,
   parameter  int   unsigned  AxiAddrWidth     = 0,
@@ -38,7 +38,7 @@ module MSequentialStore import riva_pkg::*; import vlsu_pkg::*; #(
   // Transaction Control Interface
   input  logic          txn_ctrl_valid_i,
   output logic          txn_ctrl_ready_o,
-  input  txn_ctrl_t     txn_ctrl_i,
+  input  txn_ctrl_t     txn_ctrl_i
 
 );
   // Write buffer

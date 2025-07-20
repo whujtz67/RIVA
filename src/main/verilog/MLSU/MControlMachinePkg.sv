@@ -9,7 +9,7 @@
 package MControlMachinePkg;
 
   // Mode decode helpers
-  function automatic logic isRowMajor(input logic [3:0] mode); // TODO: should be mode_oh_t
+  function automatic logic isRowMajor(input logic [3:0] mode); // TODO: should be mode_oh_e
     return mode[0];
   endfunction
 

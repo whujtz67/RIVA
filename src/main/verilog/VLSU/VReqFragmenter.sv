@@ -116,7 +116,7 @@ module VReqFragmenter import riva_pkg::*; import vlsu_pkg::*; import VControlMac
       S_IDLE: begin
         if (vlsu_req_valid_i) begin
           meta_glb_nxt.reqId      = vlsu_req_i.reqId;
-          meta_glb_nxt.mode       = vlsu_pkg::mode_oh_t'(1 << vlsu_req_i.mop);
+          meta_glb_nxt.mode       = vlsu_pkg::mode_oh_e'(1 << vlsu_req_i.mop);
           meta_glb_nxt.baseAddr   = vlsu_req_i.baseAddr << 1;
           meta_glb_nxt.vd         = vlsu_req_i.vd;
           meta_glb_nxt.sew        = vlsu_req_i.sew;

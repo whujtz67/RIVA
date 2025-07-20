@@ -47,7 +47,7 @@
   // Most fields remain unchanged throughout the request processing
   typedef struct packed {
     vid_t               reqId;        // Request ID for tracking and debugging
-    vlsu_pkg::mode_oh_t mode;         // Memory operation mode (one-hot encoded)
+    vlsu_pkg::mode_oh_e mode;         // Memory operation mode (one-hot encoded)
     elen_t              baseAddr;     // Base address for the vector operation
     logic [4:0]         vd;           // Vector destination register index
     riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)

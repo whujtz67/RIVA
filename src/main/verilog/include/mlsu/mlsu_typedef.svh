@@ -42,7 +42,7 @@
   // mlsu_init_req_t --> processed by MReqPreprocess --> mlsu_req_t
   typedef struct packed {
     vid_t                 reqId;        // Request ID for tracking and debugging
-    mlsu_pkg::m_mode_oh_t mode;         // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
+    mlsu_pkg::m_mode_oh_e mode;         // Memory operation mode (0: unit-stride, 1: strided, 2: indexed)
     elen_t                baseAddr;     // Base address for the matrix operation
     riscv_mv_pkg::vew_e   sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)
     logic [4:0]           md;           // Matrix destination register index
@@ -62,7 +62,7 @@
   // Most fields remain unchanged throughout the request processing
   typedef struct packed {
     vid_t                 reqId;        // Request ID for tracking and debugging
-    mlsu_pkg::m_mode_oh_t mode;         // Memory operation mode (one-hot encoded)
+    mlsu_pkg::m_mode_oh_e mode;         // Memory operation mode (one-hot encoded)
     elen_t                baseAddr;     // Base address for the matrix operation
     logic [4:0]           md;           // Matrix destination register index
     riscv_mv_pkg::vew_e   sew;          // Element width encoding (00: 4b, 01: 8b, 10: 16b, 11: 32b)

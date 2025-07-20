@@ -5,7 +5,7 @@
 
 
 
-module MTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module MTxnCtrlUnit import riva_pkg::*; import mlsu_pkg::*; #(
   parameter int   unsigned AxiDataWidth = 0,  // AXI data width in bits
   parameter type           txn_ctrl_t   = logic,       // <-- User must typedef txn_ctrl_t before instantiating this module
   parameter type           axi_aw_t     = logic,       // <-- User must typedef axi_aw_t before instantiating this module
@@ -55,10 +55,6 @@ module MTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
     return (g.rmnSeg == 0);
   endfunction
 
-  function automatic logic isLastGrp(input meta_glb_t g);
-    return (g.rmnGrp == 0);
-  endfunction
-
   function automatic logic isHeadTxn(input meta_seglv_t s);
     return (s.txnCnt == 0);
   endfunction
@@ -68,7 +64,7 @@ module MTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
   endfunction
 
   function automatic logic isFinalTxn(input meta_glb_t glb, input meta_seglv_t seg);
-    return isLastGrp(glb) && isLastSeg(glb) && isLastTxn(seg);
+    return isLastSeg(glb) && isLastTxn(seg);
   endfunction
 
   // --------------------- Pointer Signals --------------------- //

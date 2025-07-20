@@ -66,6 +66,7 @@ module MControlMachine import mlsu_pkg::*; #(
 
     // --------------------- MReqPreDecoder Instance --------------------- //
     MReqPreDecoder #(
+      .MLEN                (MLEN                ),
       .mlsu_init_req_t     (mlsu_init_req_t     ),
       .mlsu_predec_req_t   (mlsu_predec_req_t   )
     ) i_predec (

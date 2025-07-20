@@ -3,7 +3,7 @@
 // Matrix Load Store Unit - Top Level Module
 // ============================================================================
 
-module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
+module MLSU import riva_pkg::*; import mlsu_pkg::*; #(
     parameter  int   unsigned  NrExits      = 0,
     parameter  int   unsigned  VLEN         = 0,
     parameter  int   unsigned  MLEN         = 0,
@@ -139,7 +139,7 @@ module MLSU import riva_pkg::*; import vlsu_pkg::*; #(
     always_comb begin: pe_req_to_vlsu_req
       // Map pe_req fields to mlsu_init_req fields
       iq_enq_bits.reqId    = pe_req_i.reqId;
-      iq_enq_bits.mop      = pe_req_i.mop;
+      iq_enq_bits.mop      = mlsu_pkg::m_mop_e'(pe_req_i.mop);
       iq_enq_bits.baseAddr = pe_req_i.baseAddr;
       iq_enq_bits.sew      = pe_req_i.sew;
       iq_enq_bits.md       = pe_req_i.vd;

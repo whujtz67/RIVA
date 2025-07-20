@@ -5,7 +5,7 @@
 
 
 
-module MLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module MLoadUnit import riva_pkg::*; import mlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  MLEN             = 0,
@@ -59,7 +59,7 @@ module MLoadUnit import riva_pkg::*; import vlsu_pkg::*; #(
   output pe_resp_t pe_resp_load_o
 );
 
-  `include "vlsu/vlsu_dc_typedef.svh"
+  `include "mlsu/mlsu_dc_typedef.svh"
 
   // ================= Internal Signals ================= //
   // Connection between SequentialLoad and ShuffleUnit

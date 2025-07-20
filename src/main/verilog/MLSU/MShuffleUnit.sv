@@ -3,7 +3,7 @@
 // Matrix Shuffle Unit - Handles matrix shuffle operations
 // ============================================================================
 
-module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module MShuffleUnit import mlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   parameter  int  unsigned  NrExits       = 0,
   parameter  int  unsigned  VLEN          = 0,
   parameter  int  unsigned  MLEN          = 0,
@@ -119,7 +119,6 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
       shf_info_enq_bits.mode       = meta_info_i.mode;
       shf_info_enq_bits.sew        = meta_info_i.sew;
       shf_info_enq_bits.md         = meta_info_i.md;
-      shf_info_enq_bits.vstart     = meta_info_i.vstart;
       shf_info_enq_bits.vm         = meta_info_i.vm;
       shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
       shf_info_enq_bits.maddr_set  = maddr_calc[MAddrBits-1:MAddrBankBits];
@@ -242,7 +241,7 @@ module MShuffleUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   // Check vaddr_set bounds
   assert property (@(posedge clk_i) 
-    txs_valid_o[0] |-> txs_o[0].vaddr_set < NrVRFSets)
-    else $error("[ShuffleUnit] vaddr_set should < NrVRFSets = %d. However, got %d", NrVRFSets, txs_o[0].vaddr_set);
+    txs_valid_o[0] |-> txs_o[0].maddr_set < NrMRFSets)
+    else $error("[ShuffleUnit] maddr_set should < NrMRFSets = %d. However, got %d", NrMRFSets, txs_o[0].maddr_set);
 
 endmodule : MShuffleUnit 

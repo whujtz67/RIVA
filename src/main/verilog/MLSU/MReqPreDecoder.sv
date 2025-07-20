@@ -5,8 +5,12 @@
 // ============================================================================
 
 module MReqPreDecoder import riva_pkg::*; #(
+  parameter  int unsigned    MLEN                = 0,
   parameter  type            mlsu_init_req_t     = logic,
-  parameter  type            mlsu_predec_req_t   = logic
+  parameter  type            mlsu_predec_req_t   = logic,
+
+  // Dependant parameters. DO NOT CHANGE!
+  localparam  type           mlen_t              = logic [$clog2(MLEN+1)-1:0]
 ) (
   // Clock and Reset
   input  logic                 clk_i,
@@ -60,13 +64,12 @@ module MReqPreDecoder import riva_pkg::*; #(
   // ================= FSM State Update Logic ================= //
   always_comb begin: request_pre_decode_fsm
     rq_enq_bits.reqId    = req_i.reqId;
-    rq_enq_bits.mode     = 1 << req_i.mop;
+    rq_enq_bits.mode     = mlsu_pkg::m_mode_oh_e'(1 << req_i.mop);
     rq_enq_bits.baseAddr = iter_addr_r;
     rq_enq_bits.sew      = req_i.sew;
     rq_enq_bits.md       = req_i.md;
     rq_enq_bits.stride   = req_i.stride;
     rq_enq_bits.vl       = req_i.vl;
-    rq_enq_bits.vstart   = req_i.vstart;
     rq_enq_bits.isLoad   = req_i.isLoad;
     rq_enq_bits.vm       = req_i.vm;
 
@@ -114,14 +117,10 @@ module MReqPreDecoder import riva_pkg::*; #(
   );
   
   // ================= Handshake Logic ================= //
-  // Connect input handshake to pre-decoding logic
-  assign req_queue_enq_valid = req_valid_i;
-  assign req_ready_o         = req_queue_enq_ready;
-  
   // Connect output handshake to queue
-  assign preDec_req_valid_o  = req_queue_deq_valid;
-  assign preDec_req_o        = req_queue_deq_bits;
-  assign req_queue_deq_ready = preDec_req_ready_i;
+  assign preDec_req_valid_o  = rq_deq_valid;
+  assign preDec_req_o        = rq_deq_bits;
+  assign rq_deq_ready        = preDec_req_ready_i;
 
   // ================= FSM State Update Logic ================= //
   always_ff @(posedge clk_i or negedge rst_ni) begin

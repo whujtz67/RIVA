@@ -5,7 +5,7 @@
 
 
 
-module MStoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
+module MStoreUnit import riva_pkg::*; import mlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  VLEN             = 0,
   parameter  int   unsigned  MLEN             = 0,
@@ -55,7 +55,7 @@ module MStoreUnit import riva_pkg::*; import vlsu_pkg::*; #(
   output logic                       mask_ready_o 
 );
 
-  `include "vlsu/vlsu_dc_typedef.svh"
+  `include "mlsu/mlsu_dc_typedef.svh"
 
   // ================= Internal Signals ================= //
   // Connection between DeShuffleUnit and SequentialStore

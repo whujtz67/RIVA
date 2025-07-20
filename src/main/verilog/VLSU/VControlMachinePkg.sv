@@ -9,7 +9,7 @@
 package VControlMachinePkg;
 
   // Mode decode helpers
-  function automatic logic isIncr(input logic [3:0] mode); // TODO: should be mode_oh_t
+  function automatic logic isIncr(input logic [3:0] mode); // TODO: should be mode_oh_e
     return mode[0];
   endfunction
 

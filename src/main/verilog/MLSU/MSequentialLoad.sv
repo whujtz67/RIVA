@@ -5,7 +5,7 @@
 
 
 
-module MSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
+module MSequentialLoad import riva_pkg::*; import mlsu_pkg::*; #(
   parameter  int   unsigned  NrExits          = 0,
   parameter  int   unsigned  AxiDataWidth     = 0,
   parameter  int   unsigned  AxiAddrWidth     = 0,
