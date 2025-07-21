@@ -44,9 +44,11 @@ module tb_top import mlsu_pkg::*; import riva_pkg::*; (
   localparam int unsigned NrExits      = 4;
   localparam int unsigned VLEN         = 8192;
   localparam int unsigned MLEN         = 8192;
+  localparam int unsigned ALEN         = 16384;
 
   typedef logic [$clog2(VLEN+1)-1:0] vlen_t;
   typedef logic [$clog2(MLEN+1)-1:0] mlen_t;
+  typedef logic [$clog2(ALEN+1)-1:0] alen_t;
   
   // AXI parameters (from MLSU.sv)
   localparam int unsigned AxiIdWidth   = 1;
@@ -78,8 +80,11 @@ module tb_top import mlsu_pkg::*; import riva_pkg::*; (
     riscv_mv_pkg::vew_e sew;          // Element width encoding (00: 8b, 01: 16b, 10: 32b, 11: 64b)
     logic [4:0]         vd;           // Vector destination register index
     riva_pkg::elen_t    stride;       // Stride value for strided access mode
+    
     vlen_t              vl;           // Vector length
-    logic [4:0]         tile;         // Tile configuration
+    alen_t              al;           // Accumulator length (not used in MLSU logic)
+    riva_pkg::elen_t    vstart;       // Starting element index (for partial matrix operations)
+    mlen_t              tile;         // Tile configuration
     logic               isLoad;       // 1: load operation, 0: store operation
     logic               vm;           // Vector mask enable (1: masked, 0: unmasked)
   } pe_req_t;
@@ -102,7 +107,9 @@ module tb_top import mlsu_pkg::*; import riva_pkg::*; (
   reg  [4:0]                pe_req_bits_vd;
   riva_pkg::elen_t          pe_req_bits_stride;
   vlen_t                    pe_req_bits_vl;
-  reg  [4:0]                pe_req_bits_tile;
+  alen_t                    pe_req_bits_al;
+  riva_pkg::elen_t          pe_req_bits_vstart;
+  mlen_t                    pe_req_bits_tile;
   reg                       pe_req_bits_isLoad;
   reg                       pe_req_bits_vm;
   reg                       core_st_pending;
@@ -236,6 +243,8 @@ module tb_top import mlsu_pkg::*; import riva_pkg::*; (
     pe_req_bits_vd           = 0;
     pe_req_bits_stride       = 0;
     pe_req_bits_vl           = 0;
+    pe_req_bits_al           = 0;
+    pe_req_bits_vstart       = 0;
     pe_req_bits_tile         = 0;
     pe_req_bits_isLoad       = 0;
     pe_req_bits_vm           = 0;
@@ -333,7 +342,7 @@ module tb_top import mlsu_pkg::*; import riva_pkg::*; (
     .pe_req_ready_o           (pe_req_ready),
     .pe_req_i                 ('{reqId: pe_req_bits_reqId, mop: pe_req_bits_mop, baseAddr: pe_req_bits_baseAddr, 
                                   sew: pe_req_bits_sew, vd: pe_req_bits_vd, stride: pe_req_bits_stride, 
-                                  vl: pe_req_bits_vl, tile: pe_req_bits_tile, isLoad: pe_req_bits_isLoad, vm: pe_req_bits_vm}),
+                                  vl: pe_req_bits_vl, al: pe_req_bits_al, vstart: pe_req_bits_vstart, tile: pe_req_bits_tile, isLoad: pe_req_bits_isLoad, vm: pe_req_bits_vm}),
     .core_st_pending_i        (core_st_pending),
     
     // AXI Master Interface

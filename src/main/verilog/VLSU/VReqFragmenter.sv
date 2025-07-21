@@ -252,7 +252,7 @@ endmodule : VReqFragmenter
 // single module instance and multiplexing its inputs, we ensure only one
 // hardware implementation is generated and shared.
 // -----------------------------------------------------------------------------
-module SegLvInitCommon import riva_pkg::*; #(
+module SegLvInitCommon import riva_pkg::*; import VControlMachinePkg::*; #(
   parameter  int   unsigned  NrExits        = 0,
   parameter  int   unsigned  VLEN           = 0,
   parameter  int   unsigned  ALEN           = 0,

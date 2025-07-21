@@ -90,8 +90,8 @@ module MReqPreDecoder import riva_pkg::*; #(
         // Update iter_addr_nxt and tile_nxt when the queue is ready to accept it.
         if (rq_enq_ready) begin
           iter_addr_nxt = (req_i.mop == 0) ? 
-            iter_addr_r + (1 << req_i.sew) : // row-major
-            iter_addr_r + req_i.stride     ; // column-major
+            iter_addr_r + req_i.stride     : // row-major
+            iter_addr_r + (1 << req_i.sew) ; // column-major
           tile_nxt      = tile_r - 1;
         end
 
