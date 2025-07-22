@@ -126,8 +126,6 @@ module VShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       shf_info_enq_bits.reqId      = meta_info_i.reqId;
       shf_info_enq_bits.mode       = meta_info_i.mode;
       shf_info_enq_bits.sew        = meta_info_i.sew;
-      shf_info_enq_bits.vd         = meta_info_i.vd;
-      shf_info_enq_bits.vstart     = meta_info_i.vstart;
       shf_info_enq_bits.vm         = meta_info_i.vm;
       shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
       shf_info_enq_bits.vaddr_set  = vaddr_calc[VAddrBits-1:VAddrBankBits];

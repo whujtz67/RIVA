@@ -32,7 +32,6 @@ module MControlMachine import mlsu_pkg::*; #(
     output logic            meta_ctrl_valid_o,
     input  logic            meta_ctrl_ready_i,
     output meta_glb_t       meta_glb_o,
-    output meta_seglv_t     meta_seglv_o,
 
     output logic            txn_ctrl_valid_o,
     output txn_ctrl_t       txn_ctrl_o,
@@ -137,6 +136,5 @@ module MControlMachine import mlsu_pkg::*; #(
     assign meta_buf_full      = !meta_ctrl_ready_i;
     assign meta_ctrl_valid_o  = meta_buf_enq_valid;
     assign meta_glb_o         = meta_glb;
-    assign meta_seglv_o       = meta_seglv;
 
 endmodule : MControlMachine 

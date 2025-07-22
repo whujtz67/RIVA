@@ -108,7 +108,6 @@ module MLSU import riva_pkg::*; import mlsu_pkg::*; #(
 
     logic             meta_ctrl_valid, meta_ctrl_ready;
     meta_glb_t        meta_glb;
-    meta_seglv_t      meta_seglv;
      
     logic             txn_ctrl_valid, txn_ctrl_ready;
     txn_ctrl_t        txn_ctrl;
@@ -196,7 +195,6 @@ module MLSU import riva_pkg::*; import mlsu_pkg::*; #(
       .meta_ctrl_valid_o (meta_ctrl_valid  ),
       .meta_ctrl_ready_i (meta_ctrl_ready  ),
       .meta_glb_o        (meta_glb         ),
-      .meta_seglv_o      (meta_seglv       ),
       .txn_ctrl_valid_o  (txn_ctrl_valid   ),
       .txn_ctrl_o        (txn_ctrl         ),
       .update_i          (update_cm        ),

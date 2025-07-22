@@ -106,29 +106,15 @@ module VDeShuffleUnit import vlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     shf_info_buf_enq = 1'b0;
     
     if (meta_info_valid_i && meta_info_ready_o) begin
-      // Hardware signals
-      automatic vaddr_t            vaddr_calc;
-      automatic vaddr_set_t        vd_base_set;
-      automatic riva_pkg::elen_t   start_elem_in_vd = meta_info_i.vstart >> $clog2(NrExits);
-      
-      // Calculate vd_base_set based on vd register type
-      vd_base_set = meta_info_i.vd[vlsu_pkg::vdMsb]
-        ? (AregBaseSet + (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerAreg))
-        : (meta_info_i.vd[vlsu_pkg::vdMsb-1:0] * NrSetPerVreg);
-      
-      // Calculate vector address
-      vaddr_calc     = vd_base_set + (start_elem_in_vd >> (3 - meta_info_i.sew));
       
       // Assign meta info to intermediate signal
       shf_info_enq_bits.reqId      = meta_info_i.reqId;
       shf_info_enq_bits.mode       = meta_info_i.mode;
       shf_info_enq_bits.sew        = meta_info_i.sew;
-      shf_info_enq_bits.vd         = meta_info_i.vd;
-      shf_info_enq_bits.vstart     = meta_info_i.vstart;
       shf_info_enq_bits.vm         = meta_info_i.vm;
       shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
-      shf_info_enq_bits.vaddr_set  = vaddr_calc[VAddrBits-1:VAddrBankBits]; // TODO: Useless, remove it.
-      shf_info_enq_bits.vaddr_bank = vaddr_calc[VAddrBankBits-1:0];         // TODO: Useless, remove it.
+      shf_info_enq_bits.vaddr_set  = '0; // TODO: Useless, remove it.
+      shf_info_enq_bits.vaddr_bank = '0; // TODO: Useless, remove it.
       
       // Set enqueue signal
       shf_info_buf_enq = 1'b1;

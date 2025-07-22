@@ -18,7 +18,7 @@ package vlsu_pkg;
     MODE_CLN2D = 4'b1000   // Column-major 2D mode
   } mode_oh_e;
 
-  // TODO: Temporary parameters
+  // TODO: Temporary parameters, should be passed from top level, instead of being defined here.
   localparam int unsigned NrExits = 4;
   localparam int unsigned VLEN = 8192;
   localparam int unsigned ALEN = 16384;

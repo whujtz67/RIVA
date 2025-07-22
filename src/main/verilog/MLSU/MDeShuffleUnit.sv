@@ -105,12 +105,6 @@ module MDeShuffleUnit import mlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
     shf_info_buf_enq = 1'b0;
     
     if (meta_info_valid_i && meta_info_ready_o) begin
-      // Hardware signals
-      automatic maddr_t            maddr_calc;
-      
-      // Calculate matrix address
-      maddr_calc     = meta_info_i.md * NrSetPerMreg;
-      
       // Assign meta info to intermediate signal
       shf_info_enq_bits.reqId      = meta_info_i.reqId;
       shf_info_enq_bits.mode       = meta_info_i.mode;
@@ -118,8 +112,8 @@ module MDeShuffleUnit import mlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
       shf_info_enq_bits.md         = meta_info_i.md;
       shf_info_enq_bits.vm         = meta_info_i.vm;
       shf_info_enq_bits.cmtCnt     = meta_info_i.cmtCnt;
-      shf_info_enq_bits.maddr_set  = maddr_calc[MAddrBits-1:MAddrBankBits]; // TODO: Useless, remove it.
-      shf_info_enq_bits.maddr_bank = maddr_calc[MAddrBankBits-1:0];         // TODO: Useless, remove it.
+      shf_info_enq_bits.maddr_set  = '0; // TODO: Useless, remove it.
+      shf_info_enq_bits.maddr_bank = '0; // TODO: Useless, remove it.
       
       // Set enqueue signal
       shf_info_buf_enq = 1'b1;
