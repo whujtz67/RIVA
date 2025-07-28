@@ -102,6 +102,7 @@ module VTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
 
   wire [12:0] pageOff_without_busOff = page_off & busOffMask;
 
+  // The Width of following signals should be 14 bits, because their max value is 8192, which is 14 bits.
   wire [13:0] txn_nibbles_with_pageOff = isLastTxn(meta_seglv_i) ?
         meta_seglv_i.ltN : // PageOff is already included in ltN
         8192;
@@ -227,21 +228,23 @@ module VTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
   end
 
   // --------------------- Assertions ---------------------------------
-  always_ff @(posedge clk_i) begin
-    if (update_i ) assert(!empty);
-    if (b_valid_i) assert(!empty);
-    // Right pointer should be not after left pointer.
-    assert(((txn_ptr_flag  ^ enq_ptr_flag ) ^ (txn_ptr_value  <= enq_ptr_value )) || (txn_ptr_flag  != enq_ptr_flag  && txn_ptr_value  == enq_ptr_value ))
-      else $fatal("enqPtr should not be after txnPtr");
-    assert(((data_ptr_flag ^ enq_ptr_flag ) ^ (data_ptr_value <= enq_ptr_value )) || (data_ptr_flag != enq_ptr_flag  && data_ptr_value == enq_ptr_value ))
-      else $fatal("enqPtr should not be after dataPtr");
-    assert(((deq_ptr_flag  ^ data_ptr_flag) ^ (deq_ptr_value  <= data_ptr_value)) || (deq_ptr_flag  != data_ptr_flag && deq_ptr_value  == data_ptr_value))
-      else $fatal("dataPtr should not be after deqPtr");
-      
-    assert (txn_nibbles_with_pageOff >= pageOff_without_busOff)
-        else $fatal("txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %0d, pageOff_without_busOff = %0d", txn_nibbles_with_pageOff, pageOff_without_busOff);
-      assert (txn_nibbles_with_busOff <= 8192)
-        else $fatal("txn_nibbles_with_busOff should in range(0, 8192). However, got %0d", txn_nibbles_with_busOff);
-  end
+  `ifndef SYNTHESIS
+    always_ff @(posedge clk_i) begin
+      if (update_i ) assert(!empty);
+      if (b_valid_i) assert(!empty);
+      // Right pointer should be not after left pointer.
+      assert(((txn_ptr_flag  ^ enq_ptr_flag ) ^ (txn_ptr_value  <= enq_ptr_value )) || (txn_ptr_flag  != enq_ptr_flag  && txn_ptr_value  == enq_ptr_value ))
+        else $fatal("enqPtr should not be after txnPtr");
+      assert(((data_ptr_flag ^ enq_ptr_flag ) ^ (data_ptr_value <= enq_ptr_value )) || (data_ptr_flag != enq_ptr_flag  && data_ptr_value == enq_ptr_value ))
+        else $fatal("enqPtr should not be after dataPtr");
+      assert(((deq_ptr_flag  ^ data_ptr_flag) ^ (deq_ptr_value  <= data_ptr_value)) || (deq_ptr_flag  != data_ptr_flag && deq_ptr_value  == data_ptr_value))
+        else $fatal("dataPtr should not be after deqPtr");
+        
+      assert (txn_nibbles_with_pageOff >= pageOff_without_busOff)
+          else $fatal("txn_nibbles_with_pageOff should >= pageOff_without_busOff, got txn_nibbles_with_pageOff = %0d, pageOff_without_busOff = %0d", txn_nibbles_with_pageOff, pageOff_without_busOff);
+        assert (txn_nibbles_with_busOff <= 8192)
+          else $fatal("txn_nibbles_with_busOff should in range(0, 8192). However, got %0d", txn_nibbles_with_busOff);
+    end
+  `endif
 
 endmodule : VTxnCtrlUnit

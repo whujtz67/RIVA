@@ -192,7 +192,7 @@ module VSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
     case (state_r)
       S_IDLE: begin
         // Initialize pointers and vaddr
-        if (txn_ctrl_valid_i) begin
+        if (txn_ctrl_valid_i && seq_info_deq_valid) begin
           bus_nb_cnt_nxt      = '0;
           seq_nb_ptr_nxt      = seq_info_deq_bits.seqNbPtr;
           seq_info_deq_ready  = 1'b1;
@@ -291,11 +291,13 @@ module VSequentialLoad import riva_pkg::*; import vlsu_pkg::*; #(
   end
 
   // ================= Assertions ================= //
-  assert property (@(posedge clk_i) upper_nibble <= busNibbles)
-    else $fatal("upper_nibble exceeds busNibbles: %0d > %0d", upper_nibble, busNibbles);
-  assert property (@(posedge clk_i) bus_valid_nb <= busNibbles)
-    else $fatal("bus_valid_nb exceeds busNibbles: %0d > %0d", bus_valid_nb, busNibbles);
-  assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
-    else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
+  `ifndef SYNTHESIS
+    assert property (@(posedge clk_i) upper_nibble <= busNibbles)
+      else $fatal("upper_nibble exceeds busNibbles: %0d > %0d", upper_nibble, busNibbles);
+    assert property (@(posedge clk_i) bus_valid_nb <= busNibbles)
+      else $fatal("bus_valid_nb exceeds busNibbles: %0d > %0d", bus_valid_nb, busNibbles);
+    assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
+      else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
+  `endif
 
 endmodule : VSequentialLoad 

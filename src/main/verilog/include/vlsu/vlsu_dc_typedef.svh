@@ -43,7 +43,7 @@
     vid_t                                reqId;      /* Request ID */                      
     logic [3:0]                          mode;       /* Vector operation mode (one-hot) */ 
     riscv_mv_pkg::vew_e                  sew;        /* Element width encoding */          
-    logic [4:0]                          vd;         /* Vector destination register */           
+    logic                                vm;         /* Vector mask Enable*/                 
     logic [$clog2(MaxLEN*ELEN/DLEN)-1:0] cmtCnt;     /* Commit counter */                  
     vaddr_set_t                          vaddr_set;  /* Vector address set */             
     vaddr_bank_t                         vaddr_bank; /* Vector address bank */            

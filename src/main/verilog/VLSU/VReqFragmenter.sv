@@ -30,7 +30,7 @@ module VReqFragmenter import riva_pkg::*; import vlsu_pkg::*; import VControlMac
   output meta_seglv_t           meta_seglv_o,
 
   // Meta buffer full indicator
-  input  logic                  meta_buf_full_i,
+  input  logic                  meta_buf_full_i, // TODO: Rename the signal
   output logic                  meta_buf_enq_valid_o
 );
 
@@ -124,12 +124,14 @@ module VReqFragmenter import riva_pkg::*; import vlsu_pkg::*; import VControlMac
           meta_glb_nxt.vm         = vlsu_req_i.vm;
           meta_glb_nxt.stride     = vlsu_req_i.stride;
           meta_glb_nxt.vstart     = vlsu_req_i.vstart;
-          meta_glb_nxt.rmnGrp     = isCln2D(meta_glb_nxt.mode) ? ((vlsu_req_i.len << vlsu_req_i.sew) - 1) >> $clog2(DLEN/4) : 0;
-          meta_glb_nxt.rmnSeg     = isIncr(meta_glb_nxt.mode)  ? 0                                        :
+          meta_glb_nxt.rmnGrp     = isCln2D(meta_glb_nxt.mode) ? 
+            ((vlsu_req_i.len << vlsu_req_i.sew) - 1) >> $clog2(DLEN/4) : 
+            0;
+          meta_glb_nxt.rmnSeg     = isIncr(meta_glb_nxt.mode)  ? 0                  :
                                     isStrd(meta_glb_nxt.mode)  ? nr_eff_elems - 1   :
                                     isRow2D(meta_glb_nxt.mode) ? vlsu_req_i.len - 1 :
                                     isCln2D(meta_glb_nxt.mode) ? (NrExits - 1)      : 
-                                                               0                  ;
+                                                               0                    ;
           meta_glb_nxt.isLoad   = vlsu_req_i.isLoad;
           meta_glb_nxt.cmtCnt   = (
               (is2D(meta_glb_nxt.mode) ?
@@ -292,22 +294,24 @@ module SegLvInitCommon import riva_pkg::*; import VControlMachinePkg::*; #(
   logic [clog2MaxNbs   : 0] seg_nibbles_with_pageOff;
 
   always_comb begin
-    // Mode decode - always calculated
+    // Mode decode
     is_incr   = isIncr (glb_i.mode);
     is_strd   = isStrd (glb_i.mode);
     is_row2d  = isRow2D(glb_i.mode);
     is_cln2d  = isCln2D(glb_i.mode);
 
-    // Calculate number of nibbles in the segment for row-major modes - always calculated
+    // Calculate number of nibbles in the segment for row-major modes
     nr_seg_elems_row_major = is_incr  ? glb_i.nrEffElems :
                              is_strd  ? 1            :
                              is_row2d ? NrExits      : 
                                         0            ;
     nr_seg_nbs_row_major = nr_seg_elems_row_major << glb_i.sew;
 
-    // Calculate number of nibbles in the segment for column-major (cln2D) mode - always calculated
+    // Calculate number of nibbles in the segment for column-major (cln2D) mode
     nr_all_grp_nbs       = (glb_i.nrEffElems << glb_i.sew);
     nr_last_grp_nbs      = nr_all_grp_nbs[$clog2(DLEN/4)-1: 0];
+    // The number of nibbles in the last group should be calculated differently.
+    // If current group is not the last group, the number of nibbles in the last group should be DLEN/4.
     nr_seg_nbs_cln_major = isLastGrp(glb_i) ?
                               (
                                 nr_last_grp_nbs == 0 ? 
@@ -316,7 +320,7 @@ module SegLvInitCommon import riva_pkg::*; import VControlMachinePkg::*; #(
                               ) : 
                               (DLEN/4);
 
-    // Select row-major or column-major segment nibbles - always calculated
+    // Select row-major or column-major segment nibbles
     nr_seg_nbs               = is_cln2d ? nr_seg_nbs_cln_major : nr_seg_nbs_row_major;
     page_off                 = next_addr_i[12:0];
     seg_nibbles_with_pageOff = page_off + nr_seg_nbs;
@@ -326,7 +330,7 @@ module SegLvInitCommon import riva_pkg::*; import VControlMachinePkg::*; #(
       seg_nxt_o.segBaseAddr = next_addr_i;
       seg_nxt_o.txnNum      = (seg_nibbles_with_pageOff - 1) >> 13;
       seg_nxt_o.txnCnt      = 0;
-      seg_nxt_o.ltN         = (seg_nibbles_with_pageOff[12:0] != 0) ?
+      seg_nxt_o.ltN         = |(seg_nibbles_with_pageOff[12:0]) ?
         seg_nibbles_with_pageOff[12:0] : 
         8192;
     end else begin
