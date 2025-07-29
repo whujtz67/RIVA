@@ -136,10 +136,12 @@ module MReqPreDecoder import riva_pkg::*; #(
   end
 
   // ================= Assertions ================= //
-  // Ensure mop is only 00 (row-major) or 01 (column-major) as only these modes are supported
-  assert property (
-    @(posedge clk_i) disable iff (!rst_ni)
-    req_valid_i |-> (req_i.mop == 2'b00 || req_i.mop == 2'b01)
-  ) else $fatal("MReqPreDecoder: Unsupported mop value %0d, only 00 (row-major) and 01 (column-major) are supported", req_i.mop);
+  `ifndef SYNTHESIS
+    // Ensure mop is only 00 (row-major) or 01 (column-major) as only these modes are supported
+    assert property (
+      @(posedge clk_i) disable iff (!rst_ni)
+      req_valid_i |-> (req_i.mop == 2'b00 || req_i.mop == 2'b01)
+    ) else $fatal("MReqPreDecoder: Unsupported mop value %0d, only 00 (row-major) and 01 (column-major) are supported", req_i.mop);
+  `endif
 
 endmodule : MReqPreDecoder

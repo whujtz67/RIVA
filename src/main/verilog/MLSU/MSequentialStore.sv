@@ -252,7 +252,9 @@ module MSequentialStore import riva_pkg::*; import mlsu_pkg::*; #(
       end
       S_GATHER_CMT: begin
         // Not supported yet
-        $fatal("Gather mode not supported!");
+        `ifndef SYNTHESIS
+          $fatal("Gather mode not supported!");
+        `endif
       end
     endcase
 
@@ -304,11 +306,13 @@ module MSequentialStore import riva_pkg::*; import mlsu_pkg::*; #(
   end
 
   // ================= Assertions ================= //
-  assert property (@(posedge clk_i) upper_nibble <= busNibbles)
-    else $fatal("upper_nibble exceeds busNibbles: %0d > %0d", upper_nibble, busNibbles);
-  assert property (@(posedge clk_i) bus_valid_nb <= busNibbles)
-    else $fatal("bus_valid_nb exceeds busNibbles: %0d > %0d", bus_valid_nb, busNibbles);
-  assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
-    else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
+  `ifndef SYNTHESIS
+    assert property (@(posedge clk_i) upper_nibble <= busNibbles)
+      else $fatal("upper_nibble exceeds busNibbles: %0d > %0d", upper_nibble, busNibbles);
+    assert property (@(posedge clk_i) bus_valid_nb <= busNibbles)
+      else $fatal("bus_valid_nb exceeds busNibbles: %0d > %0d", bus_valid_nb, busNibbles);
+    assert property (@(posedge clk_i) seq_buf_valid_nb <= NrLaneEntriesNbs)
+      else $fatal("seq_buf_valid_nb exceeds NrLaneEntriesNbs: %0d > %0d", seq_buf_valid_nb, NrLaneEntriesNbs);
+  `endif
 
 endmodule : MSequentialStore 

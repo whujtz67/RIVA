@@ -234,14 +234,16 @@ module MShuffleUnit import mlsu_pkg::*; import vlsu_shuffle_pkg::*; #(
   end: pe_resp_load_logic
 
   // ================= Assertions ================= //
-  // Check that there is at least one valid shfInfo info when seqBuf is not empty
-  assert property (@(posedge clk_i) 
-    rx_seq_load_valid_i |-> !shf_info_buf_empty)
-    else $error("[ShuffleUnit] There should be at least one valid shfInfo info in shfInfo Buffer when seqBuf is not Empty!");
+  `ifndef SYNTHESIS
+    // Check that there is at least one valid shfInfo info when seqBuf is not empty
+    assert property (@(posedge clk_i) 
+      rx_seq_load_valid_i |-> !shf_info_buf_empty)
+      else $error("[ShuffleUnit] There should be at least one valid shfInfo info in shfInfo Buffer when seqBuf is not Empty!");
 
-  // Check vaddr_set bounds
-  assert property (@(posedge clk_i) 
-    txs_valid_o[0] |-> txs_o[0].maddr_set < NrMRFSets)
-    else $error("[ShuffleUnit] maddr_set should < NrMRFSets = %d. However, got %d", NrMRFSets, txs_o[0].maddr_set);
+    // Check vaddr_set bounds
+    assert property (@(posedge clk_i) 
+      txs_valid_o[0] |-> txs_o[0].maddr_set < NrMRFSets)
+      else $error("[ShuffleUnit] maddr_set should < NrMRFSets = %d. However, got %d", NrMRFSets, txs_o[0].maddr_set);
+  `endif
 
 endmodule : MShuffleUnit 
