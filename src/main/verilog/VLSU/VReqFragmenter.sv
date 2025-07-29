@@ -273,6 +273,10 @@ module SegLvInitCommon import riva_pkg::*; import VControlMachinePkg::*; #(
   output meta_seglv_t                 seg_nxt_o
 );
 
+  function automatic logic isLastGrp(input meta_glb_t g);
+    return (g.rmnGrp == 0);
+  endfunction
+
   // Mode decode
   logic is_incr;
   logic is_strd;

@@ -281,7 +281,9 @@ module VSequentialStore import riva_pkg::*; import vlsu_pkg::*; #(
       end
       S_GATHER_CMT: begin
         // Not supported yet
-        $fatal("Gather mode not supported!");
+        `ifndef SYNTHESIS
+          $fatal("Gather mode not supported!");
+        `endif
       end
     endcase
 

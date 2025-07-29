@@ -223,9 +223,18 @@ module VTxnCtrlUnit import riva_pkg::*; import vlsu_pkg::*; #(
   end: pe_resp_store_logic
 
   // --------------------- Registers ---------------------------------- //
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    tcs_r <= tcs_nxt;
-  end
+  genvar i;
+  generate
+    for (i = 0; i < txnCtrlNum; i = i + 1) begin : tcs_regs
+      always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+          tcs_r[i] <= '0;
+        end else begin
+          tcs_r[i] <= tcs_nxt[i];
+        end
+      end
+    end
+  endgenerate
 
   // --------------------- Assertions ---------------------------------
   `ifndef SYNTHESIS
